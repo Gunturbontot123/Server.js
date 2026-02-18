@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - ObatQU.id</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">💊 ObatQU<span>.id</span></div>
+    <nav>
+      <ul class="nav-links">
+        <li><a href="/">🏠 Home</a></li>
+        <li><a href="#obat">💊 Data Obat</a></li>
+        <li><a href="#tambah">➕ Tambah Obat</a></li>
+      </ul>
+      <div class="right">
+        <button id="btnLogout" class="btn">Logout</button>
+      </div>
+    </nav>
+  </header>
+
+  <div class="container">
+    <section class="section">
+      <div class="card-grid">
+        <div class="card">
+          <h3>Total Obat</h3>
+          <div id="totalObat">—</div>
+        </div>
+        <div class="card">
+          <h3>Hampir Kadaluarsa</h3>
+          <div id="nearExpiry">—</div>
+        </div>
+        <div class="card">
+          <h3>Stok Rendah</h3>
+          <div id="lowStock">—</div>
+        </div>
+        <div class="card">
+          <h3>VED Summary</h3>
+          <div id="vedSummary">—</div>
+        </div>
+      </div>
+
+      <!-- chart -->
+      <div style="margin-top:18px;" id="chartWrap"></div>
+    </section>
+
+    <section id="obat" class="section">
+      <h2>Daftar Obat</h2>
+      <div class="card">
+        <table class="table" id="tableObat">
+          <thead><tr><th>Nama</th><th>Jumlah</th><th>Kadaluarsa</th><th>VED</th><th>Aksi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button id="btnFEFO" class="btn">🧾 Keluarkan FEFO</button>
+          <button id="btnExport" class="btn">📥 Export CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tambah" class="section">
+      <h2>Tambah Obat</h2>
+      <div class="card">
+        <div class="form-group">
+          <label>Nama</label>
+          <input id="nama" />
+        </div>
+        <div class="form-group">
+          <label>Jumlah</label>
+          <input id="jumlah" type="number" value="1" />
+        </div>
+        <div class="form-group">
+          <label>Kadaluarsa (YYYY-MM-DD)</label>
+          <input id="kadaluarsa" placeholder="2026-12-31" />
+        </div>
+        <button id="btnAdd" class="btn">Tambah</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Notifikasi & Log Aktivitas</h2>
+      <div class="card" id="notifications"></div>
+      <div class="card" style="margin-top:12px;">
+        <h3>Riwayat (baru)</h3>
+        <ul id="logs" style="padding-left:18px;margin:0;"></ul>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    © 2026 ObatQU.id — Demo VED–FEFO
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
