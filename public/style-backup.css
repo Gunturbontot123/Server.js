@@ -1,0 +1,188 @@
+* {
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+:root {
+  --primary-green: #00b894;
+  --secondary-teal: #00cec9;
+  --text-dark: #0f172a;
+}
+
+body {
+  margin: 0;
+  background: #f1f5f9;
+}
+
+/* Layout */
+.layout {
+  display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 230px;
+  height: 100vh;
+  background: #1e293b;
+  color: white;
+  padding: 25px 20px;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 30px;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar li {
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.sidebar li:hover,
+.sidebar .active {
+  background: #334155;
+}
+
+/* Main */
+.main {
+  flex: 1;
+  padding: 25px;
+}
+
+/* Topbar */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.search {
+  padding: 10px 14px;
+  width: 250px;
+  border-radius: 8px;
+  border: none;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 35px;
+  height: 35px;
+  background: #2563eb;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+}
+
+/* Statistik */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+}
+
+.stat-card h4 {
+  margin: 0;
+  color: #64748b;
+}
+
+.stat-card p {
+  font-size: 28px;
+  font-weight: bold;
+  margin: 8px 0 0;
+}
+
+.biru { border-left: 6px solid #2563eb; }
+.kuning { border-left: 6px solid #f59e0b; }
+.merah { border-left: 6px solid #dc2626; }
+.hijau { border-left: 6px solid #16a34a; }
+
+/* Card */
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #1d4ed8;
+}
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Status badge */
+.badge {
+  padding: 5px 10px;
+  border-radius: 8px;
+  color: white;
+  font-size: 12px;
+}
+
+.badge.merah { background: #dc2626; }
+.badge.kuning { background: #f59e0b; }
+.badge.hijau { background: #16a34a; }
+
+/* ===== Login (glassmorphism) ===== */
+.login-body { display:flex; align-items:center; justify-content:center; min-height:100vh; background: linear-gradient(135deg,#e6fffa 0%, #f1f5f9 100%); }
+.login-container { width:360px; max-width:95%; padding:28px; border-radius:16px; background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.6)); box-shadow: 0 8px 30px rgba(2,6,23,0.08); backdrop-filter: blur(8px); border:1px solid rgba(255,255,255,0.6); text-align:left; }
+.login-container h1 { margin:0; font-size:1.6rem; color: var(--text-dark); text-align:center; }
+.login-container h2 { margin:6px 0 18px; font-size:0.98rem; color:#475569; font-weight:500; text-align:center; }
+.form-group label { display:block; margin-bottom:8px; font-weight:600; color:#334155; }
+.form-group input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(15,23,42,0.06); background: rgba(255,255,255,0.9); }
+.input-pass { position:relative; }
+.input-pass input { padding-right:44px; }
+.pass-toggle { position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; font-size:18px; }
+.btn-login { width:100%; padding:12px; border-radius:12px; border:none; font-weight:700; color:white; background: linear-gradient(90deg,var(--primary-green), var(--secondary-teal)); box-shadow: 0 8px 20px rgba(6,95,70,0.08); cursor:pointer; }
+.btn-login:hover { opacity:0.98; }
+#alert { text-align:left; }
+.login-container .card { background:transparent; box-shadow:none; padding:0; }
+
+@media (max-width:420px){ .login-container{ padding:18px; width:92%; } }

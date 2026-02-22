@@ -1,186 +1,465 @@
-async function checkAuth() {
-  const res = await fetch('/api/me');
-  if (!res.ok) {
-    window.location = '/login.html';
-    return false;
+/* ===== AUTH & INITIAL SETUP ===== */
+let currentUser = null;
+let allObat = [];
+let stokChart = null;
+
+// Ensure fetch sends credentials by default (so session cookies are included)
+(function(){
+  if (typeof window !== 'undefined' && window.fetch) {
+    const _fetch = window.fetch.bind(window);
+    window.fetch = function(url, opts = {}) {
+      if (!opts.credentials) opts.credentials = 'same-origin';
+      return _fetch(url, opts);
+    };
   }
-  return true;
+})();
+
+// Check auth and load user info
+async function init() {
+  try {
+    const res = await fetch('/api/me');
+    if (!res.ok) { window.location = '/login.html'; return; }
+    const data = await res.json();
+    currentUser = data.user;
+    document.getElementById('userAvatar').textContent = (currentUser.username || 'A')[0].toUpperCase();
+    document.getElementById('userName').textContent = currentUser.username || 'User';
+    await loadAllData();
+  } catch (err) {
+    window.location = '/login.html';
+  }
 }
 
-async function loadData() {
-  if (!(await checkAuth())) return;
-  const [resObat, resNotif, resLogs] = await Promise.all([
-    fetch('/api/obat'),
-    fetch('/api/notifications'),
-    fetch('/api/logs')
-  ]);
-
-  const obat = await resObat.json();
-  const notif = await resNotif.json();
-  const logs = await resLogs.json();
-
-  renderTable(obat);
-  updateCards(obat, notif);
-  renderLogs(logs);
+// ===== DATA LOADING & HELPERS =====
+async function loadAllData() {
+  try {
+    const [resObat, resLogs, resNotif] = await Promise.all([
+      fetch('/api/obat'),
+      fetch('/api/logs'),
+      fetch('/api/notifications')
+    ]);
+    allObat = await resObat.json();
+    const logs = await resLogs.json();
+    const notif = await resNotif.json();
+    
+    updateDashboard();
+    renderDataObatTable(allObat);
+    updateCharts();
+    updateVEDClassification();
+    updateActivityLog(logs);
+    updateReports();
+    updateNotificationBadge(notif);
+  } catch (err) {
+    console.error('Error loading data:', err);
+  }
 }
 
-function renderTable(obat) {
-  const tbody = document.querySelector('#tableObat tbody');
+// Update notification badge
+function updateNotificationBadge(notifData) {
+  if (notifData && notifData.total > 0) {
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+      badge.textContent = Math.min(notifData.total, 9);
+      badge.style.display = 'flex';
+    }
+  }
+}
+
+function getExpiryStatus(kadaluarsa) {
+  if (!kadaluarsa) return { key: 'baik', label: 'Baik', color: '#27ae60' };
+  const d = new Date(kadaluarsa + 'T00:00:00');
+  if (isNaN(d)) return { key: 'baik', label: 'Baik', color: '#27ae60' };
+  const diffDays = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return { key: 'kadaluarsa', label: 'Kadaluarsa', color: '#e74c3c' };
+  if (diffDays <= 30) return { key: 'hampir', label: 'Hampir Kadaluarsa', color: '#f39c12' };
+  return { key: 'baik', label: 'Baik', color: '#27ae60' };
+}
+
+// ===== DASHBOARD UPDATES =====
+function updateDashboard() {
+  const total = allObat.length;
+  let expired = 0, nearExpire = 0, safe = 0;
+
+  allObat.forEach(o => {
+    const st = getExpiryStatus(o.kadaluarsa);
+    if (st.key === 'kadaluarsa') expired++;
+    else if (st.key === 'hampir') nearExpire++;
+    else safe++;
+  });
+
+  document.getElementById('totalObat').textContent = total;
+  document.getElementById('expiredCount').textContent = expired;
+  document.getElementById('nearExpireCount').textContent = nearExpire;
+  document.getElementById('safeStockCount').textContent = safe;
+}
+
+// ===== DATA OBAT TABLE =====
+function renderDataObatTable(data) {
+  const tbody = document.querySelector('#tableObat');
   tbody.innerHTML = '';
-  obat.forEach(o => {
+  data.forEach(o => {
+    const st = getExpiryStatus(o.kadaluarsa);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${o.nama}</td><td>${o.jumlah}</td><td>${o.kadaluarsa}</td><td>${o.ved}</td>
-      <td><button data-id="${o.id}" class="btn small btn-edit">Edit</button> <button data-id="${o.id}" class="btn small btn-delete">Hapus</button></td>`;
+    tr.innerHTML = `
+      <td>${o.nama}</td>
+      <td>${o.jumlah}</td>
+      <td>${o.kadaluarsa || '—'}</td>
+      <td><span class="status-badge status-${st.key}">${st.label}</span></td>
+      <td><strong>${o.ved || '—'}</strong></td>
+      <td>
+        <button class="btn-edit" data-id="${o.id}" style="margin-right:6px;">✏️ Edit</button>
+        <button class="btn-delete" data-id="${o.id}">🗑️ Hapus</button>
+      </td>
+    `;
     tbody.appendChild(tr);
   });
 
-  // bind edit/delete
-  document.querySelectorAll('.btn-delete').forEach(b => b.addEventListener('click', async (e) => {
-    const id = e.target.dataset.id;
-    if (!confirm('Hapus obat ini?')) return;
-    await fetch('/api/obat/' + id, { method: 'DELETE' });
-    loadData();
-  }));
+  // Bind edit/delete
+  document.querySelectorAll('.btn-delete').forEach(b => {
+    b.addEventListener('click', (e) => {
+      const id = e.target.closest('button').dataset.id;
+      if (confirm('Hapus obat ini?')) deleteObat(id);
+    });
+  });
 
-  document.querySelectorAll('.btn-edit').forEach(b => b.addEventListener('click', (e) => {
-    const id = e.target.dataset.id;
-    const o = obat.find(x => x.id === id);
-    if (!o) return;
-    const nama = prompt('Nama', o.nama); if (nama===null) return;
-    const jumlah = Number(prompt('Jumlah', o.jumlah)); if (isNaN(jumlah)) return alert('Jumlah tidak valid');
-    const kadaluarsa = prompt('Kadaluarsa (YYYY-MM-DD)', o.kadaluarsa); if (!kadaluarsa) return;
-    fetch('/api/obat/' + id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nama, jumlah, kadaluarsa }) }).then(()=>loadData());
-  }));
+  document.querySelectorAll('.btn-edit').forEach(b => {
+    b.addEventListener('click', (e) => {
+      const id = e.target.closest('button').dataset.id;
+      const obat = allObat.find(o => o.id === id);
+      if (!obat) return;
+      const nama = prompt('Nama', obat.nama);
+      if (nama === null) return;
+      const jumlah = Number(prompt('Jumlah', obat.jumlah));
+      if (isNaN(jumlah)) return alert('Jumlah tidak valid');
+      const kadaluarsa = prompt('Kadaluarsa (YYYY-MM-DD)', obat.kadaluarsa);
+      if (!kadaluarsa) return;
+      updateObat(id, { nama, jumlah, kadaluarsa });
+    });
+  });
 }
 
-function updateCards(obat, notif) {
-  document.getElementById('totalObat').textContent = obat.length;
-  document.getElementById('nearExpiry').textContent = notif.nearExpiry.length + ' item';
-  document.getElementById('lowStock').textContent = notif.lowStock.length + ' item';
-
-  const ved = obat.reduce((acc,o)=>{ acc[o.ved] = (acc[o.ved]||0)+1; return acc; },{});
-  document.getElementById('vedSummary').innerHTML = `V: ${ved.V||0} &nbsp; E: ${ved.E||0} &nbsp; D: ${ved.D||0}`;
-
-  const noteEl = document.getElementById('notifications');
-  noteEl.innerHTML = '';
-  if (notif.nearExpiry.length===0 && notif.lowStock.length===0) noteEl.textContent = 'Tidak ada notifikasi saat ini.';
-  else {
-    if (notif.nearExpiry.length) {
-      const h = document.createElement('div'); h.innerHTML = `<b>Hampir kadaluarsa:</b> ${notif.nearExpiry.map(i=>i.nama+' ('+i.kadaluarsa+')').join(', ')}`;
-      noteEl.appendChild(h);
-    }
-    if (notif.lowStock.length) {
-      const h = document.createElement('div'); h.innerHTML = `<b>Stok rendah:</b> ${notif.lowStock.map(i=>i.nama+' ('+i.jumlah+')').join(', ')}`;
-      noteEl.appendChild(h);
-    }
+async function deleteObat(id) {
+  try {
+    const res = await fetch(`/api/obat/${id}`, { method: 'DELETE' });
+    if (res.ok) { loadAllData(); alert('Obat dihapus'); }
+    else alert('Gagal menghapus');
+  } catch (err) {
+    console.error('Error:', err);
   }
+}
 
-  // build chart
-  const wrap = document.getElementById('chartWrap');
-  wrap.innerHTML = `<div class="card"><h3>Chart Stok</h3><canvas id="stokChart" width="600" height="200"></canvas></div>`;
+async function updateObat(id, data) {
+  try {
+    const res = await fetch(`/api/obat/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) { loadAllData(); alert('Obat diperbarui'); }
+    else alert('Gagal memperbarui');
+  } catch (err) {
+    console.error('Error:', err);
+  }
+}
+
+// ===== CHART UPDATES =====
+function updateCharts() {
+  const labels = allObat.map(o => o.nama);
+  const data = allObat.map(o => o.jumlah);
+  const colors = allObat.map(o => {
+    const s = getExpiryStatus(o.kadaluarsa).color;
+    return s;
+  });
+
   const ctx = document.getElementById('stokChart');
-  if (window.Chart && ctx) {
-    const labels = obat.map(o=>o.nama);
-    const data = obat.map(o=>o.jumlah);
-    if (window._stokChart) window._stokChart.destroy();
-    window._stokChart = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Jumlah', data, backgroundColor: 'rgba(0,184,148,0.6)' }] }, options: { responsive:true, maintainAspectRatio:false } });
-  } else {
-    // lazy load Chart.js
-    const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/chart.js'; s.onload = () => updateCards(obat, notif); document.body.appendChild(s);
+  if (!ctx) return;
+
+  if (stokChart) stokChart.destroy();
+
+  stokChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Jumlah Stok',
+        data,
+        backgroundColor: colors,
+        borderColor: colors.map(c => c.replace('0.', '1.')),
+        borderWidth: 2,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      },
+      plugins: {
+        legend: { display: true, position: 'top' },
+      }
+    }
+  });
+}
+
+// ===== VED CLASSIFICATION =====
+function updateVEDClassification() {
+  const v = allObat.filter(o => o.jumlah <= 2);
+  const e = allObat.filter(o => o.jumlah > 2 && o.jumlah <= 10);
+  const d = allObat.filter(o => o.jumlah > 10);
+
+  document.getElementById('vedVList').innerHTML = v.length
+    ? v.map(o => `<li>📍 ${o.nama} (${o.jumlah}) - ${o.kadaluarsa}</li>`).join('')
+    : '<li style="color:#999;">Tidak ada</li>';
+  document.getElementById('vedEList').innerHTML = e.length
+    ? e.map(o => `<li>📍 ${o.nama} (${o.jumlah}) - ${o.kadaluarsa}</li>`).join('')
+    : '<li style="color:#999;">Tidak ada</li>';
+  document.getElementById('vedDList').innerHTML = d.length
+    ? d.map(o => `<li>📍 ${o.nama} (${o.jumlah}) - ${o.kadaluarsa}</li>`).join('')
+    : '<li style="color:#999;">Tidak ada</li>';
+}
+
+// ===== ACTIVITY LOG =====
+function updateActivityLog(logs) {
+  const list = document.getElementById('activityList');
+  list.innerHTML = logs.slice(0, 10).length
+    ? logs.slice(0, 10).map(l => `<li>[${new Date(l.time).toLocaleString()}] ${l.type.toUpperCase()}: ${l.message}</li>`).join('')
+    : '<li style="color:#999;">Tidak ada aktivitas</li>';
+
+  const logList = document.getElementById('logList');
+  logList.innerHTML = logs.slice(0, 15).length
+    ? logs.slice(0, 15).map(l => `<li>[${new Date(l.time).toLocaleString()}] <strong>${l.type.toUpperCase()}</strong>: ${l.message}</li>`).join('')
+    : '<li style="color:#999;">Tidak ada log</li>';
+}
+
+// ===== REPORTS =====
+function updateReports() {
+  const expired = allObat.filter(o => getExpiryStatus(o.kadaluarsa).key === 'kadaluarsa');
+  const nearExp = allObat.filter(o => getExpiryStatus(o.kadaluarsa).key === 'hampir');
+  const critical = allObat.filter(o => o.jumlah <= 2);
+
+  document.getElementById('totalStockValue').textContent = `Rp ${allObat.length * 5000}`;
+  document.getElementById('criticalMedicines').textContent = `${critical.length} item`;
+  document.getElementById('expireRate').textContent = Math.round((expired.length / Math.max(allObat.length, 1)) * 100) + '%';
+}
+
+// ===== FORM HANDLERS =====
+document.getElementById('formTambahObat').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nama = document.getElementById('inputNama').value;
+  const jumlah = Number(document.getElementById('inputJumlah').value);
+  const kadaluarsa = document.getElementById('inputKadaluarsa').value;
+
+  try {
+    const res = await fetch('/api/obat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nama, jumlah, kadaluarsa })
+    });
+    if (res.ok) {
+      document.getElementById('formTambahObat').reset();
+      loadAllData();
+      alert('Obat berhasil ditambahkan');
+    } else {
+      const err = await res.json();
+      alert(err.message || 'Gagal menambahkan');
+    }
+  } catch (err) {
+    console.error('Error:', err);
   }
-}
-
-function renderLogs(logs){
-  const ul = document.getElementById('logs');
-  ul.innerHTML = '';
-  logs.slice(0,15).forEach(l => {
-    const li = document.createElement('li'); li.textContent = `[${new Date(l.time).toLocaleString()}] ${l.type.toUpperCase()}: ${l.message}`;
-    ul.appendChild(li);
-  });
-}
-
-// add obat
-if (document.getElementById('btnAdd')) {
-  document.getElementById('btnAdd').addEventListener('click', async () => {
-    const nama = document.getElementById('nama').value;
-    const jumlah = Number(document.getElementById('jumlah').value);
-    const kadaluarsa = document.getElementById('kadaluarsa').value;
-    const res = await fetch('/api/obat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ nama, jumlah, kadaluarsa }) });
-    if (res.ok) { document.getElementById('nama').value=''; document.getElementById('jumlah').value=1; document.getElementById('kadaluarsa').value=''; loadData(); }
-    else { const body = await res.json().catch(()=>({message:'error'})); alert(body.message||'Gagal'); }
-  });
-}
-
-// FEFO
-if (document.getElementById('btnFEFO')) {
-  document.getElementById('btnFEFO').addEventListener('click', async () => {
-    if (!confirm('Keluarkan 1 unit obat berdasarkan FEFO?')) return;
-    const res = await fetch('/api/keluar', { method: 'POST' });
-    if (res.ok) { const body = await res.json(); alert(body.message); loadData(); }
-    else { const body = await res.json().catch(()=>({message:'error'})); alert(body.message||'Gagal'); }
-  });
-}
-
-// export CSV
-if (document.getElementById('btnExport')) {
-  document.getElementById('btnExport').addEventListener('click', async () => {
-    const res = await fetch('/api/obat');
-    const obat = await res.json();
-    const csv = ['Nama,Jumlah,Kadaluarsa,VED', ...obat.map(o => `${o.nama.replace(/,/g,' ')} , ${o.jumlah}, ${o.kadaluarsa}, ${o.ved}`)].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'obat.csv'; a.click(); URL.revokeObjectURL(url);
-  });
-}
-// Logout
-if (document.getElementById('btnLogout')) {
-  document.getElementById('btnLogout').addEventListener('click', async () => {
-    await fetch('/api/logout', { method: 'POST' });
-    window.location = '/login.html';
-  });
-}
-
-// on load
-window.addEventListener('load', () => {
-  if (window.location.pathname.endsWith('dashboard.html')) loadData();
 });
 
-// small helper for login page
-if (window.location.pathname.endsWith('login.html')) {
-  // if already logged in, redirect
-  fetch('/api/me').then(r => { if (r.ok) window.location = '/dashboard.html' });
+// Keluar (FEFO)
+document.getElementById('keluarBtn').addEventListener('click', async () => {
+  if (!confirm('Keluar 1 unit obat (FEFO)?')) return;
+  try {
+    const res = await fetch('/api/keluar', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      alert(data.message);
+      loadAllData();
+    } else {
+      const err = await res.json();
+      alert(err.message || 'Gagal');
+    }
+  } catch (err) {
+    console.error('Error:', err);
+  }
+});
+
+// Masuk Obat
+document.getElementById('formMasukObat').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const obatId = document.getElementById('selectObatMasuk').value;
+  const jumlah = Number(document.getElementById('jumlahMasuk').value);
+
+  if (!obatId) return alert('Pilih obat terlebih dahulu');
+  if (isNaN(jumlah) || jumlah < 1) return alert('Jumlah tidak valid');
+
+  try {
+    const obat = allObat.find(o => o.id === obatId);
+    if (!obat) return alert('Obat tidak ditemukan');
+
+    const newJumlah = obat.jumlah + jumlah;
+    const res = await fetch(`/api/obat/${obatId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nama: obat.nama, jumlah: newJumlah, kadaluarsa: obat.kadaluarsa })
+    });
+
+    if (res.ok) {
+      document.getElementById('formMasukObat').reset();
+      loadAllData();
+      alert('Obat berhasil ditambahkan ke stok');
+    } else {
+      alert('Gagal menambahkan stok');
+    }
+  } catch (err) {
+    console.error('Error:', err);
+  }
+});
+
+// Populate select for masuk obat
+function updateSelectObat() {
+  const select = document.getElementById('selectObatMasuk');
+  select.innerHTML = '<option value="">-- Pilih obat --</option>';
+  allObat.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.id;
+    opt.textContent = `${o.nama} (Stok: ${o.jumlah})`;
+    select.appendChild(opt);
+  });
 }
 
-// Socket.IO client for real-time notifications
-(function(){
-  const s = document.createElement('script');
-  s.src = '/socket.io/socket.io.js';
-  s.onload = () => {
-    try {
-      const socket = io();
-      socket.on('connect', ()=>console.log('socket connected', socket.id));
-      socket.on('notifications', (data) => {
-        console.log('socket notifications', data);
-        if (window.location.pathname.endsWith('dashboard.html')) loadData();
-        if ((data && data.nearExpiry && data.nearExpiry.length) || (data && data.lowStock && data.lowStock.length)) {
-          showToast({ type: 'warning', text: 'Ada notifikasi baru: cek dashboard' });
-        }
-      });
-      socket.on('log', (entry) => { if (window.location.pathname.endsWith('dashboard.html')) loadData(); });
-    } catch (e) { console.warn('Socket.IO not available', e); }
-  };
-  document.head.appendChild(s);
-})();
+// Export CSV
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const csv = ['Nama,Jumlah,Kadaluarsa,VED', ...allObat.map(o => `${o.nama},${o.jumlah},${o.kadaluarsa || '—'},${o.ved || '—'}`)].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'obat.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
-// Toast helper
-function showToast({ type='info', text='Notifikasi' , timeout=5000 } = {}){
-  let container = document.querySelector('.toast-container');
-  if (!container) { container = document.createElement('div'); container.className='toast-container'; document.body.appendChild(container); }
-  const t = document.createElement('div'); t.className = 'toast toast--' + (type||'info');
-  const body = document.createElement('div'); body.className='toast-body'; body.textContent = text;
-  const btn = document.createElement('button'); btn.className='toast-close'; btn.innerHTML='✕';
-  btn.addEventListener('click', ()=>{ t.classList.add('toast--hide'); setTimeout(()=>t.remove(),300); });
-  t.appendChild(body); t.appendChild(btn); container.appendChild(t);
-  setTimeout(()=>{ t.classList.add('toast--hide'); setTimeout(()=>t.remove(),300); }, timeout);
-  return t;
+// ===== FILTERING & SEARCH =====
+document.getElementById('filterObatInput').addEventListener('keyup', (e) => {
+  const query = e.target.value.toLowerCase();
+  const filtered = allObat.filter(o => o.nama.toLowerCase().includes(query));
+  renderDataObatTable(filtered);
+});
+
+document.getElementById('filterStatusInput').addEventListener('change', (e) => {
+  const status = e.target.value;
+  let filtered = allObat;
+  if (status) {
+    filtered = allObat.filter(o => getExpiryStatus(o.kadaluarsa).key === status);
+  }
+  renderDataObatTable(filtered);
+});
+
+// ===== SIDEBAR NAVIGATION =====
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.preventDefault();
+    const section = item.dataset.section;
+    if (!section) return; // logout button
+
+    // update active nav
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+
+    // show section
+    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+    const sec = document.getElementById(`section-${section}`);
+    if (sec) sec.classList.add('active');
+
+    // update select dropdown for masuk obat
+    if (section === 'keluar-masuk') updateSelectObat();
+  });
+});
+
+// Logout
+document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!confirm('Logout?')) return;
+  try {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location = '/login.html';
+  } catch (err) {
+    console.error('Error:', err);
+  }
+});
+
+// Sidebar toggle on mobile
+// Sidebar toggle (three-dot modern menu)
+// create overlay element (if not present in DOM, dashboard.html will include it later)
+if (!document.querySelector('.sidebar-overlay')) {
+  const ov = document.createElement('div');
+  ov.className = 'sidebar-overlay';
+  ov.tabIndex = -1;
+  ov.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(ov);
 }
+
+const dotMenu = document.getElementById('dotMenu');
+const overlay = document.querySelector('.sidebar-overlay');
+const sidebar = document.getElementById('dashboardSidebar');
+
+function openSidebar() {
+  document.body.classList.add('sidebar-visible');
+  if (dotMenu) dotMenu.setAttribute('aria-expanded', 'true');
+  if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
+  // focus first menu item for keyboard users
+  const first = document.querySelector('.sidebar-nav .nav-item');
+  if (first) first.focus();
+}
+
+function closeSidebar() {
+  document.body.classList.remove('sidebar-visible');
+  if (dotMenu) dotMenu.setAttribute('aria-expanded', 'false');
+  if (sidebar) sidebar.setAttribute('aria-hidden', 'true');
+  if (dotMenu) dotMenu.focus();
+}
+
+if (dotMenu) {
+  dotMenu.setAttribute('aria-controls', 'dashboardSidebar');
+  dotMenu.setAttribute('aria-expanded', 'false');
+  dotMenu.addEventListener('click', () => {
+    if (document.body.classList.contains('sidebar-visible')) closeSidebar();
+    else openSidebar();
+  });
+  // keyboard activation
+  dotMenu.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      dotMenu.click();
+    }
+  });
+}
+
+overlay && overlay.addEventListener('click', closeSidebar);
+
+// Close on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.body.classList.contains('sidebar-visible')) {
+    closeSidebar();
+  }
+});
+
+// Close sidebar when clicking a nav-item (improves UX)
+document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    closeSidebar();
+  });
+  // allow Enter/Space to activate links when focused
+  item.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      item.click();
+    }
+  });
+});
+
+// ===== INIT =====
+window.addEventListener('load', init);

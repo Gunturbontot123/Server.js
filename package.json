@@ -17,9 +17,13 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-session": "^1.18.2",
+    "helmet": "^6.0.1",
     "nodemailer": "^7.0.12",
+    "pdfkit": "^0.17.2",
     "socket.io": "^4.8.3",
-    "uuid": "^13.0.0"
+    "sqlite3": "^5.1.7",
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

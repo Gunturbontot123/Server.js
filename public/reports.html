@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Laporan & Notifikasi - ObatQU.id</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    .reports-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .section-header { margin: 30px 0 20px; border-bottom: 2px solid var(--primary-green); padding-bottom: 10px; }
+    .section-header h2 { margin: 0; color: var(--primary-green); }
+    
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 20px 0; }
+    .report-card { background: linear-gradient(135deg, rgba(0,184,148,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(0,184,148,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,184,148,0.05); transition: all 0.3s; }
+    .report-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,184,148,0.15); }
+    .report-card h3 { margin: 0 0 10px; color: var(--primary-green); }
+    .report-card p { margin: 8px 0; color: var(--text-muted); font-size: 0.95rem; }
+    .report-card button { width: 100%; padding: 10px; margin-top: 12px; background: var(--primary-green); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .report-card button:hover { background: var(--secondary-teal); }
+    
+    .notification-list { list-style: none; padding: 0; margin: 0; }
+    .notification-item { padding: 15px; margin: 10px 0; border-left: 4px solid var(--primary-green); background: rgba(0,184,148,0.05); border-radius: 6px; }
+    .notification-item.error { border-left-color: #e74c3c; background: rgba(231,76,60,0.05); }
+    .notification-item.warning { border-left-color: #f39c12; background: rgba(243,156,18,0.05); }
+    
+    .notification-title { font-weight: 600; margin-bottom: 5px; }
+    .notification-message { font-size: 0.9rem; color: var(--text-muted); }
+    .notification-time { font-size: 0.85rem; color: #999; margin-top: 8px; }
+    
+    .stat-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+    .stat-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }
+    .stat-box .number { font-size: 28px; font-weight: bold; color: var(--primary-green); }
+    .stat-box .label { font-size: 0.9rem; color: var(--text-muted); margin-top: 5px; }
+    
+    .loading { text-align: center; padding: 40px; color: var(--text-muted); }
+    .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="reports-container">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, var(--primary-green), var(--secondary-teal)); color: white; padding: 20px; border-radius: 12px; margin-bottom: 30px;">
+      <h1 style="margin: 0; display: flex; align-items: center; gap: 10px;">📊 Laporan & Notifikasi</h1>
+      <p style="margin: 5px 0 0; opacity: 0.9;">Monitor stok, notifikasi kritis, dan download laporan PDF</p>
+    </div>
+
+    <!-- Notifications Section -->
+    <div class="section-header">
+      <h2>🔔 Notifikasi Sistem</h2>
+    </div>
+    <div id="notificationsContainer" class="loading">Memuat notifikasi...</div>
+
+    <!-- Statistics Section -->
+    <div class="section-header">
+      <h2>📈 Statistik VED</h2>
+    </div>
+    <div id="statsContainer" class="stat-boxes loading">Memuat data...</div>
+
+    <!-- Reports Section -->
+    <div class="section-header">
+      <h2>📄 Download Laporan</h2>
+    </div>
+    <div class="report-grid">
+      <div class="report-card">
+        <h3>📋 Laporan Lengkap Stok</h3>
+        <p>Daftar seluruh obat dengan detail VED, jumlah, dan status kadaluarsa.</p>
+        <button onclick="downloadReport('full-pdf')">Download PDF</button>
+        <button onclick="downloadReport('full-csv')" style="background: var(--secondary-teal); margin-top: 8px;">Download CSV</button>
+      </div>
+
+      <div class="report-card">
+        <h3>🎯 Ringkasan VED-FEFO</h3>
+        <p>Analisis kategori Vital, Essential, dan Desirable dengan rekomendasi.</p>
+        <button onclick="downloadReport('ved-summary-pdf')">Download PDF</button>
+      </div>
+
+      <div class="report-card">
+        <h3>⚠️  Laporan Kritis</h3>
+        <p>Daftar obat urgent: kadaluarsa, hampir kadaluarsa, dan stok kritis.</p>
+        <button onclick="downloadReport('critical-pdf')">Download PDF</button>
+      </div>
+
+      <div class="report-card">
+        <h3>📅 Laporan Harian</h3>
+        <p>Ringkasan aktivitas harian dengan ringkasan stok dan perubahan.</p>
+        <button onclick="downloadReport('daily-pdf')">Download PDF</button>
+      </div>
+    </div>
+
+    <!-- Back Button -->
+    <div style="text-align: center; margin-top: 40px;">
+      <a href="/dashboard.html" style="color: var(--primary-green); text-decoration: underline;">← Kembali ke Dashboard</a>
+    </div>
+  </div>
+
+  <script>
+    async function loadNotifications() {
+      try {
+        const res = await fetch('/api/notifications', { credentials: 'same-origin' });
+        const data = await res.json();
+        
+        const container = document.getElementById('notificationsContainer');
+        
+        if (data.notifications.length === 0) {
+          container.innerHTML = '<div class="empty-state">✅ Tidak ada notifikasi. Semua obat dalam kondisi aman!</div>';
+        } else {
+          let html = `<p style="color: var(--text-muted); margin: 0 0 15px;">Total: <strong>${data.total}</strong> notifikasi (${data.critical} kritis, ${data.warning} peringatan)</p>`;
+          html += '<ul class="notification-list">';
+          
+          data.notifications.forEach(notif => {
+            const cls = notif.type === 'error' ? 'error' : 'warning';
+            html += `
+              <li class="notification-item ${cls}">
+                <div class="notification-title">${notif.title}</div>
+                <div class="notification-message">${notif.message}</div>
+                <div class="notification-time">${new Date(notif.timestamp).toLocaleString('id-ID')}</div>
+              </li>
+            `;
+          });
+          
+          html += '</ul>';
+          container.innerHTML = html;
+        }
+      } catch (err) {
+        document.getElementById('notificationsContainer').innerHTML = `<div class="empty-state">❌ Error: ${err.message}</div>`;
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/ved-analysis', { credentials: 'same-origin' });
+        const data = await res.json();
+        
+        const container = document.getElementById('statsContainer');
+        let html = `
+          <div class="stat-box">
+            <div class="number">${data.summary.vital}</div>
+            <div class="label">Vital (V) - Kritis</div>
+          </div>
+          <div class="stat-box">
+            <div class="number">${data.summary.essential}</div>
+            <div class="label">Essential (E) - Penting</div>
+          </div>
+          <div class="stat-box">
+            <div class="number">${data.summary.desirable}</div>
+            <div class="label">Desirable (D) - Aman</div>
+          </div>
+          <div class="stat-box">
+            <div class="number">${data.summary.expired}</div>
+            <div class="label">Kadaluarsa</div>
+          </div>
+          <div class="stat-box">
+            <div class="number">${data.summary.nearExpiry}</div>
+            <div class="label">Hampir Kadaluarsa</div>
+          </div>
+          <div class="stat-box">
+            <div class="number">${data.summary.safe}</div>
+            <div class="label">Kondisi Aman</div>
+          </div>
+        `;
+        container.innerHTML = html;
+      } catch (err) {
+        document.getElementById('statsContainer').innerHTML = `<div class="empty-state">❌ Error loading stats</div>`;
+      }
+    }
+
+    function downloadReport(type) {
+      const urls = {
+        'full-pdf': '/api/reports/pdf',
+        'ved-summary-pdf': '/api/reports/ved-summary-pdf',
+        'full-csv': '#'
+      };
+      
+      if (type === 'full-csv') {
+        alert('CSV export coming soon!');
+        return;
+      }
+      
+      if (type === 'critical-pdf') {
+        alert('Critical report coming soon!');
+        return;
+      }
+      
+      if (type === 'daily-pdf') {
+        alert('Daily report coming soon!');
+        return;
+      }
+      
+      if (urls[type]) {
+        window.location = urls[type];
+      }
+    }
+
+    // Load on page load
+    window.addEventListener('load', () => {
+      loadNotifications();
+      loadStats();
+      // Refresh every 30 seconds
+      setInterval(loadNotifications, 30000);
+      setInterval(loadStats, 30000);
+    });
+  </script>
+</body>
+</html>

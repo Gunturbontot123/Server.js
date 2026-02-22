@@ -2,51 +2,123 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login - ObatQU.id</title>
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css"/>
 </head>
 <body class="login-body">
   <div class="login-container card">
-    <h1>ObatQU.id</h1>
-    <h2>Masuk ke Dashboard</h2>
+    <h1>Selamat Datang</h1>
+    <h2>Masuk ke Sistem Manajemen Apotek</h2>
 
-    <div id="alert" style="display:none;color:#e74c3c;margin-bottom:10px;"></div>
+    <div id="alert" style="display:none;color:#eb422f;margin-bottom:10px;"></div>
 
-    <div class="form-group">
-      <label>Username</label>
-      <input id="username" placeholder="admin" />
+    <form id="loginForm">
+      <div class="form-group">
+        <label>Username</label>
+        <input id="username" name="username" placeholder="Masukkan username" autocomplete="username" />
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <div class="input-pass">
+          <input id="password" name="password" type="password" placeholder="••••••" autocomplete="current-password" />
+          <button type="button" class="pass-toggle" id="togglePass" aria-label="Tampilkan password">👁️</button>
+        </div>
+      </div>
+
+      <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+        <label style="font-weight:500;"><input type="checkbox" id="rememberMe" style="margin-right:8px;"> Ingat Saya</label>
+      </div>
+
+      <button class="btn-login" type="submit" id="btnLogin">Masuk</button>
+    </form>
+
+    <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+      <a href="/reset-password.html" id="forgotLink" style="color:var(--primary-green); text-decoration:underline;">Lupa password?</a>
+      <div style="font-size:0.95rem; color:var(--text-dark);">Belum punya akun? <a href="/register.html" id="registerLink" style="color:var(--primary-green); text-decoration:underline;">Daftar sekarang</a></div>
     </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input id="password" type="password" placeholder="••••••" />
-    </div>
-    <button class="btn-login" id="btnLogin">Masuk</button>
-
-    <p class="note">Demo: username <b>admin</b> / password <b>admin</b></p>
   </div>
 
-  <script>
-    document.getElementById('btnLogin').addEventListener('click', async () => {
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const res = await fetch('/api/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      if (res.ok) {
-        window.location = '/dashboard.html';
-      } else {
-        const el = document.getElementById('alert');
-        const body = await res.json().catch(()=>({message:'Login gagal'}));
-        el.style.display = 'block'; el.textContent = body.message || 'Login gagal';
-      }
-    });
+<script>
+// remember username if chosen
+document.addEventListener('DOMContentLoaded', ()=>{
+  const saved = localStorage.getItem('rememberUsername');
+  if (saved) { document.getElementById('username').value = saved; document.getElementById('rememberMe').checked = true; }
+});
 
-    // quick submit on Enter
-    ['username','password'].forEach(id => {
-      document.getElementById(id).addEventListener('keyup', e => { if (e.key === 'Enter') document.getElementById('btnLogin').click(); });
+// toggle password visibility
+document.getElementById('togglePass').addEventListener('click', (e)=>{
+  e.preventDefault();
+  const p = document.getElementById('password');
+  if (p.type === 'password') { p.type = 'text'; document.getElementById('togglePass').textContent = '🙈'; }
+  else { p.type = 'password'; document.getElementById('togglePass').textContent = '👁️'; }
+});
+
+// Login handler - use button click for reliability
+document.getElementById('btnLogin').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const el = document.getElementById('alert');
+  el.style.display = 'none';
+  el.textContent = '';
+  
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  
+  if (!username || !password) {
+    el.style.display = 'block'; 
+    el.textContent = 'Username dan password harus diisi.'; 
+    return;
+  }
+  
+  // Build payload: send as email if contains @, else as username
+  const payload = username.includes('@') ? { email: username, password } : { username, password };
+  
+  // Persist username if remember checked
+  try { 
+    if (document.getElementById('rememberMe').checked) {
+      localStorage.setItem('rememberUsername', username);
+    } else {
+      localStorage.removeItem('rememberUsername');
+    }
+  } catch(err){}
+  
+  try {
+    console.log('📤 Sending login request:', JSON.stringify(payload));
+    
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload)
     });
-  </script>
+    
+    const data = await res.json().catch(()=>({message:'Response not JSON'}));
+    console.log('📥 Response:', res.status, data);
+    
+    if (res.ok && data.user) {
+      console.log('✅ Login berhasil, redirect ke dashboard...');
+      setTimeout(() => { window.location = '/dashboard.html'; }, 500);
+    } else {
+      el.style.display = 'block'; 
+      el.textContent = data.message || data.error || 'Login gagal';
+    }
+  } catch (err) {
+    console.error('❌ Error:', err);
+    el.style.display = 'block'; 
+    el.textContent = 'Gagal terhubung ke server: ' + err.message;
+  }
+});
+
+// Also allow Enter key to submit
+['username','password'].forEach(id => {
+  document.getElementById(id).addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') { 
+      e.preventDefault();
+      document.getElementById('btnLogin').click(); 
+    }
+  });
+});
+</script>
 </body>
 </html>
