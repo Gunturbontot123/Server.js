@@ -4,168 +4,106 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard - ObatQU.id</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.css">
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body class="dashboard-body">
 
 <div class="dashboard-layout">
-  <!-- Left Sidebar Navigation -->
-  <aside id="dashboardSidebar" class="dashboard-sidebar" role="navigation" aria-label="Sidebar utama" aria-hidden="true">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside id="dashboardSidebar" class="dashboard-sidebar">
     <div class="sidebar-header">
-      <div class="sidebar-logo">💊 ObatQU.id</div>
-      <button class="sidebar-toggle" id="toggleSidebar" aria-hidden="true">☰</button>
+      <div class="sidebar-logo">💊 Obat.Qu</div>
     </div>
-    <nav class="sidebar-nav" role="menu" aria-label="Navigasi utama">
-      <a href="#dashboard" class="nav-item active" data-section="dashboard" role="menuitem" tabindex="0">
-        <span class="nav-icon">📊</span>
-        <span class="nav-label">Dashboard</span>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-section="dashboard">
+        📊 Dashboard
       </a>
-      <a href="#data-obat" class="nav-item" data-section="data-obat" role="menuitem" tabindex="0">
-        <span class="nav-icon">💊</span>
-        <span class="nav-label">Data Obat</span>
+
+      <a href="#" class="nav-item" data-section="data-obat">
+        💊 Data Obat
       </a>
-      <a href="#tambah-obat" class="nav-item" data-section="tambah-obat" role="menuitem" tabindex="0">
-        <span class="nav-icon">➕</span>
-        <span class="nav-label">Tambah Obat</span>
+
+      <a href="#" class="nav-item" data-section="keluar">
+        🔄 Keluar
       </a>
-      <a href="#keluar-masuk" class="nav-item" data-section="keluar-masuk" role="menuitem" tabindex="0">
-        <span class="nav-icon">🔄</span>
-        <span class="nav-label">Keluar/Masuk</span>
+
+      <a href="#" class="nav-item" data-section="ved-fefo">
+        📋 VED-FEFO
       </a>
-      <a href="#ved-fefo" class="nav-item" data-section="ved-fefo" role="menuitem" tabindex="0">
-        <span class="nav-icon">📋</span>
-        <span class="nav-label">VED-FEFO</span>
-      </a>
-      <a href="/reports.html" class="nav-item" data-section="laporan" role="menuitem" tabindex="0">
-        <span class="nav-icon">📈</span>
-        <span class="nav-label">Laporan & Notifikasi</span>
-        <span id="notifBadge" style="display:none; background: #e74c3c; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-left: auto;">0</span>
-      </a>
-      <hr style="margin:12px 0; border:none; border-top:1px solid rgba(255,255,255,0.1);">
-      <a href="#" class="nav-item" id="logoutBtn" role="menuitem" tabindex="0">
-        <span class="nav-icon">🚪</span>
-        <span class="nav-label">Logout</span>
+
+      <hr>
+
+      <a href="#" class="nav-item" id="logoutBtn">
+        🚪 Logout
       </a>
     </nav>
   </aside>
 
-  <!-- Main Content -->
+  <!-- ===== MAIN ===== -->
   <main class="dashboard-main">
-    <!-- Top Navbar / Header -->
+
+    <!-- HEADER -->
     <header class="dashboard-header">
-        <div class="header-left">
-          <button id="dotMenu" class="dot-menu" aria-label="Buka menu">⋯</button>
-          <input type="text" id="searchInput" class="search-box" placeholder="🔍 Cari obat..." />
-        </div>
-      <div class="header-right">
-        <div class="user-info">
-          <div class="user-avatar" id="userAvatar">A</div>
-          <div class="user-details">
-            <div class="user-name" id="userName">Admin</div>
-            <div class="user-status">Online</div>
-          </div>
+      <button id="dotMenu" class="dot-menu">☰</button>
+
+      <div class="user-info">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div>
+          <div id="userName">Admin</div>
+          <small>Online</small>
         </div>
       </div>
     </header>
 
-    <!-- Content Container -->
     <div class="dashboard-content">
 
-      <!-- ===== DASHBOARD SECTION ===== -->
+      <!-- ===== DASHBOARD ===== -->
       <section id="section-dashboard" class="content-section active">
-        <div class="section-header">
-          <h1>Dashboard</h1>
-          <p>Ringkasan stok dan status obat</p>
-        </div>
+        <h1>Dashboard</h1>
 
-        <!-- Stat Cards -->
         <div class="stat-grid">
-          <div class="stat-card stat-blue">
-            <div class="stat-icon">💊</div>
-            <div class="stat-content">
-              <h3>Total Obat</h3>
-              <p id="totalObat" class="stat-number">0</p>
-            </div>
-          </div>
-          <div class="stat-card stat-red">
-            <div class="stat-icon">⚠️</div>
-            <div class="stat-content">
-              <h3>Kadaluarsa</h3>
-              <p id="expiredCount" class="stat-number">0</p>
-            </div>
-          </div>
-          <div class="stat-card stat-yellow">
-            <div class="stat-icon">🕐</div>
-            <div class="stat-content">
-              <h3>Hampir Kadaluarsa</h3>
-              <p id="nearExpireCount" class="stat-number">0</p>
-            </div>
-          </div>
-          <div class="stat-card stat-green">
-            <div class="stat-icon">✅</div>
-            <div class="stat-content">
-              <h3>Stok Baik</h3>
-              <p id="safeStockCount" class="stat-number">0</p>
-            </div>
+          <div class="stat-card">
+            <h3>Total Obat</h3>
+            <p id="totalObat">0</p>
           </div>
         </div>
 
-        <!-- Legend -->
-        <div class="legend-card">
-          <h3>Indikator Kadaluarsa</h3>
-          <div class="legend-items">
-            <div class="legend-item">
-              <div class="legend-color" style="background:#e74c3c;"></div>
-              <span>Kadaluarsa (sudah berlalu)</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background:#f39c12;"></div>
-              <span>Hampir Kadaluarsa (≤30 hari)</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background:#27ae60;"></div>
-              <span>Baik (>30 hari)</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Chart -->
         <div class="chart-card">
-          <h3>Grafik Stok Obat</h3>
-          <canvas id="stokChart" height="80"></canvas>
-        </div>
-
-        <!-- Recent Activity -->
-        <div class="activity-card">
-          <h3>Aktivitas Terbaru</h3>
-          <ul id="activityList" class="activity-list"></ul>
+          <canvas id="stokChart"></canvas>
         </div>
       </section>
 
-      <!-- ===== DATA OBAT SECTION ===== -->
+      <!-- ===== DATA OBAT ===== -->
       <section id="section-data-obat" class="content-section">
-        <div class="section-header">
-          <h1>Data Obat</h1>
-          <p>Daftar lengkap semua obat</p>
+        <div class="section-header-flex">
+          <div>
+            <h1>Data Obat</h1>
+            <p>Daftar lengkap semua obat</p>
+          </div>
+
+          <button onclick="openTambahModal()" class="btn-primary">
+            ➕ Tambah Obat
+          </button>
         </div>
 
         <div class="data-tools">
-          <input type="text" id="filterObatInput" class="filter-input" placeholder="🔍 Filter obat..." />
-          <select id="filterStatusInput" class="filter-select">
+          <input type="text" id="filterObatInput" placeholder="🔍 Filter obat..." />
+          <select id="filterStatusInput">
             <option value="">Semua Status</option>
             <option value="kadaluarsa">Kadaluarsa</option>
             <option value="hampir">Hampir Kadaluarsa</option>
             <option value="baik">Baik</option>
           </select>
-          <button id="exportBtn" class="btn-secondary">📥 Export CSV</button>
+          <button id="exportBtn" class="btn-secondary">Export CSV</button>
         </div>
 
         <div class="table-card">
-          <table class="data-table">
+          <table>
             <thead>
               <tr>
-                <th>Nama Obat</th>
+                <th>Nama</th>
                 <th>Jumlah</th>
                 <th>Kadaluarsa</th>
                 <th>Status</th>
@@ -178,115 +116,31 @@
         </div>
       </section>
 
-      <!-- ===== TAMBAH OBAT SECTION ===== -->
-      <section id="section-tambah-obat" class="content-section">
-        <div class="section-header">
-          <h1>Tambah Obat Baru</h1>
-          <p>Masukkan data obat baru ke sistem</p>
-        </div>
-
-        <div class="form-card">
-          <form id="formTambahObat">
-            <div class="form-group">
-              <label>Nama Obat *</label>
-              <input type="text" id="inputNama" placeholder="Nama obat" required />
-            </div>
-            <div class="form-group">
-              <label>Jumlah Stok *</label>
-              <input type="number" id="inputJumlah" placeholder="Jumlah" min="1" required />
-            </div>
-            <div class="form-group">
-              <label>Tanggal Kadaluarsa (YYYY-MM-DD) *</label>
-              <input type="date" id="inputKadaluarsa" required />
-            </div>
-            <button type="submit" class="btn-primary">➕ Tambah Obat</button>
-          </form>
-        </div>
+      <!-- ===== KELUAR ===== -->
+      <section id="section-keluar" class="content-section">
+        <h1>Keluar Obat (FEFO)</h1>
+        <button id="keluarBtn" class="btn-primary full">
+          🔄 Keluar 1 Unit
+        </button>
       </section>
 
-      <!-- ===== KELUAR/MASUK OBAT SECTION ===== -->
-      <section id="section-keluar-masuk" class="content-section">
-        <div class="section-header">
-          <h1>Keluar/Masuk Obat</h1>
-          <p>Kelola pergerakan stok obat</p>
-        </div>
-
-        <div class="grid-2">
-          <div class="form-card">
-            <h3>Obat Keluar (FEFO)</h3>
-            <p style="font-size:0.9rem; color:#666;">Ambil obat dengan tanggal kadaluarsa paling awal</p>
-            <button id="keluarBtn" class="btn-primary" style="width:100%; margin-top:12px;">🔄 Keluar 1 Unit</button>
-          </div>
-          <div class="form-card">
-            <h3>Obat Masuk</h3>
-            <form id="formMasukObat">
-              <div class="form-group">
-                <label>Pilih Obat</label>
-                <select id="selectObatMasuk" required>
-                  <option value="">-- Pilih obat --</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Jumlah Masuk</label>
-                <input type="number" id="jumlahMasuk" placeholder="Jumlah" min="1" required />
-              </div>
-              <button type="submit" class="btn-primary">➕ Masuk</button>
-            </form>
-          </div>
-        </div>
-      </section>
-
-      <!-- ===== VED-FEFO SECTION ===== -->
+      <!-- ===== VED ===== -->
       <section id="section-ved-fefo" class="content-section">
-        <div class="section-header">
-          <h1>Klasifikasi VED-FEFO</h1>
-          <p>Analisis dan rekomendasi berdasarkan nilai dan umur obat</p>
-        </div>
+        <h1>Klasifikasi VED</h1>
 
         <div class="ved-container">
-          <div class="ved-card ved-v">
+          <div>
             <h3>V - Vital</h3>
-            <p class="ved-desc">Jumlah sangat rendah (≤2)</p>
-            <ul id="vedVList" class="ved-list"></ul>
+            <ul id="vedVList"></ul>
           </div>
-          <div class="ved-card ved-e">
+          <div>
             <h3>E - Essential</h3>
-            <p class="ved-desc">Jumlah rendah (3-10)</p>
-            <ul id="vedEList" class="ved-list"></ul>
+            <ul id="vedEList"></ul>
           </div>
-          <div class="ved-card ved-d">
+          <div>
             <h3>D - Desirable</h3>
-            <p class="ved-desc">Jumlah cukup (>10)</p>
-            <ul id="vedDList" class="ved-list"></ul>
+            <ul id="vedDList"></ul>
           </div>
-        </div>
-      </section>
-
-      <!-- ===== LAPORAN SECTION ===== -->
-      <section id="section-laporan" class="content-section">
-        <div class="section-header">
-          <h1>Laporan & Analitik</h1>
-          <p>Ringkasan komprehensif data obat</p>
-        </div>
-
-        <div class="report-grid">
-          <div class="report-card">
-            <h3>Total Nilai Stok</h3>
-            <p id="totalStockValue" class="report-number">Rp 0</p>
-          </div>
-          <div class="report-card">
-            <h3>Obat Kritis</h3>
-            <p id="criticalMedicines" class="report-number">0 item</p>
-          </div>
-          <div class="report-card">
-            <h3>Tingkat Kadaluarsa</h3>
-            <p id="expireRate" class="report-number">0%</p>
-          </div>
-        </div>
-
-        <div class="log-card">
-          <h3>Riwayat Aktivitas (15 terbaru)</h3>
-          <ul id="logList" class="log-list"></ul>
         </div>
       </section>
 
@@ -294,7 +148,24 @@
   </main>
 </div>
 
+<!-- ===== MODAL TAMBAH OBAT ===== -->
+<div id="tambahModal" class="modal">
+  <div class="modal-content">
+    <h3>Tambah Obat Baru</h3>
+
+    <input type="text" id="modalNama" placeholder="Nama Obat">
+    <input type="number" id="modalJumlah" placeholder="Jumlah">
+    <input type="date" id="modalKadaluarsa">
+
+    <div class="modal-actions">
+      <button onclick="closeTambahModal()" class="btn-secondary">Batal</button>
+      <button onclick="submitTambahObat()" class="btn-primary">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/app.js"></script>
+
 </body>
 </html>

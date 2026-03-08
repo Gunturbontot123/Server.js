@@ -1,3 +1,4 @@
+console.log("SERVER FILE:", __filename);
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
@@ -673,19 +674,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Root health-check / quick response
 app.get('/', (req, res) => {
-  res.send('Server Apotek Jalan!');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Simple SPA fallback to index.html if file not found (for client-side routing)
-app.use((req, res, next) => {
-  const accept = req.headers.accept || '';
-  if (accept.includes('text/html')) {
-    return res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
-      if (err) return next(err);
-    });
-  }
-  next();
-});
 
 const server = app.listen(3000, () => {
   console.log("Server berjalan di http://localhost:3000");
