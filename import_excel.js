@@ -2,8 +2,8 @@ const XLSX = require('xlsx');
 const path = require('path');
 const db = require('./database/database');
 
-// Path ke file Excel
-const excelPath = 'C:\\Users\\user\\OneDrive\\Documents\\Tugas Akhir Guntur\\DATABASE FINAL.xlsx';
+// Path ke file Excel (default: sibling file `database db_obat.xlsx` in parent workspace)
+const excelPath = path.resolve(__dirname, '..', 'database db_obat.xlsx');
 
 console.log('📂 Membaca file Excel:', excelPath);
 
@@ -93,14 +93,15 @@ function importObatFromExcel(data) {
     data.forEach(row => {
       const nama = row.nama_barang || row.Nama || '';
       const jumlah = parseInt(row.stok_masuk || row.stok_awal || 0);
-      const kadaluarsa = row.ed || row.tgl_masuk || '';
+      const kadaluarsa = parseExcelDate(row.ed || row.tgl_masuk || row.kadaluarsa || '');
       const ved = classifyVED(row.kategori_v);
+      const batch = row.batch || row.Batch || row.batch_no || row.no_batch || row.lot || row.lot_number || row.kode_batch || '';
 
       if (!nama) return; // Skip jika nama kosong
 
       const id = uuid();
-      const sql = `INSERT INTO obat (id, nama, jumlah, kadaluarsa, ved) VALUES (?, ?, ?, ?, ?)`;
-      db.run(sql, [id, nama, jumlah, kadaluarsa, ved], (err) => {
+      const sql = `INSERT INTO obat (id, nama, jumlah, kadaluarsa, ved, batch) VALUES (?, ?, ?, ?, ?, ?)`;
+      db.run(sql, [id, nama, jumlah, kadaluarsa, ved, batch || null], (err) => {
         if (err) console.error(`  ❌ Error "${nama}":`, err.message);
         else console.log(`  ✅ Obat "${nama}" (qty: ${jumlah}, ved: ${ved}) imported`);
       });

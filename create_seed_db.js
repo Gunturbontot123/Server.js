@@ -21,7 +21,9 @@ db.serialize(() => {
       nama TEXT,
       jumlah INTEGER,
       kadaluarsa TEXT,
-      ved TEXT
+      ved TEXT,
+      batch TEXT,
+      kategori TEXT
     )
   `);
 

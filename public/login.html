@@ -8,8 +8,17 @@
 </head>
 <body class="login-body">
   <div class="login-container card">
+    <div class="login-brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <rect x="2" y="7" width="20" height="10" rx="5" ry="5" />
+          <rect x="3.6" y="8.6" width="9.8" height="7" rx="3.5" ry="3.5" fill="rgba(255,255,255,0.18)" />
+        </svg>
+      </div>
+      <div class="title">obat.Qu</div>
+    </div>
     <h1>Selamat Datang</h1>
-    <h2>Masuk ke Sistem Manajemen Apotek</h2>
+    <h2>Masuk ke obat.Qu — Sistem Manajemen Apotek</h2>
 
     <div id="alert" style="display:none;color:#eb422f;margin-bottom:10px;"></div>
 
@@ -34,13 +43,16 @@
       <button class="btn-login" type="submit" id="btnLogin">Masuk</button>
     </form>
 
-    <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+    <div class="login-footer">
       <a href="/reset-password.html" id="forgotLink" style="color:var(--primary-green); text-decoration:underline;">Lupa password?</a>
-      <div style="font-size:0.95rem; color:var(--text-dark);">Belum punya akun? <a href="/register.html" id="registerLink" style="color:var(--primary-green); text-decoration:underline;">Daftar sekarang</a></div>
+      <div style="color:var(--text-dark);">Belum punya akun? <a href="/register.html" id="registerLink" style="color:var(--primary-green); text-decoration:underline;">Daftar sekarang</a></div>
     </div>
   </div>
 
 <script>
+// when opened from file://, use localhost API
+const API_BASE = (location && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+
 // remember username if chosen
 document.addEventListener('DOMContentLoaded', ()=>{
   const saved = localStorage.getItem('rememberUsername');
@@ -86,7 +98,7 @@ document.getElementById('btnLogin').addEventListener('click', async (e) => {
   try {
     console.log('📤 Sending login request:', JSON.stringify(payload));
     
-    const res = await fetch('/api/login', {
+    const res = await fetch((API_BASE ? API_BASE : '') + '/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
@@ -98,7 +110,8 @@ document.getElementById('btnLogin').addEventListener('click', async (e) => {
     
     if (res.ok && data.user) {
       console.log('✅ Login berhasil, redirect ke dashboard...');
-      setTimeout(() => { window.location = '/dashboard.html'; }, 500);
+      try { localStorage.setItem('showWelcomeOnNextVisit','1'); } catch (e) {}
+      setTimeout(() => { window.location = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html'); }, 500);
     } else {
       el.style.display = 'block'; 
       el.textContent = data.message || data.error || 'Login gagal';
