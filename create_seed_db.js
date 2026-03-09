@@ -1,6 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const dbPath = path.join(__dirname, 'apotek.db');
+const ADMIN_USERNAME = 'admin';
+const ADMIN_DEFAULT_PASSWORD = 'januari302004';
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
   if (err) { console.error('OPEN ERR', err.message); process.exit(1); }
 });
@@ -36,15 +38,15 @@ db.serialize(() => {
     )
   `);
 
-  db.run("DELETE FROM users WHERE username != ?", ['admin'], (err) => {
-    db.get("SELECT * FROM users WHERE username = ?", ['admin'], (err2, row) => {
+  db.run("DELETE FROM users WHERE username != ?", [ADMIN_USERNAME], (err) => {
+    db.get("SELECT * FROM users WHERE username = ?", [ADMIN_USERNAME], (err2, row) => {
       if (err2) { console.error('GET ERR', err2.message); }
       if (!row) {
-        db.run("INSERT INTO users (username,password,role) VALUES (?,?,?)", ['admin','admin','APJ'], (er) => {
+        db.run("INSERT INTO users (username,password,role) VALUES (?,?,?)", [ADMIN_USERNAME, ADMIN_DEFAULT_PASSWORD, 'APJ'], (er) => {
           if (er) console.error('INSERT ERR', er.message);
         });
       } else {
-        db.run("UPDATE users SET password = ?, role = ? WHERE username = ?", ['admin','APJ','admin']);
+        db.run("UPDATE users SET password = ?, role = ? WHERE username = ?", [ADMIN_DEFAULT_PASSWORD, 'APJ', ADMIN_USERNAME]);
       }
     });
   });

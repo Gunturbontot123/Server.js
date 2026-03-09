@@ -3,88 +3,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dashboard - Obat.Qu</title>
+  <title>Dashboard - ObatQU.id</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.css">
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body class="dashboard-body">
 
 <div class="dashboard-layout">
-  <!-- Welcome popup (hidden by default) -->
-  <div id="welcomeOverlay" class="modal-overlay" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
-      <button id="closeWelcome" class="modal-close" aria-label="Tutup popup">✕</button>
-      <div class="modal-hero">
-        <div class="hero-illustration" aria-hidden="true">
-          <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" width="120" height="80" fill="none">
-            <rect x="6" y="18" width="72" height="36" rx="12" fill="rgba(255,255,255,0.12)"/>
-            <rect x="42" y="6" width="72" height="36" rx="12" fill="white" opacity="0.12"/>
-            <circle cx="24" cy="36" r="6" fill="white" opacity="0.2"/>
-          </svg>
-        </div>
-        <div class="hero-text">
-          <h3 id="welcomeTitle">Selamat datang di obat.Qu</h3>
-          <p class="hero-sub">Sistem manajemen stok apotek yang cepat — pantau, kelola, dan prioritaskan obat Anda dengan mudah.</p>
-        </div>
-      </div>
-
-      <div class="modal-body">
-        <p>Mulai dengan salah satu tindakan cepat di bawah ini, atau klik <strong>Mulai</strong> untuk melihat dashboard lengkap.</p>
-
-        <div class="quick-actions">
-          <a href="#dashboard" class="quick-btn" data-section="dashboard">📊 Dashboard</a>
-          <a href="#data-obat" class="quick-btn" data-section="data-obat">💊 Data Obat</a>
-          <a href="#ved-fefo" class="quick-btn" data-section="ved-fefo">📋 VED-FEFO</a>
-        </div>
-
-        <p style="margin-top:12px;"><small>Centang "Jangan tampilkan lagi" jika Anda ingin menonaktifkan popup ini untuk selamanya.</small></p>
-      </div>
-      <div class="modal-footer">
-        <label style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" id="dontShowWelcome" /> <small>Jangan tampilkan lagi</small>
-        </label>
-        <div class="modal-actions">
-          <button id="startWelcome" class="btn-modal primary">Mulai</button>
-        </div>
-      </div>
-    </div>
-  </div>
   <!-- Left Sidebar Navigation -->
   <aside id="dashboardSidebar" class="dashboard-sidebar" role="navigation" aria-label="Sidebar utama" aria-hidden="true">
     <div class="sidebar-header">
-      <div class="sidebar-logo">💊 Obat.Qu</div>
+      <div class="sidebar-logo">💊 ObatQU.id</div>
       <button class="sidebar-toggle" id="toggleSidebar" aria-hidden="true">☰</button>
     </div>
     <nav class="sidebar-nav" role="menu" aria-label="Navigasi utama">
-      <a href="#dashboard" class="nav-item active" data-section="dashboard" role="menuitem" tabindex="0" data-desc="Ringkasan stok, grafik, dan aktivitas terbaru.">
+      <a href="#dashboard" class="nav-item active" data-section="dashboard" role="menuitem" tabindex="0">
         <span class="nav-icon">📊</span>
         <span class="nav-label">Dashboard</span>
       </a>
-      <a href="#data-obat" class="nav-item" data-section="data-obat" role="menuitem" tabindex="0" data-desc="Daftar semua obat, cari, edit, dan ekspor CSV.">
+      <a href="#data-obat" class="nav-item" data-section="data-obat" role="menuitem" tabindex="0">
         <span class="nav-icon">💊</span>
         <span class="nav-label">Data Obat</span>
       </a>
-      <!-- Removed separate 'Tambah Obat' page. Add & manage via Data Obat actions. -->
-      <a href="#keluar" class="nav-item" data-section="keluar-masuk" role="menuitem" tabindex="0" data-desc="Lakukan FEFO (ambil obat dengan kadaluarsa terdekat) atau catat masuk stok.">
-        <span class="nav-icon">🔄</span>
-        <span class="nav-label">Keluar</span>
+      <a href="#tambah-obat" class="nav-item" data-section="tambah-obat" role="menuitem" tabindex="0">
+        <span class="nav-icon">➕</span>
+        <span class="nav-label">Tambah Obat</span>
       </a>
-      <a href="#ved-fefo" class="nav-item" data-section="ved-fefo" role="menuitem" tabindex="0" data-desc="Klasifikasi VED dan rekomendasi FEFO berdasarkan kadaluarsa dan stok.">
+      <a href="#keluar-masuk" class="nav-item" data-section="keluar-masuk" role="menuitem" tabindex="0">
+        <span class="nav-icon">🔄</span>
+        <span class="nav-label">Keluar/Masuk</span>
+      </a>
+      <a href="#ved-fefo" class="nav-item" data-section="ved-fefo" role="menuitem" tabindex="0">
         <span class="nav-icon">📋</span>
         <span class="nav-label">VED-FEFO</span>
       </a>
-      <a href="/reports.html" class="nav-item" data-section="laporan" role="menuitem" tabindex="0" data-desc="Laporan stok, notifikasi, dan unduh PDF bulanan.">
+      <a href="/reports.html" class="nav-item" data-section="laporan" role="menuitem" tabindex="0">
         <span class="nav-icon">📈</span>
         <span class="nav-label">Laporan & Notifikasi</span>
         <span id="notifBadge" style="display:none; background: #e74c3c; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-left: auto;">0</span>
       </a>
       <hr style="margin:12px 0; border:none; border-top:1px solid rgba(255,255,255,0.1);">
-      <a href="#" class="nav-item" id="logoutBtn" role="menuitem" tabindex="0" data-desc="Keluar dari sesi saat ini.">
+      <a href="#" class="nav-item" id="logoutBtn" role="menuitem" tabindex="0">
         <span class="nav-icon">🚪</span>
         <span class="nav-label">Logout</span>
       </a>
-
-      <div class="sidebar-desc" id="sidebarDesc">Ringkasan stok, grafik, dan aktivitas terbaru.</div>
     </nav>
   </aside>
 
@@ -196,20 +158,34 @@
             <option value="hampir">Hampir Kadaluarsa</option>
             <option value="baik">Baik</option>
           </select>
-          <select id="filterKategoriInput" class="filter-select">
-            <option value="">Semua Jenis</option>
-            <option value="TABLET BEBAS">TABLET BEBAS</option>
-            <option value="TABLET KERAS">TABLET KERAS</option>
-            <option value="SIRUP">SIRUP</option>
-            <option value="SALEP">SALEP</option>
-            <option value="ETALASE LUAR">ETALASE LUAR</option>
-          </select>
           <button id="exportBtn" class="btn-secondary">📥 Export CSV</button>
-          <button id="openTambahBtn" class="btn-primary" style="margin-left:auto;">➕ Tambah Obat</button>
         </div>
 
-        <!-- Hidden add-new form (toggled by 'Tambah Obat' button) -->
-        <div id="tambahObatCard" class="form-card" style="display:none; margin-top:12px; margin-bottom:12px;">
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nama Obat</th>
+                <th>Jumlah</th>
+                <th>Kadaluarsa</th>
+                <th>Status</th>
+                <th>VED</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableObat"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== TAMBAH OBAT SECTION ===== -->
+      <section id="section-tambah-obat" class="content-section">
+        <div class="section-header">
+          <h1>Tambah Obat Baru</h1>
+          <p>Masukkan data obat baru ke sistem</p>
+        </div>
+
+        <div class="form-card">
           <form id="formTambahObat">
             <div class="form-group">
               <label>Nama Obat *</label>
@@ -223,45 +199,10 @@
               <label>Tanggal Kadaluarsa (YYYY-MM-DD) *</label>
               <input type="date" id="inputKadaluarsa" required />
             </div>
-            <div class="form-group">
-              <label>Jenis / Kategori (opsional)</label>
-              <select id="inputKategori">
-                <option value="">-- Pilih jenis --</option>
-                <option>TABLET BEBAS</option>
-                <option>TABLET KERAS</option>
-                <option>SIRUP</option>
-                <option>SALEP</option>
-                <option>ETALASE LUAR</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Batch / Lot (opsional)</label>
-              <input type="text" id="inputBatch" placeholder="Batch / Lot" />
-            </div>
             <button type="submit" class="btn-primary">➕ Tambah Obat</button>
           </form>
         </div>
-
-        <div class="table-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Nama Obat</th>
-                <th>Batch</th>
-                  <th>Jenis</th>
-                <th>Jumlah</th>
-                <th>Kadaluarsa</th>
-                <th>Status</th>
-                <th>VED</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="tableObat"></tbody>
-          </table>
-        </div>
       </section>
-
-      <!-- Note: 'Tambah Obat' form moved into Data Obat section as a toggled panel -->
 
       <!-- ===== KELUAR/MASUK OBAT SECTION ===== -->
       <section id="section-keluar-masuk" class="content-section">
@@ -302,18 +243,7 @@
           <p>Analisis dan rekomendasi berdasarkan nilai dan umur obat</p>
         </div>
 
-          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-            <label style="display:flex; align-items:center; gap:8px;">Tampilkan Top:
-              <select id="vedTopN" style="padding:6px 8px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); margin-left:6px;">
-                <option value="5">5</option>
-                <option value="10" selected>10</option>
-                <option value="20">20</option>
-                <option value="0">Semua</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="ved-container">
+        <div class="ved-container">
           <div class="ved-card ved-v">
             <h3>V - Vital</h3>
             <p class="ved-desc">Jumlah sangat rendah (≤2)</p>
@@ -352,11 +282,6 @@
             <h3>Tingkat Kadaluarsa</h3>
             <p id="expireRate" class="report-number">0%</p>
           </div>
-        </div>
-
-        <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
-          <label style="display:flex; gap:8px; align-items:center;">Pilih Bulan: <input type="month" id="reportMonth" style="margin-left:8px; padding:6px 8px; border-radius:8px; border:1px solid rgba(0,0,0,0.06);"/></label>
-          <button id="downloadMonthlyPdf" class="btn-primary">📥 Download Bulanan (PDF)</button>
         </div>
 
         <div class="log-card">

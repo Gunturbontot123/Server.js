@@ -22,16 +22,16 @@
 
     <div id="alert" style="display:none;color:#eb422f;margin-bottom:10px;"></div>
 
-    <form id="loginForm">
+    <form id="loginForm" autocomplete="off" data-form-type="other">
       <div class="form-group">
         <label>Username</label>
-        <input id="username" name="username" placeholder="Masukkan username" autocomplete="username" />
+        <input id="username" name="loginId" placeholder="Masukkan username atau email" autocomplete="off" autocapitalize="off" spellcheck="false" />
       </div>
 
       <div class="form-group">
         <label>Password</label>
         <div class="input-pass">
-          <input id="password" name="password" type="password" placeholder="••••••" autocomplete="current-password" />
+          <input id="password" name="loginSecret" type="password" placeholder="••••••" autocomplete="off" />
           <button type="button" class="pass-toggle" id="togglePass" aria-label="Tampilkan password">👁️</button>
         </div>
       </div>
@@ -101,7 +101,8 @@ document.getElementById('btnLogin').addEventListener('click', async (e) => {
     const res = await fetch((API_BASE ? API_BASE : '') + '/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+      // Important for file:// -> localhost flow so session cookie is persisted.
+      credentials: 'include',
       body: JSON.stringify(payload)
     });
     
@@ -111,7 +112,9 @@ document.getElementById('btnLogin').addEventListener('click', async (e) => {
     if (res.ok && data.user) {
       console.log('✅ Login berhasil, redirect ke dashboard...');
       try { localStorage.setItem('showWelcomeOnNextVisit','1'); } catch (e) {}
-      setTimeout(() => { window.location = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html'); }, 500);
+      setTimeout(() => {
+        window.location = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html');
+      }, 250);
     } else {
       el.style.display = 'block'; 
       el.textContent = data.message || data.error || 'Login gagal';

@@ -4,14 +4,15 @@ let allObat = [];
 let stokChart = null;
 // When the page is opened from the file system (file://) we need an absolute API base
 const API_BASE = (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') ? 'http://localhost:3000' : '';
+const LOGIN_URL = API_BASE ? `${API_BASE}/login.html` : '/login.html';
 
 // Ensure fetch sends credentials by default (so session cookies are included)
 (function(){
   if (typeof window !== 'undefined' && window.fetch) {
     const _fetch = window.fetch.bind(window);
     window.fetch = function(url, opts = {}) {
-      // ensure credentials included
-      if (!opts.credentials) opts.credentials = 'same-origin';
+      // Always include credentials so session cookies work for localhost and file:// usage.
+      if (!opts.credentials) opts.credentials = 'include';
 
       // prefix relative URLs with API_BASE when necessary (helps when opened via file://)
       let target = url;
@@ -29,11 +30,29 @@ const API_BASE = (typeof window !== 'undefined' && window.location && window.loc
   }
 })();
 
+function redirectToLogin() {
+  window.location = LOGIN_URL;
+}
+
+async function fetchOptionalJson(url, fallbackValue, normalize = (value) => value) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return fallbackValue;
+    const data = await res.json();
+    return normalize(data);
+  } catch (err) {
+    return fallbackValue;
+  }
+}
+
 // Check auth and load user info
 async function init() {
   try {
     const res = await fetch('/api/me');
-    if (!res.ok) { window.location = '/login.html'; return; }
+    if (!res.ok) {
+      redirectToLogin();
+      return;
+    }
     const data = await res.json();
     currentUser = data.user;
     document.getElementById('userAvatar').textContent = (currentUser.username || 'A')[0].toUpperCase();
@@ -41,7 +60,7 @@ async function init() {
     await loadCategories();
     await loadAllData();
   } catch (err) {
-    window.location = '/login.html';
+    redirectToLogin();
   }
 }
 
@@ -70,14 +89,18 @@ async function loadCategories() {
 // ===== DATA LOADING & HELPERS =====
 async function loadAllData() {
   try {
-    const [resObat, resLogs, resNotif] = await Promise.all([
-      fetch('/api/obat'),
-      fetch('/api/logs'),
-      fetch('/api/notifications')
-    ]);
-    allObat = await resObat.json();
-    const logs = await resLogs.json();
-    const notif = await resNotif.json();
+    const resObat = await fetch('/api/obat');
+    if (!resObat.ok) throw new Error('Gagal memuat /api/obat');
+    const obatData = await resObat.json();
+    allObat = Array.isArray(obatData) ? obatData : [];
+
+    // Optional endpoints: dashboard remains functional even if one endpoint fails.
+    const logs = await fetchOptionalJson('/api/logs', [], (value) => Array.isArray(value) ? value : []);
+    const notif = await fetchOptionalJson(
+      '/api/notifications',
+      { total: 0 },
+      (value) => (value && typeof value === 'object') ? value : { total: 0 }
+    );
     
     updateDashboard();
     renderDataObatTable(allObat);
@@ -88,6 +111,11 @@ async function loadAllData() {
     updateNotificationBadge(notif);
   } catch (err) {
     console.error('Error loading data:', err);
+    allObat = [];
+    updateDashboard();
+    renderDataObatTable([]);
+    updateCharts();
+    updateActivityLog([]);
   }
 }
 
@@ -172,11 +200,11 @@ function renderDataObatTable(data) {
       if (isNaN(jumlah)) return alert('Jumlah tidak valid');
       const kadaluarsa = prompt('Kadaluarsa (YYYY-MM-DD)', obat.kadaluarsa);
       if (!kadaluarsa) return;
-        const kategori = prompt('Kategori (TABLET BEBAS, TABLET KERAS, SIRUP, SALEP, ETALASE LUAR)', obat.kategori || 'TABLET BEBAS');
-        if (kategori === null) return;
-        const batch = prompt('Batch / Lot (opsional)', obat.batch || '');
-        if (batch === null) return;
-        updateObat(id, { nama, jumlah, kadaluarsa, kategori, batch });
+      const kategori = prompt('Kategori (TABLET BEBAS, TABLET KERAS, SIRUP, SALEP, ETALASE LUAR)', obat.kategori || 'TABLET BEBAS');
+      if (kategori === null) return;
+      const batch = prompt('Batch / Lot (opsional)', obat.batch || '');
+      if (batch === null) return;
+      updateObat(id, { nama, jumlah, kadaluarsa, kategori, batch });
     });
   });
 }
@@ -207,9 +235,14 @@ async function updateObat(id, data) {
 
 // ===== CHART UPDATES =====
 function updateCharts() {
-  const labels = allObat.map(o => o.nama);
-  const data = allObat.map(o => o.jumlah);
-  const colors = allObat.map(o => {
+  // Keep dashboard readable: show top 20 stock items in descending order.
+  const topStock = [...allObat]
+    .sort((a, b) => Number(b.jumlah || 0) - Number(a.jumlah || 0))
+    .slice(0, 20);
+
+  const labels = topStock.map(o => o.nama);
+  const data = topStock.map(o => Number(o.jumlah || 0));
+  const colors = topStock.map(o => {
     const s = getExpiryStatus(o.kadaluarsa).color;
     return s;
   });
@@ -224,7 +257,7 @@ function updateCharts() {
     data: {
       labels,
       datasets: [{
-        label: 'Jumlah Stok',
+        label: 'Jumlah Stok (Top 20)',
         data,
         backgroundColor: colors,
         borderColor: colors.map(c => c.replace('0.', '1.')),
@@ -235,11 +268,18 @@ function updateCharts() {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      indexAxis: 'y',
       scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        x: { beginAtZero: true, ticks: { stepSize: 1 } },
+        y: { ticks: { autoSkip: false } }
       },
       plugins: {
         legend: { display: true, position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: (context) => `Stok: ${context.parsed.x}`
+          }
+        }
       }
     }
   });
@@ -322,14 +362,37 @@ function updateVEDClassification() {
 
 // ===== ACTIVITY LOG =====
 function updateActivityLog(logs) {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  const getTypeLabel = (type) => {
+    const t = String(type || '').toLowerCase();
+    if (t.includes('obat')) return 'OBAT';
+    if (t.includes('auth') || t.includes('login')) return 'AUTH';
+    if (t.includes('user')) return 'USER';
+    return (type || 'LOG').toString().toUpperCase();
+  };
+
+  const formatTime = (iso) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleString('id-ID');
+  };
+
   const list = document.getElementById('activityList');
-  list.innerHTML = logs.slice(0, 10).length
-    ? logs.slice(0, 10).map(l => `<li>[${new Date(l.time).toLocaleString()}] ${l.type.toUpperCase()}: ${l.message}</li>`).join('')
+  list.innerHTML = safeLogs.slice(0, 10).length
+    ? safeLogs.slice(0, 10).map(l => `
+      <li class="activity-item">
+        <span class="activity-type">${getTypeLabel(l.type)}</span>
+        <div class="activity-main">
+          <div class="activity-message">${l.message || '-'}</div>
+          <small class="activity-time">${formatTime(l.time)}</small>
+        </div>
+      </li>
+    `).join('')
     : '<li style="color:#999;">Tidak ada aktivitas</li>';
 
   const logList = document.getElementById('logList');
-  logList.innerHTML = logs.slice(0, 15).length
-    ? logs.slice(0, 15).map(l => `<li>[${new Date(l.time).toLocaleString()}] <strong>${l.type.toUpperCase()}</strong>: ${l.message}</li>`).join('')
+  logList.innerHTML = safeLogs.slice(0, 15).length
+    ? safeLogs.slice(0, 15).map(l => `<li>[${formatTime(l.time)}] <strong>${getTypeLabel(l.type)}</strong>: ${l.message}</li>`).join('')
     : '<li style="color:#999;">Tidak ada log</li>';
 }
 

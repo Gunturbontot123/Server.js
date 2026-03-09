@@ -111,7 +111,7 @@ To upgrade from JSON to SQLite database:
 
 1. **Login Page**: Visit `http://localhost:3000/login.html`
    - Username: `admin`
-   - Password: `admin`
+   - Password: `januari302004`
    - Optional: Check "Ingat Saya" to save username
 
 2. **Dashboard**: After login, you're in the main dashboard

@@ -5,13 +5,27 @@ const { v4: uuidv4 } = require('uuid');
 const helmet = require('helmet');
 const cors = require('cors');
 const PDFDocument = require('pdfkit');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
 const SESSION_SECRET = process.env.SESSION_SECRET || 'obatqu-secret-demo';
+const BCRYPT_ROUNDS = 10;
+const ADMIN_USERNAME = 'admin';
+const ADMIN_EMAIL = 'admin@local';
+const ADMIN_DEFAULT_PASSWORD = 'januari 302004';
 
 const db = require('./database/database');
+
+function isBcryptHash(value) {
+  return /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
+}
+
+function passwordMatches(plainText, stored) {
+  if (isBcryptHash(stored)) return bcrypt.compareSync(plainText, stored);
+  return String(stored || '') === String(plainText || '');
+}
 
 /* ===============================
   DATABASE (shared module)
@@ -33,23 +47,9 @@ db.serialize(() => {
       nama TEXT,
       jumlah INTEGER,
       kadaluarsa TEXT,
-      ved TEXT,
-      batch TEXT,
-      kategori TEXT
+      ved TEXT
     )
   `);
-
-  // Ensure `batch` column exists for older schemas
-  db.all("PRAGMA table_info('obat')", (err, cols) => {
-    if (err) return console.error('PRAGMA error', err);
-    const hasBatch = Array.isArray(cols) && cols.find(c => c.name === 'batch');
-    if (!hasBatch) {
-      db.run("ALTER TABLE obat ADD COLUMN batch TEXT", (aErr) => {
-        if (aErr) return console.error('Failed to add batch column', aErr);
-        console.log('DB migration: added `batch` column to obat');
-      });
-    }
-  });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS logs (
@@ -60,19 +60,33 @@ db.serialize(() => {
     )
   `);
 
-  // Ensure admin user exists (do not delete other users)
-  db.get("SELECT * FROM users WHERE username = ?", ['admin'], (err2, row) => {
+  // Ensure batch and kategori columns exist on obat
+  db.all("PRAGMA table_info('obat')", (err, cols) => {
+    if (err) return;
+    const colNames = (cols || []).map(c => c.name);
+    if (!colNames.includes('batch')) {
+      db.run("ALTER TABLE obat ADD COLUMN batch TEXT", () => {});
+    }
+    if (!colNames.includes('kategori')) {
+      db.run("ALTER TABLE obat ADD COLUMN kategori TEXT DEFAULT 'TABLET BEBAS'", () => {});
+    }
+  });
+
+  // Ensure admin user exists with correct bcrypt password
+  db.get("SELECT * FROM users WHERE username = ?", [ADMIN_USERNAME], (err2, row) => {
     if (err2) { console.error('DB error checking admin', err2); return; }
     if (!row) {
+      const hash = bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, BCRYPT_ROUNDS);
       db.run(
         "INSERT INTO users (username, email, password, role) VALUES (?,?,?,?)",
-        ['admin', 'admin@local', 'admin', 'APJ']
+        [ADMIN_USERNAME, ADMIN_EMAIL, hash, 'APJ']
       );
     } else {
-      db.run(
-        "UPDATE users SET password = ?, role = ? WHERE username = ?",
-        ['admin', 'APJ', 'admin']
-      );
+      // Only fix if password doesn't match
+      if (!passwordMatches(ADMIN_DEFAULT_PASSWORD, row.password)) {
+        const hash = bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, BCRYPT_ROUNDS);
+        db.run("UPDATE users SET password = ?, role = ? WHERE id = ?", [hash, 'APJ', row.id]);
+      }
     }
   });
 });
@@ -81,17 +95,33 @@ db.serialize(() => {
    MIDDLEWARE
 ================================ */
 app.use(helmet({
+  hsts: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
+      connectSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      imgSrc: ["'self'", "data:", "https:"]
+      imgSrc: ["'self'", "data:", "https:"],
+      upgradeInsecureRequests: null
     }
   }
 }));
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+
+// Force no-caching on all API and HTML responses
+app.use((req, res, next) => {
+  const isApi = req.path.startsWith('/api/');
+  const isHtml = req.path.endsWith('.html') || req.path === '/';
+  if (isApi || isHtml) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+  }
+  next();
+});
 
 app.use(session({
   secret: SESSION_SECRET,
@@ -216,45 +246,6 @@ function addLog(type, message) {
   );
 }
 
-// Infer kategori from medicine name when not provided
-function inferKategori(nama) {
-  if (!nama || typeof nama !== 'string') return 'TABLET BEBAS';
-  const s = nama.toLowerCase();
-
-  if (/sirup/.test(s)) return 'SIRUP';
-  if (/salep|ointment|krim|cream|gel|salep/i.test(s)) return 'SALEP';
-  if (/kapsul|tablet|tbl|kaplet|pil/.test(s)) return 'TABLET KERAS';
-  if (/spray|plester|koyo|patch|etalase|luar|topical/.test(s)) return 'ETALASE LUAR';
-
-  // fallback
-  return 'TABLET BEBAS';
-}
-
-const KATEGORI_LIST = [
-  'TABLET BEBAS',
-  'TABLET KERAS',
-  'SIRUP',
-  'SALEP',
-  'ETALASE LUAR'
-];
-
-function normalizeKategori(k) {
-  if (!k) return null;
-  const s = String(k).trim().toUpperCase();
-  // correct common typos
-  if (s === 'SAlep'.toUpperCase()) return 'SALEP';
-  if (KATEGORI_LIST.includes(s)) return s;
-
-  // try fuzzy mapping
-  if (s.includes('SIRUP')) return 'SIRUP';
-  if (s.includes('SALEP') || s.includes('SALAP') || s.includes('SALAP')) return 'SALEP';
-  if (s.includes('ETALASE') || s.includes('LUAR') || s.includes('TOPICAL')) return 'ETALASE LUAR';
-  if (s.includes('KAPLET') || s.includes('KAPSUL') || s.includes('PIL') || s.includes('TABLET')) return 'TABLET KERAS';
-
-  // default
-  return 'TABLET BEBAS';
-}
-
 /* ===============================
    AUTH
 ================================ */
@@ -265,10 +256,10 @@ app.post('/api/login', (req, res) => {
   const isEmail = email && email.includes('@');
   const value = isEmail ? email : username;
   const query = isEmail
-    ? 'SELECT * FROM users WHERE email = ? AND password = ?'
-    : 'SELECT * FROM users WHERE username = ? AND password = ?';
+    ? 'SELECT * FROM users WHERE email = ?'
+    : 'SELECT * FROM users WHERE username = ?';
 
-  db.get(query, [value, password], (err, user) => {
+  db.get(query, [value], (err, user) => {
     if (err) {
       console.error('Login DB error:', err);
       return res.status(500).json({ message: 'DB error' });
@@ -277,9 +268,26 @@ app.post('/api/login', (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    const valid = passwordMatches(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Migrate plaintext password to bcrypt
+    if (!isBcryptHash(user.password)) {
+      const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
+      db.run('UPDATE users SET password = ? WHERE id = ?', [hash, user.id]);
+    }
+
     req.session.user = { id: user.id, username: user.username, role: user.role };
-    addLog('auth', `${user.username} login`);
-    return res.json({ message: 'Logged in', user: req.session.user });
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error('Session save error:', saveErr);
+        return res.status(500).json({ message: 'Session error' });
+      }
+      addLog('auth', `${user.username} login`);
+      return res.json({ message: 'Logged in', user: req.session.user });
+    });
   });
 });
 
@@ -290,15 +298,18 @@ app.post('/api/register', (req, res) => {
     return res.status(400).json({ error: 'Username, email, and password are required' });
   }
 
+  const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
   const sql = `INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)`;
-  db.run(sql, [username, email, password, 'USER'], function (err) {
+  db.run(sql, [username, email, hash, 'USER'], function (err) {
     if (err) {
       return res.status(400).json({ error: err.message });
     }
-    // set session for newly registered user
     req.session.user = { id: this.lastID, username: username, role: 'USER' };
-    addLog('auth', `register ${username}`);
-    res.json({ message: 'User berhasil dibuat', user: req.session.user });
+    req.session.save((saveErr) => {
+      if (saveErr) return res.status(500).json({ message: 'Session error' });
+      addLog('auth', `register ${username}`);
+      res.json({ message: 'User berhasil dibuat', user: req.session.user });
+    });
   });
 });
 
@@ -340,15 +351,14 @@ app.post('/api/obat', authMiddleware, (req, res) => {
   const { nama, jumlah, kadaluarsa, kategori, batch } = req.body || {};
   if (!nama || jumlah == null) return res.status(400).json({ message: 'Nama dan jumlah wajib diisi' });
   const ved = classifyVED(jumlah);
-  const finalKategori = (kategori && String(kategori).trim()) ? String(kategori).trim().toUpperCase() : inferKategori(nama);
 
   db.run(
-    "INSERT INTO obat (id,nama,jumlah,kadaluarsa,ved,batch,kategori) VALUES (?,?,?,?,?,?,?)",
-    [uuidv4(), nama, jumlah, kadaluarsa, ved, batch || null, finalKategori],
+    "INSERT INTO obat (id,nama,jumlah,kadaluarsa,ved,kategori,batch) VALUES (?,?,?,?,?,?,?)",
+    [uuidv4(), nama, jumlah, kadaluarsa, ved, kategori || 'TABLET BEBAS', batch || ''],
     function (err) {
       if (err) return res.status(500).json({ message: 'DB error' });
-      addLog('obat', `Tambah ${nama} [${finalKategori}]`);
-      return res.json({ message: 'Obat ditambahkan', kategori: finalKategori });
+      addLog('obat', `Tambah ${nama}`);
+      return res.json({ message: 'Obat ditambahkan' });
     }
   );
 });
@@ -357,15 +367,14 @@ app.put('/api/obat/:id', authMiddleware, (req, res) => {
   const { nama, jumlah, kadaluarsa, kategori, batch } = req.body || {};
   if (!nama || jumlah == null) return res.status(400).json({ message: 'Nama dan jumlah wajib diisi' });
   const ved = classifyVED(jumlah);
-  const finalKategori = (kategori && String(kategori).trim()) ? String(kategori).trim().toUpperCase() : inferKategori(nama);
 
   db.run(
-    "UPDATE obat SET nama=?, jumlah=?, kadaluarsa=?, ved=?, batch=?, kategori=? WHERE id=?",
-    [nama, jumlah, kadaluarsa, ved, batch || null, finalKategori, req.params.id],
+    "UPDATE obat SET nama=?, jumlah=?, kadaluarsa=?, ved=?, kategori=?, batch=? WHERE id=?",
+    [nama, jumlah, kadaluarsa, ved, kategori || 'TABLET BEBAS', batch || '', req.params.id],
     function (err) {
       if (err) return res.status(500).json({ message: 'DB error' });
-      addLog('obat', `Update ${nama} [${finalKategori}]`);
-      return res.json({ message: 'Updated', kategori: finalKategori });
+      addLog('obat', `Update ${nama}`);
+      return res.json({ message: 'Updated' });
     }
   );
 });
@@ -432,19 +441,10 @@ app.get('/api/ved-analysis', authMiddleware, (req, res) => {
     analysis.forEach(item => {
       byStatus[item.status] = (byStatus[item.status] || 0) + 1;
     });
-
-    // Group by kategori
-    const byKategori = {};
-    analysis.forEach(item => {
-      const k = (item.kategori || 'TABLET BEBAS');
-      byKategori[k] = byKategori[k] || [];
-      byKategori[k].push(item);
-    });
     
     res.json({
       total: analysis.length,
       byVed,
-      byKategori,
       byStatus,
       summary: {
         vital: byVed.V.length,
@@ -456,11 +456,6 @@ app.get('/api/ved-analysis', authMiddleware, (req, res) => {
       }
     });
   });
-});
-
-// Expose kategori list
-app.get('/api/kategori', authMiddleware, (req, res) => {
-  return res.json({ categories: KATEGORI_LIST });
 });
 
 // Get FEFO recommendations (First Expiry First Out)
@@ -581,14 +576,11 @@ app.get('/api/reports/pdf', authMiddleware, (req, res) => {
     
     const stats = { V: 0, E: 0, D: 0, expired: 0, nearExpiry: 0, safe: 0 };
     const vedList = { V: [], E: [], D: [] };
-    const kategoriCounts = {};
     
     rows.forEach(obat => {
       const analysis = analyzeObatVED(obat);
       stats[analysis.ved]++;
       vedList[analysis.ved].push(obat);
-      const k = (obat.kategori || 'TABLET BEBAS');
-      kategoriCounts[k] = (kategoriCounts[k] || 0) + 1;
       
       if (analysis.status === 'kadaluarsa') stats.expired++;
       else if (analysis.status === 'hampir_kadaluarsa') stats.nearExpiry++;
@@ -598,13 +590,6 @@ app.get('/api/reports/pdf', authMiddleware, (req, res) => {
     doc.text(`Total Obat: ${rows.length}`);
     doc.text(`  • Vital (V): ${stats.V} | Essential (E): ${stats.E} | Desirable (D): ${stats.D}`);
     doc.text(`Status: Aman: ${stats.safe} | Perhatian: ${stats.nearExpiry} | Kadaluarsa: ${stats.expired}`);
-    doc.moveDown();
-
-    // Kategori breakdown
-    doc.fontSize(11).font('Helvetica-Bold').text('Breakdown berdasarkan Kategori:');
-    Object.keys(kategoriCounts).forEach(k => {
-      doc.fontSize(10).font('Helvetica').text(`  • ${k}: ${kategoriCounts[k]} item`);
-    });
     doc.moveDown();
     
     // VED Classification Table
@@ -645,11 +630,10 @@ app.get('/api/reports/pdf', authMiddleware, (req, res) => {
     // Table headers
     doc.text('No', 30, y);
     doc.text('Nama Obat', 60, y);
-    doc.text('Batch', 240, y);
-    doc.text('Qty', 300, y);
-    doc.text('VED', 340, y);
-    doc.text('Kadaluarsa', 380, y);
-    doc.text('Status', 470, y);
+    doc.text('Qty', 280, y);
+    doc.text('VED', 320, y);
+    doc.text('Kadaluarsa', 360, y);
+    doc.text('Status', 450, y);
     
     y += 12;
     doc.moveTo(30, y).lineTo(550, y).stroke();
@@ -664,11 +648,10 @@ app.get('/api/reports/pdf', authMiddleware, (req, res) => {
       
       doc.text(`${rowNum}`, 30, y);
       doc.text(obat.nama.substring(0, 25), 60, y);
-      doc.text((obat.batch || '-').toString(), 240, y);
-      doc.text(obat.jumlah.toString(), 300, y);
-      doc.text(analysis.ved, 340, y);
-      doc.text(obat.kadaluarsa || '-', 380, y);
-      doc.text(statusEmoji, 470, y);
+      doc.text(obat.jumlah.toString(), 280, y);
+      doc.text(analysis.ved, 320, y);
+      doc.text(obat.kadaluarsa || '-', 360, y);
+      doc.text(statusEmoji, 450, y);
       
       y += 12;
       if (y > 700) {
@@ -737,6 +720,18 @@ app.get('/api/reports/ved-summary-pdf', authMiddleware, (req, res) => {
 });
 
 /* ===============================
+   KATEGORI
+================================ */
+app.get('/api/kategori', authMiddleware, (req, res) => {
+  db.all("SELECT DISTINCT kategori FROM obat WHERE kategori IS NOT NULL AND kategori != ''", (err, rows) => {
+    if (err) return res.status(500).json({ message: 'DB error' });
+    const cats = rows.map(r => r.kategori).filter(Boolean).sort();
+    if (!cats.length) cats.push('TABLET BEBAS', 'TABLET KERAS', 'SIRUP', 'SALEP', 'ETALASE LUAR');
+    return res.json({ categories: cats });
+  });
+});
+
+/* ===============================
    LOGS (APJ ONLY)
 ================================ */
 app.get('/api/logs', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
@@ -752,10 +747,14 @@ app.get('/api/logs', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
 // Serve static public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Root health-check / quick response
+// Root route: redirect to login or dashboard
 app.get('/', (req, res) => {
-  res.send('Server Apotek Jalan!');
+  const isAuthed = !!(req.session && req.session.user);
+  return res.redirect(isAuthed ? '/dashboard.html' : '/login.html');
 });
+
+app.get('/dashboard', (req, res) => res.redirect('/dashboard.html'));
+app.get('/login', (req, res) => res.redirect('/login.html'));
 
 // Simple SPA fallback to index.html if file not found (for client-side routing)
 app.use((req, res, next) => {
@@ -768,8 +767,8 @@ app.use((req, res, next) => {
   next();
 });
 
-const server = app.listen(3000, () => {
-  console.log("Server berjalan di http://localhost:3000");
+const server = app.listen(PORT, () => {
+  console.log(`Server berjalan di http://localhost:${PORT}`);
 });
 
 process.on('SIGINT', () => {
@@ -778,126 +777,4 @@ process.on('SIGINT', () => {
     db.close();
     process.exit(0);
   });
-});
-
-// Monthly activity/movement PDF report
-app.get('/api/reports/monthly-pdf', authMiddleware, (req, res) => {
-  const month = req.query.month; // expected format YYYY-MM
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-    return res.status(400).json({ message: 'Month query param required in YYYY-MM format' });
-  }
-
-  const [yearStr, monthStr] = month.split('-');
-  const year = parseInt(yearStr, 10);
-  const mon = parseInt(monthStr, 10);
-  if (isNaN(year) || isNaN(mon)) return res.status(400).json({ message: 'Invalid month format' });
-
-  const start = new Date(year, mon - 1, 1).toISOString();
-  const end = new Date(year, mon, 1).toISOString();
-
-  db.all("SELECT * FROM logs WHERE time >= ? AND time < ? ORDER BY time ASC", [start, end], (err, rows) => {
-    if (err) return res.status(500).json({ message: 'DB error' });
-
-    // also fetch current obat snapshot for summary
-    db.all("SELECT * FROM obat", (err2, obatRows) => {
-      if (err2) return res.status(500).json({ message: 'DB error' });
-
-      const doc = new PDFDocument({ margin: 30 });
-      const fileName = `Laporan-Bulanan-${month}.pdf`;
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      doc.pipe(res);
-
-      doc.fontSize(18).font('Helvetica-Bold').text('LAPORAN BULANAN - Aktivitas & Pergerakan Obat', { align: 'center' });
-      doc.fontSize(11).text(`Periode: ${month}`, { align: 'center' });
-      doc.moveDown();
-
-      // Summary
-      doc.fontSize(12).font('Helvetica-Bold').text('RINGKASAN', { underline: false });
-      doc.fontSize(10).font('Helvetica');
-      const totalObat = obatRows.length;
-      const totalLogs = rows.length;
-      const fefoLogs = rows.filter(r => r.type === 'fefo').length;
-      const obatLogs = rows.filter(r => r.type === 'obat').length;
-
-      doc.text(`Total Obat Terdaftar: ${totalObat}`);
-      doc.text(`Total Aktivitas Bulanan: ${totalLogs}`);
-      doc.text(`  • FEFO (keluar): ${fefoLogs}`);
-      doc.text(`  • Operasi Obat (tambah/update/delete): ${obatLogs}`);
-      // Kategori breakdown
-      const kategoriCounts = {};
-      obatRows.forEach(ob => {
-        const k = (ob.kategori || 'TABLET BEBAS');
-        kategoriCounts[k] = (kategoriCounts[k] || 0) + 1;
-      });
-      doc.moveDown();
-      doc.fontSize(11).font('Helvetica-Bold').text('Breakdown berdasarkan Kategori:');
-      Object.keys(kategoriCounts).forEach(k => {
-        doc.fontSize(10).font('Helvetica').text(`  • ${k}: ${kategoriCounts[k]} item`);
-      });
-      doc.moveDown();
-
-      // Detailed log list
-      doc.fontSize(12).font('Helvetica-Bold').text('DAFTAR AKTIVITAS', { marginBottom: 6 });
-      doc.fontSize(9).font('Helvetica');
-      if (!rows.length) {
-        doc.text('Tidak ada aktivitas pada periode ini.');
-      } else {
-        rows.forEach((l, i) => {
-          doc.text(`${i+1}. [${new Date(l.time).toLocaleString('id-ID')}] ${l.type.toUpperCase()}: ${l.message}`);
-          if (doc.y > 720) { doc.addPage(); }
-        });
-      }
-
-      doc.moveDown();
-      doc.fontSize(9).font('Helvetica').text('Laporan ini dihasilkan otomatis oleh sistem obat.Qu', { align: 'center' });
-      doc.end();
-    });
-  });
-});
-
-// Ensure `kategori` column exists on older DBs
-db.all("PRAGMA table_info(obat)", (err, cols) => {
-  if (err) return console.error('PRAGMA error', err);
-  const hasKategori = cols && cols.some(c => c && c.name === 'kategori');
-  if (!hasKategori) {
-    db.run("ALTER TABLE obat ADD COLUMN kategori TEXT", (err2) => {
-      if (err2) console.error('Failed to add kategori column', err2);
-      else console.log('Added kategori column to obat');
-    });
-  }
-});
-
-// Backfill / normalize kategori for existing rows if missing or inconsistent
-db.all("PRAGMA table_info(obat)", (err, cols) => {
-  if (err) return console.error('PRAGMA error (normalization)', err);
-  const hasKategori = cols && cols.some(c => c && c.name === 'kategori');
-
-  function runNormalizationSelect(selectSql) {
-    db.all(selectSql, (sErr, rows) => {
-      if (sErr) return console.error('Failed to read obat for kategori normalization', sErr);
-      if (!rows || !rows.length) return;
-      rows.forEach(r => {
-        try {
-          const cur = (r.kategori || '').toString();
-          const final = (cur && cur.trim()) ? normalizeKategori(cur) : inferKategori(r.nama || '');
-          db.run("UPDATE obat SET kategori = ? WHERE id = ?", [final, r.id], (uerr) => {
-            if (uerr) console.error('Failed to normalize kategori for', r.id, uerr);
-          });
-        } catch (e) {
-          console.error('Normalization error for row', r && r.id, e);
-        }
-      });
-    });
-  }
-
-  if (!hasKategori) {
-    db.run("ALTER TABLE obat ADD COLUMN kategori TEXT", (alterErr) => {
-      if (alterErr) return console.error('Failed to add kategori column during normalization', alterErr);
-      console.log('Added kategori column to obat (normalization)');
-      runNormalizationSelect("SELECT id, nama FROM obat");
-    });
-  } else {
-    runNormalizationSelect("SELECT id, nama, kategori FROM obat");
-  }
 });
