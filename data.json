@@ -1,0 +1,41 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password": "admin"
+    }
+  ],
+  "obat": [],
+  "logs": [
+    {
+      "id": "f85ac6fe-f4fd-4a96-8414-f61d7e869213",
+      "type": "auth",
+      "message": "admin logged in",
+      "time": "2026-02-19T08:26:06.556Z"
+    },
+    {
+      "id": "a0a4ebb2-89eb-4055-b1aa-1baf1289132a",
+      "type": "auth",
+      "message": "admin logged out",
+      "time": "2026-02-19T08:25:54.716Z"
+    },
+    {
+      "id": "3bdc348d-bb0a-49e3-92b2-43e69766e27a",
+      "type": "auth",
+      "message": "admin logged in",
+      "time": "2026-02-19T08:13:10.557Z"
+    },
+    {
+      "id": "8c2de3d8-c260-43fd-824c-7dcca282471f",
+      "type": "auth",
+      "message": "admin logged out",
+      "time": "2026-02-19T08:05:33.473Z"
+    },
+    {
+      "id": "24a2a1d9-2b49-446c-8b77-758c589e3124",
+      "type": "auth",
+      "message": "admin logged in",
+      "time": "2026-02-19T08:05:21.511Z"
+    }
+  ]
+}
