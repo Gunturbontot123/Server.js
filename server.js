@@ -233,7 +233,7 @@ function backfillObatDescriptions() {
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       username TEXT UNIQUE,
       email TEXT,
       password TEXT,
@@ -275,41 +275,14 @@ db.serialize(() => {
     )
   `);
 
-  db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'", (schemaErr, tableInfo) => {
-    if (schemaErr || !tableInfo || !tableInfo.sql) return;
-    const usersSql = String(tableInfo.sql || '').toUpperCase();
-    const emailIsUnique = /EMAIL\s+TEXT\s+UNIQUE/.test(usersSql);
-    if (!emailIsUnique) return;
-
-    db.exec(`
-      PRAGMA foreign_keys = OFF;
-      BEGIN TRANSACTION;
-      DROP TABLE IF EXISTS users_migrated;
-      CREATE TABLE users_migrated (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        email TEXT,
-        password TEXT,
-        role TEXT
-      );
-      INSERT INTO users_migrated (id, username, email, password, role)
-      SELECT id, username, email, password, role FROM users;
-      DROP TABLE users;
-      ALTER TABLE users_migrated RENAME TO users;
-      COMMIT;
-      PRAGMA foreign_keys = ON;
-    `, (migrationErr) => {
-      if (migrationErr) {
-        console.error('Users table migration failed:', migrationErr);
-        db.exec('ROLLBACK; PRAGMA foreign_keys = ON;', () => {});
-      }
-    });
-  });
-
   // Ensure batch, kategori, and deskripsi columns exist on obat
-  db.all("PRAGMA table_info('obat')", (err, cols) => {
+  db.all(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'obat'
+  `, (err, cols) => {
     if (err) return;
-    const colNames = (cols || []).map(c => c.name);
+    const colNames = (cols || []).map(c => c.column_name);
     const missingColumns = [];
     if (!colNames.includes('batch')) missingColumns.push("ALTER TABLE obat ADD COLUMN batch TEXT");
     if (!colNames.includes('kategori')) missingColumns.push("ALTER TABLE obat ADD COLUMN kategori TEXT DEFAULT 'TABLET BEBAS'");
@@ -617,10 +590,10 @@ app.post('/api/register', (req, res) => {
   }
 
   const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
-  const sql = `INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)`;
-  db.run(sql, [normalizedUsername, normalizedEmail, hash, normalizedRole], function (err) {
+  const sql = `INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?) RETURNING id`;
+  db.get(sql, [normalizedUsername, normalizedEmail, hash, normalizedRole], (err, inserted) => {
     if (err) {
-      if (String(err.message || '').includes('users.username')) {
+      if (String(err.code || '') === '23505' || String(err.message || '').includes('users.username')) {
         return res.status(400).json({ error: 'Username sudah dipakai' });
       }
       return res.status(400).json({ error: 'Pendaftaran gagal disimpan' });
@@ -630,7 +603,7 @@ app.post('/api/register', (req, res) => {
         console.error('Session regenerate error:', regenErr);
         return res.status(500).json({ message: 'Session error' });
       }
-      req.session.user = { id: this.lastID, username: normalizedUsername, role: normalizedRole };
+      req.session.user = { id: inserted && inserted.id, username: normalizedUsername, role: normalizedRole };
       req.session.save((saveErr) => {
         if (saveErr) return res.status(500).json({ message: 'Session error' });
         addLog('auth', `register ${normalizedUsername} (${normalizedRole})`);
@@ -819,7 +792,7 @@ app.get('/api/me', (req, res) => {
    USERS (APJ ONLY)
 ================================ */
 app.get('/api/users', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
-  db.all("SELECT id,username,email,role FROM users ORDER BY username COLLATE NOCASE ASC", (err, rows) => {
+  db.all("SELECT id,username,email,role FROM users ORDER BY lower(username) ASC", (err, rows) => {
     if (err) return res.status(500).json({ message: 'DB error' });
     return res.json(rows);
   });
@@ -918,7 +891,7 @@ app.delete('/api/obat/:id', authMiddleware, roleMiddleware(['APJ']), (req, res) 
 ================================ */
 app.post('/api/keluar', authMiddleware, (req, res) => {
   db.all(
-    "SELECT * FROM obat WHERE jumlah > 0 ORDER BY date(kadaluarsa) ASC",
+    "SELECT * FROM obat WHERE jumlah > 0 ORDER BY kadaluarsa ASC",
     (err, rows) => {
       if (err) return res.status(500).json({ message: 'DB error' });
       if (!rows || !rows.length) return res.status(400).json({ message: 'Tidak ada stok' });
