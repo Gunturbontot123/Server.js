@@ -275,7 +275,6 @@ db.serialize(() => {
     )
   `);
 
-  // Ensure batch, kategori, and deskripsi columns exist on obat
   db.all(`
     SELECT column_name
     FROM information_schema.columns
