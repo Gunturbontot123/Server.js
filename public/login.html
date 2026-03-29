@@ -3,137 +3,462 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login - ObatQU.id</title>
-  <link rel="stylesheet" href="/style.css"/>
+  <title>Login - Obat.Qu</title>
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.location.replace('http://localhost:3000/login.html');
+    }
+  </script>
+  <link rel="stylesheet" href="/style.css?v=20260313-login-welcome-centered"/>
 </head>
 <body class="login-body">
-  <div class="login-container card">
-    <div class="login-brand">
-      <div class="logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-          <rect x="2" y="7" width="20" height="10" rx="5" ry="5" />
-          <rect x="3.6" y="8.6" width="9.8" height="7" rx="3.5" ry="3.5" fill="rgba(255,255,255,0.18)" />
-        </svg>
+  <div id="authTransitionOverlay" class="auth-transition-overlay" aria-hidden="true">
+    <div class="auth-transition-card">
+      <div class="auth-transition-spinner" aria-hidden="true"></div>
+      <div class="auth-transition-copy">
+        <strong id="authTransitionTitle">Menyiapkan sesi</strong>
+        <span id="authTransitionMessage">Mohon tunggu, dashboard sedang dibuka.</span>
       </div>
-      <div class="title">obat.Qu</div>
     </div>
-    <h1>Selamat Datang</h1>
-    <h2>Masuk ke obat.Qu — Sistem Manajemen Apotek</h2>
-
-    <div id="alert" style="display:none;color:#eb422f;margin-bottom:10px;"></div>
-
-    <form id="loginForm" autocomplete="off" data-form-type="other">
-      <div class="form-group">
-        <label>Username</label>
-        <input id="username" name="loginId" placeholder="Masukkan username atau email" autocomplete="off" autocapitalize="off" spellcheck="false" />
-      </div>
-
-      <div class="form-group">
-        <label>Password</label>
-        <div class="input-pass">
-          <input id="password" name="loginSecret" type="password" placeholder="••••••" autocomplete="off" />
-          <button type="button" class="pass-toggle" id="togglePass" aria-label="Tampilkan password">👁️</button>
+  </div>
+  <div id="loginInfoOverlay" class="login-info-overlay" aria-hidden="true">
+    <div class="login-info-card" role="dialog" aria-modal="true" aria-labelledby="loginInfoTitle">
+      <button type="button" class="login-info-close" id="closeLoginInfo" aria-label="Tutup penjelasan sistem">✕</button>
+      <div class="login-info-kicker">Penjelasan Sistem</div>
+      <div class="login-info-hero">
+        <div class="login-info-copy">
+          <h3 id="loginInfoTitle">Ringkasan Obat.Qu</h3>
+          <p class="login-info-text">Sistem ini membantu pekerjaan harian apotek dalam satu sistem.</p>
+          <div class="login-info-tags">
+            <span>Stok Obat</span>
+            <span>Kadaluarsa</span>
+            <span>Prioritas</span>
+            <span>Laporan</span>
+          </div>
         </div>
       </div>
-
-      <div class="form-group" style="display:flex; align-items:center; gap:10px;">
-        <label style="font-weight:500;"><input type="checkbox" id="rememberMe" style="margin-right:8px;"> Ingat Saya</label>
+      <div class="login-info-simple-list" aria-label="Ringkasan fitur sistem">
+        <div class="login-info-simple-item">
+          <strong>1. Kelola data obat</strong>
+          <p>Input nama obat, stok, batch, kategori, dan tanggal kadaluarsa.</p>
+        </div>
+        <div class="login-info-simple-item">
+          <strong>2. Pantau kadaluarsa</strong>
+          <p>Lihat obat aman, hampir habis masa berlaku, atau sudah kadaluarsa.</p>
+        </div>
+        <div class="login-info-simple-item">
+          <strong>3. Gunakan laporan</strong>
+          <p>Cetak ringkasan operasional sesuai kebutuhan dan role pengguna.</p>
+        </div>
+        <div class="login-info-simple-item">
+          <strong>4. Use case role pengguna</strong>
+          <p>APJ memiliki akses penuh termasuk manajemen user. Apoteker Pendamping fokus ke operasional obat, monitoring kadaluarsa, pencarian data, dan laporan.</p>
+        </div>
       </div>
-
-      <button class="btn-login" type="submit" id="btnLogin">Masuk</button>
-    </form>
-
-    <div class="login-footer">
-      <a href="/reset-password.html" id="forgotLink" style="color:var(--primary-green); text-decoration:underline;">Lupa password?</a>
-      <div style="color:var(--text-dark);">Belum punya akun? <a href="/register.html" id="registerLink" style="color:var(--primary-green); text-decoration:underline;">Daftar sekarang</a></div>
+      <div style="padding: 16px 24px 20px; border-top: 1px solid rgba(255,255,255,0.08); text-align: center;">
+        <a href="/panduan.html" target="_blank" rel="noopener"
+           style="display:inline-block; padding: 9px 20px; background: rgba(15,191,155,0.15); color: #0fbf9b; border: 1px solid rgba(15,191,155,0.35); border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none; transition: background .2s;"
+           onmouseover="this.style.background='rgba(15,191,155,0.28)'" onmouseout="this.style.background='rgba(15,191,155,0.15)'">
+          📖 Buku Panduan
+        </a>
+      </div>
     </div>
+  </div>
+  <div class="login-shell login-shell-login">
+    <section class="login-showcase" aria-label="Informasi aplikasi">
+      <div class="login-showcase-overlay"></div>
+      <div class="login-showcase-content">
+        <div class="login-brand login-brand-showcase">
+          <div class="logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+              <rect x="2" y="7" width="20" height="10" rx="5" ry="5" />
+              <rect x="3.6" y="8.6" width="9.8" height="7" rx="3.5" ry="3.5" fill="rgba(255,255,255,0.18)" />
+            </svg>
+          </div>
+          <div class="title">obat.Qu</div>
+        </div>
+
+        <div class="login-showcase-minimal" aria-hidden="true">
+          <div class="login-showcase-welcome">
+            <strong>Selamat</strong>
+            <strong>Datang</strong>
+            <span>Masuk untuk mengelola data obat, stok, dan laporan apotek dengan lebih teratur.</span>
+          </div>
+          <div class="login-showcase-orb orb-one"></div>
+          <div class="login-showcase-orb orb-two"></div>
+          <div class="login-showcase-orb orb-three"></div>
+          <div class="login-showcase-ring ring-one"></div>
+          <div class="login-showcase-ring ring-two"></div>
+          <div class="login-showcase-line"></div>
+          <div class="login-showcase-line line-two"></div>
+          <div class="login-showcase-line line-three"></div>
+          <div class="login-showcase-chip chip-one"></div>
+          <div class="login-showcase-chip chip-two"></div>
+          <div class="login-showcase-chip chip-three"></div>
+          <div class="login-showcase-chip chip-four"></div>
+          <div class="login-showcase-glow"></div>
+        </div>
+        <button type="button" id="openLoginInfo" class="login-showcase-action">Lihat penjelasan sistem</button>
+      </div>
+    </section>
+
+    <section class="login-panel" aria-label="Form login">
+      <div class="login-container">
+        <div class="login-heading">
+          <h2>Masuk ke akun Anda</h2>
+          <p>Gunakan username atau email yang sudah terdaftar, lalu pilih role login yang sesuai.</p>
+        </div>
+
+        <div id="alert" class="login-alert" style="display:none;"></div>
+        <div id="sessionNotice" class="login-session-notice" style="display:none;"></div>
+
+        <form id="loginForm" class="login-form" autocomplete="on" data-form-type="other">
+          <div class="form-group login-form-group">
+            <label for="username">Username atau Email</label>
+            <div class="login-input-shell">
+              <span class="login-input-icon" aria-hidden="true">ID</span>
+              <input id="username" name="loginId" type="text" placeholder="Masukkan username atau email" autocomplete="username" autocapitalize="off" spellcheck="false" />
+            </div>
+          </div>
+
+          <div class="form-group login-form-group">
+            <div class="login-label-row">
+              <label for="password">Password</label>
+              <a href="/reset-password.html" id="forgotLink" class="login-inline-link">Lupa password?</a>
+            </div>
+            <div class="input-pass login-input-shell">
+              <span class="login-input-icon" aria-hidden="true">PW</span>
+              <input id="password" name="loginSecret" type="password" placeholder="Masukkan password" autocomplete="current-password" />
+              <button type="button" class="pass-toggle" id="togglePass" aria-label="Tampilkan password">Show</button>
+            </div>
+          </div>
+
+          <div class="form-group login-form-group">
+            <label for="loginRole">Role</label>
+            <select id="loginRole" name="loginRole" class="login-role-native" required>
+              <option value="">Pilih role login</option>
+              <option value="APJ">APJ</option>
+              <option value="APOTEKER_PENDAMPING">Apoteker Pendamping</option>
+            </select>
+          </div>
+
+          <div class="login-row-between">
+            <label class="login-check"><input type="checkbox" id="rememberMe"> Ingat saya</label>
+            <span class="login-hint">Sesi login aman di perangkat ini.</span>
+          </div>
+
+          <button class="btn-login" type="submit" id="btnLogin" data-loading-label="Memproses...">Masuk</button>
+        </form>
+
+        <div class="login-footer login-footer-stack">
+          <span>Masuk dengan akun yang sudah terdaftar.</span>
+          <div class="login-footer-register">
+            <span>Belum punya akun?</span>
+            <a href="/register.html" id="registerLink" class="login-inline-link">Daftar di sini</a>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
 <script>
 // when opened from file://, use localhost API
 const API_BASE = (location && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+const DASHBOARD_URL = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html');
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function setSubmitLoading(button, isLoading) {
+  if (!button) return;
+  button.disabled = isLoading;
+  button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+  button.classList.toggle('is-loading', isLoading);
+}
+
+function showAuthTransition(title, message) {
+  const overlay = document.getElementById('authTransitionOverlay');
+  const titleEl = document.getElementById('authTransitionTitle');
+  const messageEl = document.getElementById('authTransitionMessage');
+  if (titleEl && title) titleEl.textContent = title;
+  if (messageEl && message) messageEl.textContent = message;
+  if (!overlay) return;
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function hideAuthTransition() {
+  const overlay = document.getElementById('authTransitionOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function openLoginInfoOverlay() {
+  const overlay = document.getElementById('loginInfoOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('closing');
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeLoginInfoOverlay() {
+  const overlay = document.getElementById('loginInfoOverlay');
+  if (!overlay) return;
+  overlay.classList.add('closing');
+  window.setTimeout(() => {
+    overlay.classList.remove('open');
+    overlay.classList.remove('closing');
+    overlay.setAttribute('aria-hidden', 'true');
+  }, 220);
+}
+
+function setLoginInfoTab(tabName) {
+  const tabs = document.querySelectorAll('.login-info-tab');
+  const panels = document.querySelectorAll('.login-info-panel');
+  const wrap = document.querySelector('.login-info-panel-wrap');
+  const activeTab = Array.from(tabs).find((tab) => tab.classList.contains('is-active'));
+  if (activeTab && activeTab.dataset.infoTab === tabName) return;
+
+  const currentIndex = Array.from(tabs).findIndex((tab) => tab.classList.contains('is-active'));
+  const nextIndex = Array.from(tabs).findIndex((tab) => tab.dataset.infoTab === tabName);
+  const direction = currentIndex === -1 || nextIndex >= currentIndex ? 'forward' : 'backward';
+  const currentPanel = Array.from(panels).find((panel) => panel.classList.contains('is-active'));
+  const nextPanel = Array.from(panels).find((panel) => panel.dataset.infoPanel === tabName);
+  if (!nextPanel) return;
+
+  if (window.loginInfoTabTimer) {
+    window.clearTimeout(window.loginInfoTabTimer);
+  }
+
+  tabs.forEach((tab) => {
+    const isActive = tab.dataset.infoTab === tabName;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  if (wrap) {
+    wrap.setAttribute('data-direction', direction);
+  }
+
+  panels.forEach((panel) => {
+    panel.classList.remove('is-entering-left', 'is-entering-right', 'is-leaving-left', 'is-leaving-right');
+  });
+
+  if (currentPanel && currentPanel !== nextPanel) {
+    currentPanel.classList.remove('is-active');
+    currentPanel.classList.add(direction === 'forward' ? 'is-leaving-left' : 'is-leaving-right');
+    currentPanel.setAttribute('aria-hidden', 'true');
+  }
+
+  nextPanel.classList.add('is-active', direction === 'forward' ? 'is-entering-right' : 'is-entering-left');
+  nextPanel.setAttribute('aria-hidden', 'false');
+
+  window.loginInfoTabTimer = window.setTimeout(() => {
+    panels.forEach((panel) => {
+      panel.classList.remove('is-entering-left', 'is-entering-right', 'is-leaving-left', 'is-leaving-right');
+      if (!panel.classList.contains('is-active')) {
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    });
+  }, 430);
+}
+
+function showAlert(message, type = 'error') {
+  const el = document.getElementById('alert');
+  if (!el) return;
+  if (!message) {
+    el.style.display = 'none';
+    el.textContent = '';
+    el.className = 'login-alert';
+    return;
+  }
+  el.style.display = 'block';
+  el.className = `login-alert alert-${type}`;
+  el.textContent = message;
+}
+
+function focusShellControl(shell) {
+  if (!shell) return;
+  const control = shell.querySelector('input, select, textarea');
+  if (!control || control.disabled) return;
+  control.focus();
+  if (control.tagName === 'SELECT' && typeof control.showPicker === 'function') {
+    try { control.showPicker(); } catch (err) {}
+  }
+}
+
+function bindLoginFieldShells() {
+  document.querySelectorAll('.login-input-shell').forEach((shell) => {
+    shell.addEventListener('pointerdown', (event) => {
+      const interactive = event.target.closest('button, a, input, select, textarea');
+      if (interactive && interactive !== shell) return;
+      focusShellControl(shell);
+    });
+    shell.addEventListener('click', (event) => {
+      const interactive = event.target.closest('button, a, input, select, textarea');
+      if (interactive && interactive !== shell) return;
+      focusShellControl(shell);
+    });
+  });
+}
+
+async function handleLoginSubmit() {
+  const button = document.getElementById('btnLogin');
+  showAlert('');
+
+  const username = document.getElementById('username').value.trim();
+  const role = document.getElementById('loginRole').value;
+  const password = document.getElementById('password').value;
+
+  if (!username || !role || !password) {
+    showAlert('Username, role, dan password harus diisi.');
+    return;
+  }
+
+  const payload = username.includes('@') ? { email: username, password, role } : { username, password, role };
+
+  try {
+    if (document.getElementById('rememberMe').checked) {
+      localStorage.setItem('rememberUsername', username);
+      localStorage.setItem('rememberRole', role);
+    } else {
+      localStorage.removeItem('rememberUsername');
+      localStorage.removeItem('rememberRole');
+    }
+  } catch (err) {}
+
+  try {
+    setSubmitLoading(button, true);
+
+    const res = await fetch((API_BASE ? API_BASE : '') + '/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({ message: 'Response not JSON' }));
+
+    if (res.ok && data.user) {
+      try { localStorage.setItem('showWelcomeOnNextVisit', '1'); } catch (err) {}
+      showAlert('Login berhasil. Dashboard sedang dibuka.', 'success');
+      showAuthTransition('Login berhasil', 'Menyiapkan sesi dan membuka dashboard Anda.');
+      await wait(520);
+      await confirmSessionAndGoDashboard();
+      return;
+    }
+
+    showAlert(data.message || data.error || 'Login gagal');
+  } catch (err) {
+    console.error('Login error:', err);
+    hideAuthTransition();
+    showAlert('Gagal terhubung ke server: ' + err.message);
+  } finally {
+    setSubmitLoading(button, false);
+  }
+}
+
+async function confirmSessionAndGoDashboard() {
+  const targetUrl = `${DASHBOARD_URL}?auth=1&t=${Date.now()}`;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const res = await fetch((API_BASE ? API_BASE : '') + `/api/me?t=${Date.now()}`, {
+        credentials: 'include',
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        try { sessionStorage.setItem('authRedirectPending', '1'); } catch (err) {}
+        window.location.replace(targetUrl);
+        return;
+      }
+    } catch (err) {}
+    await wait(150 * (attempt + 1));
+  }
+  throw new Error('Session belum aktif di browser.');
+}
+
+function showSessionNotice(user) {
+  const notice = document.getElementById('sessionNotice');
+  const form = document.getElementById('loginForm');
+  if (!notice || !form) return;
+  const activeRole = user.role === 'APJ' ? 'APJ' : 'Apoteker Pendamping';
+  form.style.display = 'none';
+  notice.style.display = 'block';
+  notice.innerHTML = `Anda masih login sebagai <strong>${user.username}</strong> dengan mode <strong>${activeRole}</strong>. Jika ingin masuk dengan akun atau mode lain, logout dulu.<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;"><button id="goDashboardBtn" type="button" class="btn-login" style="width:auto;margin-top:0;">Ke Dashboard</button><button id="switchAccountBtn" type="button" class="btn-secondary" style="width:auto;">Logout & Ganti Akun</button></div>`;
+  document.getElementById('goDashboardBtn').addEventListener('click', () => {
+    window.location = DASHBOARD_URL;
+  });
+  document.getElementById('switchAccountBtn').addEventListener('click', async () => {
+    try {
+      await fetch((API_BASE ? API_BASE : '') + '/api/logout', { method: 'POST', credentials: 'include' });
+    } catch (err) {}
+    notice.style.display = 'none';
+    form.style.display = 'block';
+  });
+}
 
 // remember username if chosen
 document.addEventListener('DOMContentLoaded', ()=>{
   const saved = localStorage.getItem('rememberUsername');
   if (saved) { document.getElementById('username').value = saved; document.getElementById('rememberMe').checked = true; }
+  const savedRole = localStorage.getItem('rememberRole');
+  if (savedRole) document.getElementById('loginRole').value = savedRole;
+  bindLoginFieldShells();
+  const openInfoBtn = document.getElementById('openLoginInfo');
+  const closeInfoBtn = document.getElementById('closeLoginInfo');
+  const infoOverlay = document.getElementById('loginInfoOverlay');
+  const infoTabs = document.querySelectorAll('.login-info-tab');
+  if (openInfoBtn) openInfoBtn.addEventListener('click', openLoginInfoOverlay);
+  if (closeInfoBtn) closeInfoBtn.addEventListener('click', closeLoginInfoOverlay);
+  if (infoTabs.length) {
+    infoTabs.forEach((tab) => {
+      tab.addEventListener('click', () => setLoginInfoTab(tab.dataset.infoTab));
+    });
+  }
+  if (infoOverlay) {
+    infoOverlay.addEventListener('click', (event) => {
+      if (event.target === infoOverlay) closeLoginInfoOverlay();
+    });
+  }
+  fetch((API_BASE ? API_BASE : '') + '/api/me', { credentials: 'include' })
+    .then(async (r) => {
+      if (!r.ok) return null;
+      const data = await r.json().catch(() => null);
+      return data && data.user ? data.user : null;
+    })
+    .then((user) => {
+      if (user) showSessionNotice(user);
+    })
+    .catch(() => {});
 });
 
 // toggle password visibility
 document.getElementById('togglePass').addEventListener('click', (e)=>{
   e.preventDefault();
   const p = document.getElementById('password');
-  if (p.type === 'password') { p.type = 'text'; document.getElementById('togglePass').textContent = '🙈'; }
-  else { p.type = 'password'; document.getElementById('togglePass').textContent = '👁️'; }
+  const toggle = document.getElementById('togglePass');
+  if (p.type === 'password') {
+    p.type = 'text';
+    toggle.textContent = 'Hide';
+    toggle.setAttribute('aria-label', 'Sembunyikan password');
+  }
+  else {
+    p.type = 'password';
+    toggle.textContent = 'Show';
+    toggle.setAttribute('aria-label', 'Tampilkan password');
+  }
+  p.focus({ preventScroll: true });
 });
 
-// Login handler - use button click for reliability
-document.getElementById('btnLogin').addEventListener('click', async (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const el = document.getElementById('alert');
-  el.style.display = 'none';
-  el.textContent = '';
-  
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  
-  if (!username || !password) {
-    el.style.display = 'block'; 
-    el.textContent = 'Username dan password harus diisi.'; 
-    return;
-  }
-  
-  // Build payload: send as email if contains @, else as username
-  const payload = username.includes('@') ? { email: username, password } : { username, password };
-  
-  // Persist username if remember checked
-  try { 
-    if (document.getElementById('rememberMe').checked) {
-      localStorage.setItem('rememberUsername', username);
-    } else {
-      localStorage.removeItem('rememberUsername');
-    }
-  } catch(err){}
-  
-  try {
-    console.log('📤 Sending login request:', JSON.stringify(payload));
-    
-    const res = await fetch((API_BASE ? API_BASE : '') + '/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // Important for file:// -> localhost flow so session cookie is persisted.
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await res.json().catch(()=>({message:'Response not JSON'}));
-    console.log('📥 Response:', res.status, data);
-    
-    if (res.ok && data.user) {
-      console.log('✅ Login berhasil, redirect ke dashboard...');
-      try { localStorage.setItem('showWelcomeOnNextVisit','1'); } catch (e) {}
-      setTimeout(() => {
-        window.location = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html');
-      }, 250);
-    } else {
-      el.style.display = 'block'; 
-      el.textContent = data.message || data.error || 'Login gagal';
-    }
-  } catch (err) {
-    console.error('❌ Error:', err);
-    el.style.display = 'block'; 
-    el.textContent = 'Gagal terhubung ke server: ' + err.message;
-  }
+  await handleLoginSubmit();
 });
 
-// Also allow Enter key to submit
-['username','password'].forEach(id => {
-  document.getElementById(id).addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') { 
-      e.preventDefault();
-      document.getElementById('btnLogin').click(); 
-    }
-  });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeLoginInfoOverlay();
 });
 </script>
 </body>

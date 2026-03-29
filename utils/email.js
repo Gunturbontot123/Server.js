@@ -14,6 +14,10 @@ const transporter = nodemailer.createTransport({
 
 const FALLBACK_LOG = path.join(__dirname, '..', 'email-fallback.log');
 
+function isEmailConfigured() {
+  return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+}
+
 function appendFallbackLog(obj) {
   try {
     const line = JSON.stringify(obj) + '\n';
@@ -27,7 +31,7 @@ function appendFallbackLog(obj) {
 async function sendMail({ to, subject, text, html }) {
   const out = { ts: new Date().toISOString(), to: to || process.env.NOTIFY_TO, subject, text, html };
 
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  if (!isEmailConfigured()) {
     out.error = 'SMTP credentials not configured';
     appendFallbackLog(out);
     console.warn('Email not sent: SMTP credentials not configured. Saved to fallback log.');
@@ -51,4 +55,4 @@ async function sendMail({ to, subject, text, html }) {
   }
 }
 
-module.exports = { sendMail };
+module.exports = { sendMail, isEmailConfigured };

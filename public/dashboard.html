@@ -3,48 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dashboard - ObatQU.id</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.css">
-  <link rel="stylesheet" href="/style.css"/>
+  <title>Dashboard - Obat.Qu </title>
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.location.replace('http://localhost:3000/dashboard.html');
+    }
+  </script>
+  <link rel="stylesheet" href="/style.css?v=20260313-obat-detail-popup"/>
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body dashboard-booting">
 
 <div class="dashboard-layout">
   <!-- Left Sidebar Navigation -->
   <aside id="dashboardSidebar" class="dashboard-sidebar" role="navigation" aria-label="Sidebar utama" aria-hidden="true">
     <div class="sidebar-header">
-      <div class="sidebar-logo">💊 ObatQU.id</div>
+      <div class="sidebar-logo"><span class="brand-mark">OQ</span><span class="brand-text">Obat.Qu</span></div>
       <button class="sidebar-toggle" id="toggleSidebar" aria-hidden="true">☰</button>
     </div>
+    <div id="sidebarDesc" class="sidebar-desc">Jalankan use case pengelolaan obat, monitoring kadaluarsa, monitoring stok, dan laporan dari satu dashboard.</div>
     <nav class="sidebar-nav" role="menu" aria-label="Navigasi utama">
-      <a href="#dashboard" class="nav-item active" data-section="dashboard" role="menuitem" tabindex="0">
-        <span class="nav-icon">📊</span>
+      <a href="#dashboard" class="nav-item active" data-section="dashboard" data-desc="Ringkasan kadaluarsa, stok, dan indikator utama." role="menuitem" tabindex="0">
+        <span class="nav-icon">DB</span>
         <span class="nav-label">Dashboard</span>
       </a>
-      <a href="#data-obat" class="nav-item" data-section="data-obat" role="menuitem" tabindex="0">
-        <span class="nav-icon">💊</span>
-        <span class="nav-label">Data Obat</span>
+      <a href="#data-obat" class="nav-item" data-section="data-obat" data-desc="Mengelola data obat dari satu halaman, termasuk tambah, ubah, dan lihat stok." role="menuitem" tabindex="0">
+        <span class="nav-icon">OB</span>
+        <span class="nav-label">Mengelola Data Obat</span>
       </a>
-      <a href="#tambah-obat" class="nav-item" data-section="tambah-obat" role="menuitem" tabindex="0">
-        <span class="nav-icon">➕</span>
-        <span class="nav-label">Tambah Obat</span>
-      </a>
-      <a href="#keluar-masuk" class="nav-item" data-section="keluar-masuk" role="menuitem" tabindex="0">
-        <span class="nav-icon">🔄</span>
-        <span class="nav-label">Keluar/Masuk</span>
-      </a>
-      <a href="#ved-fefo" class="nav-item" data-section="ved-fefo" role="menuitem" tabindex="0">
-        <span class="nav-icon">📋</span>
+      <a href="#data-kadaluarsa" class="nav-item" data-section="data-kadaluarsa" data-desc="VED-FEFO untuk prioritas obat berdasarkan tingkat penting dan urutan kadaluarsa." role="menuitem" tabindex="0">
+        <span class="nav-icon">VF</span>
         <span class="nav-label">VED-FEFO</span>
       </a>
-      <a href="/reports.html" class="nav-item" data-section="laporan" role="menuitem" tabindex="0">
-        <span class="nav-icon">📈</span>
-        <span class="nav-label">Laporan & Notifikasi</span>
+      <a href="#monitoring-kadaluarsa" class="nav-item" data-section="monitoring-kadaluarsa" data-desc="Monitoring obat yang sudah lewat atau segera habis masa berlakunya." role="menuitem" tabindex="0">
+        <span class="nav-icon">MK</span>
+        <span class="nav-label">Monitoring Kadaluarsa</span>
+      </a>
+      <a href="#monitoring-stok" class="nav-item" data-section="monitoring-stok" data-desc="Monitoring stok habis, stok menipis, kebutuhan reorder, dan prioritas tindakan obat." role="menuitem" tabindex="0">
+        <span class="nav-icon">MS</span>
+        <span class="nav-label">Monitoring Stok</span>
         <span id="notifBadge" style="display:none; background: #e74c3c; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-left: auto;">0</span>
+      </a>
+      <a href="#users" class="nav-item" id="usersNav" data-section="users" data-desc="Mengelola data user dan role pengguna aplikasi." role="menuitem" tabindex="0">
+        <span class="nav-icon">US</span>
+        <span class="nav-label">Mengelola Data User</span>
+      </a>
+      <a href="#laporan" class="nav-item" id="reportsNav" data-section="laporan" data-desc="Cetak dan unduh laporan stok obat." role="menuitem" tabindex="0">
+        <span class="nav-icon">CL</span>
+        <span class="nav-label">Cetak Laporan</span>
       </a>
       <hr style="margin:12px 0; border:none; border-top:1px solid rgba(255,255,255,0.1);">
       <a href="#" class="nav-item" id="logoutBtn" role="menuitem" tabindex="0">
-        <span class="nav-icon">🚪</span>
+        <span class="nav-icon">LO</span>
         <span class="nav-label">Logout</span>
       </a>
     </nav>
@@ -56,14 +65,15 @@
     <header class="dashboard-header">
         <div class="header-left">
           <button id="dotMenu" class="dot-menu" aria-label="Buka menu">⋯</button>
-          <input type="text" id="searchInput" class="search-box" placeholder="🔍 Cari obat..." />
+          <input type="text" id="searchInput" class="search-box" placeholder="Cari obat, batch, atau kategori" />
         </div>
       <div class="header-right">
         <div class="user-info">
           <div class="user-avatar" id="userAvatar">A</div>
           <div class="user-details">
             <div class="user-name" id="userName">Admin</div>
-            <div class="user-status">Online</div>
+            <div class="user-status" id="userPresenceLabel">Akses aktif</div>
+            <div class="user-role-badge" id="userRoleLabel">Role: APJ</div>
           </div>
         </div>
       </div>
@@ -71,94 +81,167 @@
 
     <!-- Content Container -->
     <div class="dashboard-content">
+      <div id="dashboardNotice" class="dashboard-notice notice-info is-hidden" aria-live="polite"></div>
 
       <!-- ===== DASHBOARD SECTION ===== -->
       <section id="section-dashboard" class="content-section active">
         <div class="section-header">
           <h1>Dashboard</h1>
-          <p>Ringkasan stok dan status obat</p>
+          <p>Ringkasan cepat kadaluarsa dan stok obat.</p>
+        </div>
+
+        <div class="dashboard-hero-strip">
+          <div class="dashboard-hero-content">
+            <div class="dashboard-hero-kicker">Ringkasan Operasional</div>
+            <h2 id="dashHeroTitle">Pantau stok dan kadaluarsa dalam satu tampilan</h2>
+            <p id="dashHeroSummary">Sistem akan menyorot prioritas tindakan harian setelah data obat selesai dimuat.</p>
+            <div class="dashboard-hero-chips">
+              <span id="dashHeroChipHealth" class="dashboard-hero-chip">Kondisi: Menunggu data</span>
+              <span id="dashHeroChipFocus" class="dashboard-hero-chip">Fokus: -</span>
+              <span id="dashHeroChipUpdated" class="dashboard-hero-chip">Update: -</span>
+            </div>
+          </div>
+          <div class="dashboard-hero-aside">
+            <div class="dashboard-hero-gauge">
+              <span class="dashboard-hero-gauge-label">Skor Stabilitas</span>
+              <strong id="dashHeroScore">0%</strong>
+              <span id="dashHeroGaugeNote" class="dashboard-hero-gauge-note">Menunggu sinkronisasi data</span>
+            </div>
+          </div>
         </div>
 
         <!-- Stat Cards -->
         <div class="stat-grid">
           <div class="stat-card stat-blue">
-            <div class="stat-icon">💊</div>
+            <div class="stat-icon">STK</div>
             <div class="stat-content">
-              <h3>Total Obat</h3>
-              <p id="totalObat" class="stat-number">0</p>
+              <h3>Total Item Obat</h3>
+              <p id="totalStockQty" class="stat-number">0</p>
+              <span id="totalStockQtyNote" class="stat-note">0 unit stok tersimpan</span>
             </div>
           </div>
-          <div class="stat-card stat-red">
-            <div class="stat-icon">⚠️</div>
+          <div class="stat-card stat-red stock-summary-card" role="button" tabindex="0" data-section="monitoring-kadaluarsa" data-expiry-filter="kadaluarsa" aria-label="Buka menu Monitoring Kadaluarsa">
+            <div class="stat-icon">EXP</div>
             <div class="stat-content">
               <h3>Kadaluarsa</h3>
               <p id="expiredCount" class="stat-number">0</p>
             </div>
           </div>
           <div class="stat-card stat-yellow">
-            <div class="stat-icon">🕐</div>
+            <div class="stat-icon">DUE</div>
             <div class="stat-content">
               <h3>Hampir Kadaluarsa</h3>
               <p id="nearExpireCount" class="stat-number">0</p>
             </div>
           </div>
           <div class="stat-card stat-green">
-            <div class="stat-icon">✅</div>
+            <div class="stat-icon">OK</div>
             <div class="stat-content">
               <h3>Stok Baik</h3>
               <p id="safeStockCount" class="stat-number">0</p>
             </div>
           </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="legend-card">
-          <h3>Indikator Kadaluarsa</h3>
-          <div class="legend-items">
-            <div class="legend-item">
-              <div class="legend-color" style="background:#e74c3c;"></div>
-              <span>Kadaluarsa (sudah berlalu)</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background:#f39c12;"></div>
-              <span>Hampir Kadaluarsa (≤30 hari)</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background:#27ae60;"></div>
-              <span>Baik (>30 hari)</span>
+          <div class="stat-card stat-orange stock-summary-card" role="button" tabindex="0" data-section="monitoring-stok" data-stock-filter="reorder" aria-label="Buka menu Monitoring Stok dengan filter Restock">
+            <div class="stat-icon">RST</div>
+            <div class="stat-content">
+              <h3>Restock</h3>
+              <p id="restockCountStat" class="stat-number">0</p>
             </div>
           </div>
         </div>
 
-        <!-- Chart -->
-        <div class="chart-card">
-          <h3>Grafik Stok Obat</h3>
-          <canvas id="stokChart" height="80"></canvas>
-        </div>
-
-        <!-- Recent Activity -->
-        <div class="activity-card">
-          <h3>Aktivitas Terbaru</h3>
-          <ul id="activityList" class="activity-list"></ul>
+        <div class="dashboard-info-card">
+          <div class="dashboard-info-header">
+            <h3>Keterangan Indikator</h3>
+            <span class="dashboard-info-badge">Panduan Baca Cepat</span>
+          </div>
+          <div class="dashboard-info-grid">
+            <div class="dashboard-info-block">
+              <strong>Total Item Obat (STK)</strong>
+              <p>Menunjukkan jumlah jenis obat yang terdaftar pada sistem. Catatan di bawah angka menampilkan total unit stok tersimpan.</p>
+            </div>
+            <div class="dashboard-info-block">
+              <strong>Kadaluarsa (EXP)</strong>
+              <p>Jumlah obat yang sudah melewati tanggal kadaluarsa dan perlu dipisahkan dari alur distribusi.</p>
+            </div>
+            <div class="dashboard-info-block">
+              <strong>Hampir Kadaluarsa (DUE)</strong>
+              <p>Jumlah obat yang mendekati kadaluarsa dan sebaiknya diprioritaskan lewat rotasi FEFO.</p>
+            </div>
+            <div class="dashboard-info-block">
+              <strong>Stok Baik (OK)</strong>
+              <p>Jumlah obat dengan stok dan masa berlaku yang masih aman untuk operasional rutin.</p>
+            </div>
+            <div class="dashboard-info-block">
+              <strong>Restock (RST)</strong>
+              <p>Jumlah item yang perlu pengisian ulang karena stok menipis atau sudah habis.</p>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- ===== DATA OBAT SECTION ===== -->
       <section id="section-data-obat" class="content-section">
         <div class="section-header">
-          <h1>Data Obat</h1>
-          <p>Daftar lengkap semua obat</p>
+          <h1>Mengelola Data Obat</h1>
+          <p>Daftar lengkap semua obat untuk tambah, ubah, melihat stok, dan membuka penjelasan detail obat dari satu halaman.</p>
         </div>
 
-        <div class="data-tools">
-          <input type="text" id="filterObatInput" class="filter-input" placeholder="🔍 Filter obat..." />
-          <select id="filterStatusInput" class="filter-select">
-            <option value="">Semua Status</option>
-            <option value="kadaluarsa">Kadaluarsa</option>
-            <option value="hampir">Hampir Kadaluarsa</option>
-            <option value="baik">Baik</option>
-          </select>
-          <button id="exportBtn" class="btn-secondary">📥 Export CSV</button>
+        <div class="data-obat-toolbar">
+          <div class="data-tools data-tools-main">
+            <input type="text" id="filterObatInput" class="filter-input" placeholder="Filter nama obat" />
+            <select id="filterKategoriInput" class="filter-select">
+              <option value="">Semua Kategori</option>
+            </select>
+          </div>
+          <div class="data-tools data-tools-actions">
+            <button id="openTambahBtn" type="button" class="btn-primary">Tambah Obat</button>
+          </div>
+        </div>
+
+        <div id="tambahObatCard" class="form-card form-card-inline" style="display:none;">
+          <div class="inline-form-header">
+            <div>
+              <h3>Tambah Obat Baru</h3>
+              <p>Isi data obat baru tanpa pindah halaman.</p>
+            </div>
+            <button id="closeTambahBtn" type="button" class="btn-secondary">Tutup</button>
+          </div>
+          <form id="formTambahObat">
+            <div class="grid-2">
+              <div class="form-group">
+                <label>Nama Obat *</label>
+                <input type="text" id="inputNama" placeholder="Contoh: Paracetamol 500mg" required />
+              </div>
+              <div class="form-group">
+                <label>Jumlah Stok *</label>
+                <input type="number" id="inputJumlah" placeholder="Jumlah" min="1" required />
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label>Tanggal Kadaluarsa *</label>
+                <input type="date" id="inputKadaluarsa" required />
+              </div>
+              <div class="form-group">
+                <label>Kategori</label>
+                <select id="inputKategori">
+                  <option value="">-- Pilih jenis --</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Batch / Lot</label>
+              <input type="text" id="inputBatch" placeholder="Contoh: BATCH-01" />
+            </div>
+            <div class="form-group">
+              <label>Deskripsi Obat</label>
+              <textarea id="inputDeskripsi" class="filter-input" rows="3" placeholder="Contoh: digunakan untuk menurunkan asam urat, sesuai resep dokter"></textarea>
+            </div>
+            <div class="inline-form-actions">
+              <button type="submit" class="btn-primary">Simpan Obat</button>
+            </div>
+          </form>
         </div>
 
         <div class="table-card">
@@ -166,9 +249,13 @@
             <thead>
               <tr>
                 <th>Nama Obat</th>
+                <th>Batch</th>
+                <th>Kategori</th>
+                <th>Deskripsi</th>
                 <th>Jumlah</th>
                 <th>Kadaluarsa</th>
                 <th>Status</th>
+                <th>Prioritas</th>
                 <th>VED</th>
                 <th>Aksi</th>
               </tr>
@@ -178,86 +265,236 @@
         </div>
       </section>
 
-      <!-- ===== TAMBAH OBAT SECTION ===== -->
-      <section id="section-tambah-obat" class="content-section">
-        <div class="section-header">
-          <h1>Tambah Obat Baru</h1>
-          <p>Masukkan data obat baru ke sistem</p>
-        </div>
-
-        <div class="form-card">
-          <form id="formTambahObat">
-            <div class="form-group">
-              <label>Nama Obat *</label>
-              <input type="text" id="inputNama" placeholder="Nama obat" required />
-            </div>
-            <div class="form-group">
-              <label>Jumlah Stok *</label>
-              <input type="number" id="inputJumlah" placeholder="Jumlah" min="1" required />
-            </div>
-            <div class="form-group">
-              <label>Tanggal Kadaluarsa (YYYY-MM-DD) *</label>
-              <input type="date" id="inputKadaluarsa" required />
-            </div>
-            <button type="submit" class="btn-primary">➕ Tambah Obat</button>
-          </form>
-        </div>
-      </section>
-
-      <!-- ===== KELUAR/MASUK OBAT SECTION ===== -->
-      <section id="section-keluar-masuk" class="content-section">
-        <div class="section-header">
-          <h1>Keluar/Masuk Obat</h1>
-          <p>Kelola pergerakan stok obat</p>
-        </div>
-
-        <div class="grid-2">
-          <div class="form-card">
-            <h3>Obat Keluar (FEFO)</h3>
-            <p style="font-size:0.9rem; color:#666;">Ambil obat dengan tanggal kadaluarsa paling awal</p>
-            <button id="keluarBtn" class="btn-primary" style="width:100%; margin-top:12px;">🔄 Keluar 1 Unit</button>
-          </div>
-          <div class="form-card">
-            <h3>Obat Masuk</h3>
-            <form id="formMasukObat">
-              <div class="form-group">
-                <label>Pilih Obat</label>
-                <select id="selectObatMasuk" required>
-                  <option value="">-- Pilih obat --</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Jumlah Masuk</label>
-                <input type="number" id="jumlahMasuk" placeholder="Jumlah" min="1" required />
-              </div>
-              <button type="submit" class="btn-primary">➕ Masuk</button>
-            </form>
-          </div>
-        </div>
-      </section>
-
       <!-- ===== VED-FEFO SECTION ===== -->
-      <section id="section-ved-fefo" class="content-section">
+      <section id="section-data-kadaluarsa" class="content-section">
         <div class="section-header">
-          <h1>Klasifikasi VED-FEFO</h1>
-          <p>Analisis dan rekomendasi berdasarkan nilai dan umur obat</p>
+          <h1>VED-FEFO</h1>
+          <p>Kelola prioritas penanganan obat berdasarkan tingkat penting (VED) dan urutan kadaluarsa (FEFO).</p>
+        </div>
+
+        <div class="data-tools">
+          <select id="vedTimeFilter" class="filter-select">
+            <option value="">Semua Waktu</option>
+            <option value="expired">Sudah Lewat</option>
+            <option value="0-30">0 - 30 Hari</option>
+            <option value="31-90">31 - 90 Hari</option>
+            <option value=">90">Lebih dari 90 Hari</option>
+          </select>
+          <select id="vedMonthFilter" class="filter-select">
+            <option value="">Semua Bulan</option>
+          </select>
+        </div>
+
+        <div class="report-grid report-grid-compact">
+          <div class="report-card">
+            <h3>Vital</h3>
+            <p id="vedVitalCount" class="report-number">0 item</p>
+          </div>
+          <div class="report-card">
+            <h3>Essential</h3>
+            <p id="vedEssentialCount" class="report-number">0 item</p>
+          </div>
+          <div class="report-card">
+            <h3>Desirable</h3>
+            <p id="vedDesirableCount" class="report-number">0 item</p>
+          </div>
+        </div>
+
+        <div class="ved-priority-card">
+          <div class="ved-priority-header">
+            <h3>Visual Ranking Prioritas</h3>
+            <p id="vedPriorityRuleNote">Urutan ditentukan dari bulan kadaluarsa terdekat. Jika bulan sama, prioritas VED: V lalu E lalu D.</p>
+          </div>
+          <ol id="vedPriorityList" class="ved-priority-list"></ol>
         </div>
 
         <div class="ved-container">
           <div class="ved-card ved-v">
             <h3>V - Vital</h3>
-            <p class="ved-desc">Jumlah sangat rendah (≤2)</p>
-            <ul id="vedVList" class="ved-list"></ul>
+            <p class="ved-desc">Obat kritis yang harus diprioritaskan lebih dulu berdasarkan FEFO.</p>
+            <ul id="vedVitalList" class="ved-list"></ul>
           </div>
+
           <div class="ved-card ved-e">
             <h3>E - Essential</h3>
-            <p class="ved-desc">Jumlah rendah (3-10)</p>
-            <ul id="vedEList" class="ved-list"></ul>
+            <p class="ved-desc">Obat penting yang perlu dipantau ketat dari sisi kadaluarsa dan stok.</p>
+            <ul id="vedEssentialList" class="ved-list"></ul>
           </div>
+
           <div class="ved-card ved-d">
             <h3>D - Desirable</h3>
-            <p class="ved-desc">Jumlah cukup (>10)</p>
-            <ul id="vedDList" class="ved-list"></ul>
+            <p class="ved-desc">Obat dengan prioritas normal yang tetap diurutkan sesuai FEFO.</p>
+            <ul id="vedDesirableList" class="ved-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MONITORING KADALUARSA SECTION ===== -->
+      <section id="section-monitoring-kadaluarsa" class="content-section">
+        <div class="section-header">
+          <h1>Monitoring Kadaluarsa</h1>
+          <p>Pantau obat yang sudah kadaluarsa atau akan segera kadaluarsa.</p>
+        </div>
+
+        <div class="report-grid report-grid-compact">
+          <div class="report-card">
+            <h3>Sudah Kadaluarsa</h3>
+            <p id="monitoringExpiredCount" class="report-number">0 item</p>
+          </div>
+          <div class="report-card">
+            <h3>Hampir Kadaluarsa</h3>
+            <p id="monitoringNearExpireCount" class="report-number">0 item</p>
+          </div>
+          <div class="report-card">
+            <h3>Total Perlu Dipantau</h3>
+            <p id="monitoringTotalCount" class="report-number">0 item</p>
+          </div>
+        </div>
+
+        <div class="data-tools monitoring-tools">
+          <select id="monitoringExpiryFilter" class="filter-select">
+            <option value="">Semua Status</option>
+            <option value="kadaluarsa">Kadaluarsa</option>
+            <option value="hampir">Hampir Kadaluarsa</option>
+            <option value="baik">Baik</option>
+          </select>
+        </div>
+
+        <div class="ved-priority-card">
+          <div class="ved-priority-header">
+            <h3>Ranking Prioritas Kadaluarsa</h3>
+            <p id="monitoringExpiryPriorityNote">Sumber ranking VED-FEFO (konteks Monitoring Kadaluarsa): tanggal terdekat diprioritaskan, jika sama maka V lebih dulu.</p>
+          </div>
+          <ol id="monitoringExpiryPriorityList" class="ved-priority-list"></ol>
+        </div>
+
+        <div class="table-card">
+          <h3>Daftar Obat Monitoring Kadaluarsa</h3>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nama Obat</th>
+                <th>Batch</th>
+                <th>Kadaluarsa</th>
+                <th>Sisa Hari</th>
+                <th>Status</th>
+                <th>Prioritas</th>
+                <th>VED-FEFO</th>
+              </tr>
+            </thead>
+            <tbody id="monitoringExpiryTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== MONITORING STOK SECTION ===== -->
+      <section id="section-monitoring-stok" class="content-section">
+        <div class="section-header">
+          <h1>Monitoring Stok</h1>
+          <p>Pantau stok habis, stok menipis, kebutuhan reorder, dan prioritas tindakan obat dari satu menu.</p>
+        </div>
+
+        <div class="dashboard-info-card dashboard-stock-card">
+          <div class="dashboard-info-header">
+            <h3>Ringkasan Stok Obat</h3>
+            <span class="dashboard-info-badge">Stok</span>
+          </div>
+          <div class="report-grid report-grid-compact dashboard-stock-grid">
+            <button type="button" class="report-card stock-summary-card" data-section="data-obat">
+              <h3>Stok Habis</h3>
+              <p id="outOfStockCount" class="report-number">0 item</p>
+            </button>
+            <button type="button" class="report-card stock-summary-card" data-section="data-obat">
+              <h3>Stok Menipis</h3>
+              <p id="lowStockCount" class="report-number">0 item</p>
+            </button>
+            <button type="button" class="report-card stock-summary-card" data-section="data-obat">
+              <h3>Perlu Reorder</h3>
+              <p id="reorderCount" class="report-number">0 item</p>
+            </button>
+          </div>
+          <div class="dashboard-info-block dashboard-stock-note">
+            <strong>Catatan stok hari ini</strong>
+            <p id="stockSummary">Ringkasan stok obat akan tampil setelah data dimuat.</p>
+            <p class="section-subnote">Ranking stok menggunakan konteks Monitoring Stok. Jika nilai utama sama, urutan VED dipakai sebagai pembeda.</p>
+            <div class="dashboard-priority-legend">
+              <div class="dashboard-priority-legend-item">
+                <span class="dashboard-priority-dot priority-rank-1"></span>
+                <span><strong>P1</strong> stok habis atau paling mendesak</span>
+              </div>
+              <div class="dashboard-priority-legend-item">
+                <span class="dashboard-priority-dot priority-rank-2"></span>
+                <span><strong>P2</strong> stok menipis dan perlu dipantau</span>
+              </div>
+              <div class="dashboard-priority-legend-item">
+                <span class="dashboard-priority-dot priority-rank-3"></span>
+                <span><strong>P3</strong> perlu reorder dengan urgensi lebih rendah</span>
+              </div>
+            </div>
+            <ul id="priorityStockList" class="dashboard-priority-list"></ul>
+          </div>
+        </div>
+
+        <div class="data-tools monitoring-tools">
+          <select id="stockMonitoringFilter" class="filter-select">
+            <option value="">Semua Status</option>
+            <option value="habis">Habis</option>
+            <option value="menipis">Menipis</option>
+            <option value="reorder">Perlu Reorder</option>
+          </select>
+        </div>
+
+        <div class="table-card">
+          <h3>Daftar Monitoring Stok</h3>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nama Obat</th>
+                <th>Batch</th>
+                <th>Jumlah</th>
+                <th>Kadaluarsa</th>
+                <th>Status Stok</th>
+                <th>Prioritas</th>
+                <th>VED-FEFO</th>
+              </tr>
+            </thead>
+            <tbody id="stockMonitoringTable"></tbody>
+          </table>
+        </div>
+
+        <div class="form-card">
+          <h3>Peringatan Otomatis</h3>
+          <p class="section-subnote">Notifikasi otomatis untuk stok menipis dan obat mendekati kedaluwarsa.</p>
+          <div id="autoAlertSummary" class="section-subnote" style="margin-top:8px;">Belum ada peringatan.</div>
+          <ul id="autoAlertList" class="auto-alert-list"></ul>
+        </div>
+      </section>
+
+      <!-- ===== USERS SECTION ===== -->
+      <section id="section-users" class="content-section">
+        <div class="section-header">
+          <h1>Mengelola Data User</h1>
+          <p>Kelola data user serta role APJ dan Apoteker Pendamping dari dashboard.</p>
+          <p class="section-subnote">Akun APJ yang sedang dipakai tetap dikunci sebagai APJ untuk mencegah akses admin terputus.</p>
+        </div>
+
+        <div class="form-card">
+          <div class="data-tools">
+            <input type="text" id="userSearchInput" class="filter-input" placeholder="🔍 Cari username atau email..." />
+            <button id="refreshUsersBtn" type="button" class="btn-secondary">Muat Ulang User</button>
+          </div>
+          <div class="table-card" style="margin-bottom:0;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody"></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -265,28 +502,21 @@
       <!-- ===== LAPORAN SECTION ===== -->
       <section id="section-laporan" class="content-section">
         <div class="section-header">
-          <h1>Laporan & Analitik</h1>
-          <p>Ringkasan komprehensif data obat</p>
+          <h1>Cetak Laporan</h1>
+          <p>Unduh laporan stok obat sesuai kebutuhan operasional.</p>
         </div>
 
-        <div class="report-grid">
-          <div class="report-card">
-            <h3>Total Nilai Stok</h3>
-            <p id="totalStockValue" class="report-number">Rp 0</p>
+        <div class="form-card">
+          <h3>Unduh Laporan Bulanan</h3>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Bulan Laporan</label>
+              <input type="month" id="reportMonth" />
+            </div>
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+              <button id="downloadMonthlyPdf" type="button" class="btn-primary" style="width:100%;">Unduh PDF Bulanan</button>
+            </div>
           </div>
-          <div class="report-card">
-            <h3>Obat Kritis</h3>
-            <p id="criticalMedicines" class="report-number">0 item</p>
-          </div>
-          <div class="report-card">
-            <h3>Tingkat Kadaluarsa</h3>
-            <p id="expireRate" class="report-number">0%</p>
-          </div>
-        </div>
-
-        <div class="log-card">
-          <h3>Riwayat Aktivitas (15 terbaru)</h3>
-          <ul id="logList" class="log-list"></ul>
         </div>
       </section>
 
@@ -294,7 +524,138 @@
   </main>
 </div>
 
+<div id="welcomeOverlay" class="modal-overlay" aria-hidden="true">
+  <div class="modal welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+    <button id="closeWelcome" type="button" class="modal-close" aria-label="Tutup">✕</button>
+    <div class="modal-hero">
+      <div class="hero-illustration hero-illustration-mini" aria-hidden="true">
+        <div class="hero-pill hero-pill-a">Obat.Qu</div>
+        <div class="hero-pill hero-pill-b">FEFO</div>
+      </div>
+      <div class="hero-text">
+        <div class="welcome-kicker">Selamat Datang</div>
+        <h3 id="welcomeTitle">Prioritas kerja hari ini</h3>
+        <p class="hero-sub">Lihat ringkasan kondisi hari ini sebelum melanjutkan pekerjaan di dashboard.</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="welcome-summary">
+        <div class="welcome-highlight">
+          <strong id="welcomeRoleTitle">Mode akses aktif</strong>
+          <span id="welcomeRoleHint">Hak akses akan ditampilkan sesuai role login Anda.</span>
+        </div>
+        <div class="welcome-highlight">
+          <strong>Prioritas hari ini</strong>
+          <span id="welcomePriorityHint">Data prioritas akan muncul setelah sinkronisasi selesai.</span>
+        </div>
+      </div>
+
+      <div class="welcome-stats">
+        <div class="welcome-stat-card">
+          <span class="welcome-stat-icon">EXP</span>
+          <span>
+            <strong id="welcomeExpiredCount">0 item</strong>
+            <span>Kadaluarsa</span>
+          </span>
+        </div>
+        <div class="welcome-stat-card">
+          <span class="welcome-stat-icon">DUE</span>
+          <span>
+            <strong id="welcomeNearExpireCount">0 item</strong>
+            <span>Hampir kadaluarsa (<=30 hari)</span>
+          </span>
+        </div>
+        <div class="welcome-stat-card">
+          <span class="welcome-stat-icon">LOW</span>
+          <span>
+            <strong id="welcomeCriticalCount">0 item</strong>
+            <span>Stok kritis (<=2)</span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="welcomeFooterCopy" class="welcome-footer-copy">Periksa prioritas utama hari ini, lalu lanjutkan ke dashboard untuk tindakan berikutnya.</div>
+      <div class="modal-actions">
+        <button id="startWelcome" type="button" class="btn-modal primary">Masuk Dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="obatDetailOverlay" class="modal-overlay modal-overlay-soft" aria-hidden="true">
+  <div class="modal obat-detail-modal" role="dialog" aria-modal="true" aria-labelledby="obatDetailTitle">
+    <button id="closeObatDetail" type="button" class="modal-close" aria-label="Tutup detail obat">✕</button>
+    <div class="modal-hero modal-hero-detail">
+      <div class="hero-illustration hero-illustration-mini obat-detail-illustration" aria-hidden="true">
+        <div class="hero-pill hero-pill-a" id="obatDetailVed">VED</div>
+        <div class="hero-pill hero-pill-b" id="obatDetailStatusPill">Status</div>
+      </div>
+      <div class="hero-text">
+        <div class="welcome-kicker">Detail Obat</div>
+        <h3 id="obatDetailTitle">Nama Obat</h3>
+        <p id="obatDetailSubtitle" class="hero-sub">Batch, kategori, dan pemantauan stok.</p>
+      </div>
+    </div>
+    <div class="modal-body obat-detail-body">
+      <div class="obat-detail-grid">
+        <div class="obat-detail-card">
+          <strong>Definisi singkat</strong>
+          <p id="obatDetailDescription">Penjelasan obat akan tampil di sini.</p>
+        </div>
+        <div class="obat-detail-card obat-detail-card-accent">
+          <strong>Definisi kategori</strong>
+          <p id="obatDetailCategoryDescription">Penjelasan kategori akan tampil di sini.</p>
+        </div>
+      </div>
+      <div class="obat-detail-meta">
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">ID Obat</span>
+          <strong id="obatDetailId">-</strong>
+        </div>
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">Kategori</span>
+          <strong id="obatDetailKategori">-</strong>
+        </div>
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">Status</span>
+          <strong id="obatDetailStatus">-</strong>
+        </div>
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">Jumlah stok</span>
+          <strong id="obatDetailJumlah">0</strong>
+        </div>
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">Kadaluarsa</span>
+          <strong id="obatDetailKadaluarsa">-</strong>
+        </div>
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">Batch / Lot</span>
+          <strong id="obatDetailBatch">-</strong>
+        </div>
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">Sisa hari</span>
+          <strong id="obatDetailSisaHari">-</strong>
+        </div>
+        <div class="obat-detail-stat">
+          <span class="obat-detail-stat-label">Prioritas</span>
+          <strong id="obatDetailPrioritas">-</strong>
+        </div>
+      </div>
+      <div class="obat-detail-note" id="obatDetailNote">Catatan pemantauan obat akan muncul di sini.</div>
+    </div>
+    <div class="modal-footer">
+      <div class="welcome-footer-copy">Popup ini membantu membaca definisi obat tanpa memenuhi tabel utama.</div>
+      <div class="modal-actions">
+        <button id="closeObatDetailFooter" type="button" class="btn-modal primary">Tutup Detail</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="/app.js"></script>
+<script src="/app.js?v=20260313-obat-detail-popup"></script>
 </body>
 </html>

@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Laporan & Notifikasi - <Obat class="QU"></Obat></title>
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.location.replace('http://localhost:3000/reports.html');
+    }
+  </script>
   <link rel="stylesheet" href="/style.css"/>
   <style>
     .reports-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
@@ -69,7 +74,7 @@
       </div>
 
       <div class="report-card">
-        <h3>🎯 Ringkasan VED-FEFO</h3>
+        <h3>🎯 Ringkasan Stok dan Kadaluarsa</h3>
         <p>Analisis kategori Vital, Essential, dan Desirable dengan rekomendasi.</p>
         <button onclick="downloadReport('ved-summary-pdf')">Download PDF</button>
       </div>
@@ -94,9 +99,30 @@
   </div>
 
   <script>
+    const API_BASE = (location && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+
+    async function ensureAuth() {
+      try {
+        const res = await fetch((API_BASE ? API_BASE : '') + '/api/me', { credentials: 'include' });
+        if (!res.ok) {
+          window.location = (API_BASE ? API_BASE + '/login.html' : '/login.html');
+          return false;
+        }
+        const data = await res.json();
+        if (!data.user || !['APJ', 'APOTEKER_PENDAMPING'].includes(data.user.role)) {
+          document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f7fbfc;font-family:Poppins,sans-serif;padding:24px;"><div style="max-width:520px;background:#fff;border-radius:16px;padding:28px;box-shadow:0 12px 32px rgba(0,0,0,0.08);text-align:center;"><h1 style="margin:0 0 10px;">Akses Dibatasi</h1><p style="margin:0 0 18px;color:#64748b;">Halaman laporan hanya tersedia untuk role APJ atau Apoteker Pendamping.</p><a href="/dashboard.html" style="display:inline-block;padding:10px 16px;background:#0fbf9b;color:#fff;text-decoration:none;border-radius:10px;">Kembali ke Dashboard</a></div></div>';
+          return false;
+        }
+        return true;
+      } catch (err) {
+        window.location = (API_BASE ? API_BASE + '/login.html' : '/login.html');
+        return false;
+      }
+    }
+
     async function loadNotifications() {
       try {
-        const res = await fetch('/api/notifications', { credentials: 'same-origin' });
+        const res = await fetch((API_BASE ? API_BASE : '') + '/api/notifications', { credentials: 'include' });
         const data = await res.json();
         
         const container = document.getElementById('notificationsContainer');
@@ -128,7 +154,7 @@
 
     async function loadStats() {
       try {
-        const res = await fetch('/api/ved-analysis', { credentials: 'same-origin' });
+        const res = await fetch((API_BASE ? API_BASE : '') + '/api/ved-analysis', { credentials: 'include' });
         const data = await res.json();
         
         const container = document.getElementById('statsContainer');
@@ -166,25 +192,12 @@
 
     function downloadReport(type) {
       const urls = {
-        'full-pdf': '/api/reports/pdf',
-        'ved-summary-pdf': '/api/reports/ved-summary-pdf',
-        'full-csv': '#'
+        'full-pdf': (API_BASE ? API_BASE : '') + '/api/reports/pdf',
+        'ved-summary-pdf': (API_BASE ? API_BASE : '') + '/api/reports/ved-summary-pdf',
+        'full-csv': (API_BASE ? API_BASE : '') + '/api/reports/csv',
+        'critical-pdf': (API_BASE ? API_BASE : '') + '/api/reports/critical-pdf',
+        'daily-pdf': (API_BASE ? API_BASE : '') + '/api/reports/daily-pdf'
       };
-      
-      if (type === 'full-csv') {
-        alert('CSV export coming soon!');
-        return;
-      }
-      
-      if (type === 'critical-pdf') {
-        alert('Critical report coming soon!');
-        return;
-      }
-      
-      if (type === 'daily-pdf') {
-        alert('Daily report coming soon!');
-        return;
-      }
       
       if (urls[type]) {
         window.location = urls[type];
@@ -192,7 +205,9 @@
     }
 
     // Load on page load
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
+      const ok = await ensureAuth();
+      if (!ok) return;
       loadNotifications();
       loadStats();
       // Refresh every 30 seconds
