@@ -8,8 +8,6 @@ let latestActivityCount = 0;
 // When the page is opened from the file system (file://) we need an absolute API base
 const API_BASE = (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') ? 'http://localhost:3000' : '';
 const LOGIN_URL = API_BASE ? `${API_BASE}/login.html` : '/login.html';
-const currentUrl = (typeof window !== 'undefined' && window.location) ? new URL(window.location.href) : null;
-const authRedirectPending = currentUrl ? currentUrl.searchParams.get('auth') === '1' : false;
 
 // Ensure fetch sends credentials by default (so session cookies are included)
 (function(){
@@ -39,6 +37,47 @@ function redirectToLogin() {
   window.location = LOGIN_URL;
 }
 
+function setupProfileDropdown() {
+  const toggle = document.getElementById('userInfoDropdownToggle');
+  const menu = document.getElementById('userDropdownMenu');
+  const logoutBtn = document.getElementById('logoutBtnDropdown');
+  const profileBtn = menu ? menu.querySelector('a[data-section="profile"]') : null;
+
+  if (!toggle || !menu) return;
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = menu.style.display === 'none';
+    menu.style.display = isHidden ? 'block' : 'none';
+    toggle.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!menu.contains(e.target) && e.target !== toggle) {
+      menu.style.display = 'none';
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const logoutButton = document.getElementById('logoutBtn');
+      if (logoutButton) logoutButton.click();
+    });
+  }
+
+  if (profileBtn) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      goToSection('profile');
+      updateProfileInfo();
+      menu.style.display = 'none';
+      toggle.setAttribute('aria-expanded', 'false');
+    });
+  }
+}
+
 function showDashboardEntryOverlay(title, message) {
   const overlay = document.getElementById('dashboardEntryOverlay');
   if (!overlay) return;
@@ -64,10 +103,8 @@ function markDashboardReady() {
 }
 
 showDashboardEntryOverlay(
-  authRedirectPending ? 'Login berhasil' : 'Memuat Dashboard',
-  authRedirectPending
-    ? 'Menyiapkan dashboard dan memuat data awal Anda.'
-    : 'Menyiapkan ringkasan stok, aktivitas, dan notifikasi terbaru.'
+  'Memuat Dashboard',
+  'Menyiapkan ringkasan stok, aktivitas, dan notifikasi terbaru.'
 );
 
 function setTambahObatPanelOpen(isOpen) {
@@ -91,9 +128,21 @@ function goToSection(section) {
     nav.click();
     return;
   }
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
   document.querySelectorAll('.content-section').forEach((s) => s.classList.remove('active'));
   const sec = document.getElementById(`section-${section}`);
   if (sec) sec.classList.add('active');
+}
+
+function updateProfileInfo() {
+  if (!currentUser) return;
+  const usernameEl = document.getElementById('profileUsername');
+  const emailEl = document.getElementById('profileEmail');
+  const roleEl = document.getElementById('profileRole');
+
+  if (usernameEl) usernameEl.textContent = currentUser.username || '-';
+  if (emailEl) emailEl.textContent = currentUser.email || '-';
+  if (roleEl) roleEl.textContent = getRoleLabel(currentUser.role) || '-';
 }
 
 function getRoleLabel(role) {
@@ -363,28 +412,25 @@ async function fetchOptionalJson(url, fallbackValue, normalize = (value) => valu
   }
 }
 
+async function fetchCurrentUser() {
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(`/api/me?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) return res.json();
+      lastError = new Error(`Auth failed: ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 150 * (attempt + 1)));
+  }
+  throw lastError || new Error('Auth failed');
+}
+
 // Check auth and load user info
 async function init() {
   try {
-    let res = null;
-    for (let attempt = 0; attempt < (authRedirectPending ? 6 : 1); attempt += 1) {
-      res = await fetch(`/api/me?t=${Date.now()}`, { cache: 'no-store' });
-      if (res.ok) break;
-      if (!authRedirectPending) break;
-      await new Promise((resolve) => window.setTimeout(resolve, 150 * (attempt + 1)));
-    }
-    if (!res || !res.ok) {
-      try { sessionStorage.removeItem('authRedirectPending'); } catch (err) {}
-      redirectToLogin();
-      return;
-    }
-    const data = await res.json();
-    if (authRedirectPending && currentUrl) {
-      currentUrl.searchParams.delete('auth');
-      currentUrl.searchParams.delete('t');
-      window.history.replaceState({}, document.title, currentUrl.pathname + currentUrl.search + currentUrl.hash);
-    }
-    try { sessionStorage.removeItem('authRedirectPending'); } catch (err) {}
+    const data = await fetchCurrentUser();
     currentUser = data.user;
     const userAvatar = document.getElementById('userAvatar');
     const userName = document.getElementById('userName');
@@ -395,6 +441,7 @@ async function init() {
     await loadAllData();
     markDashboardReady();
   } catch (err) {
+    console.error("Initialization failed:", err);
     hideDashboardEntryOverlay();
     redirectToLogin();
   }
@@ -1017,7 +1064,6 @@ function updateDashboard() {
   const dashTotalItemSummary = document.getElementById('dashTotalItemSummary');
   const dashTotalUnitSummary = document.getElementById('dashTotalUnitSummary');
   const dashSafeStockSummary = document.getElementById('dashSafeStockSummary');
-  const dashInventoryReview = document.getElementById('dashInventoryReview');
   const dashExpiredSummary = document.getElementById('dashExpiredSummary');
   const dashNearExpireSummary = document.getElementById('dashNearExpireSummary');
   const dashOutOfStockSummary = document.getElementById('dashOutOfStockSummary');
@@ -1158,16 +1204,11 @@ function renderDataObatTable(data) {
     const deleteAction = isApj() ? `<button class="btn-delete" data-id="${o.id}">🗑️ Hapus</button>` : '';
     const st = getExpiryStatus(o.kadaluarsa);
     const priority = getObatPriority(o);
-    const deskripsi = String(o.deskripsi || '').trim();
-    const deskripsiPreview = deskripsi
-      ? (deskripsi.length > 90 ? `${deskripsi.slice(0, 90)}...` : deskripsi)
-      : '—';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><button type="button" class="obat-name-trigger" data-id="${escapeHtml(o.id)}">${escapeHtml(o.nama || '—')}</button></td>
       <td>${o.batch || '—'}</td>
       <td>${o.kategori || '—'}</td>
-      <td title="${escapeHtml(deskripsi)}">${escapeHtml(deskripsiPreview)}</td>
       <td>${o.jumlah}</td>
       <td>${o.kadaluarsa || '—'}</td>
       <td><span class="status-badge status-${st.key}">${st.label}</span></td>
@@ -1670,242 +1711,78 @@ document.addEventListener('keydown', (event) => {
 
 // ===== SIDEBAR NAVIGATION =====
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', (e) => {
+  item.addEventListener('click', function(e) {
     e.preventDefault();
-    const section = item.dataset.section;
-    if (!section) return; // logout button
+    const section = this.dataset.section;
 
-    // update active nav
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    item.classList.add('active');
+    if (section === 'profile') {
+      updateProfileInfo();
+    }
 
-    // show section
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
     document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-    const sec = document.getElementById(`section-${section}`);
-    if (sec) sec.classList.add('active');
-
-    if (section !== 'data-obat') setTambahObatPanelOpen(false);
-  });
-});
-
-// Sidebar description behaviour: update description box on hover/focus
-const sidebarDescEl = document.getElementById('sidebarDesc');
-document.querySelectorAll('.nav-item').forEach(it => {
-  const desc = it.dataset.desc || '';
-  it.addEventListener('mouseenter', () => { if (sidebarDescEl && desc) sidebarDescEl.textContent = desc; });
-  it.addEventListener('focus', () => { if (sidebarDescEl && desc) sidebarDescEl.textContent = desc; });
-  it.addEventListener('mouseleave', () => { if (sidebarDescEl) sidebarDescEl.textContent = document.querySelector('.nav-item.active')?.dataset.desc || '' });
-});
-
-// Logout
-const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) logoutBtn.addEventListener('click', async (e) => {
-  e.preventDefault();
-  if (!confirm('Logout?')) return;
-  try {
-    await fetch('/api/logout', { method: 'POST' });
-    window.location = LOGIN_URL;
-  } catch (err) {
-    console.error('Error:', err);
-  }
-});
-
-// Sidebar toggle on mobile
-// Sidebar toggle (three-dot modern menu)
-// create overlay element (if not present in DOM, dashboard.html will include it later)
-if (!document.querySelector('.sidebar-overlay')) {
-  const ov = document.createElement('div');
-  ov.className = 'sidebar-overlay';
-  ov.tabIndex = -1;
-  ov.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(ov);
-}
-
-const dotMenu = document.getElementById('dotMenu');
-const overlay = document.querySelector('.sidebar-overlay');
-const sidebar = document.getElementById('dashboardSidebar');
-
-function openSidebar() {
-  document.body.classList.add('sidebar-visible');
-  if (dotMenu) dotMenu.setAttribute('aria-expanded', 'true');
-  if (sidebar) sidebar.setAttribute('aria-hidden', 'false');
-  // focus first menu item for keyboard users
-  const first = document.querySelector('.sidebar-nav .nav-item');
-  if (first) first.focus();
-}
-
-function closeSidebar() {
-  document.body.classList.remove('sidebar-visible');
-  if (dotMenu) dotMenu.setAttribute('aria-expanded', 'false');
-  if (sidebar) sidebar.setAttribute('aria-hidden', 'true');
-  if (dotMenu) dotMenu.focus();
-}
-
-if (dotMenu) {
-  dotMenu.setAttribute('aria-controls', 'dashboardSidebar');
-  dotMenu.setAttribute('aria-expanded', 'false');
-  dotMenu.addEventListener('click', () => {
-    if (document.body.classList.contains('sidebar-visible')) closeSidebar();
-    else openSidebar();
-  });
-  // keyboard activation
-  dotMenu.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      dotMenu.click();
-    }
-  });
-}
-
-overlay && overlay.addEventListener('click', closeSidebar);
-
-// Close on Escape
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && document.body.classList.contains('sidebar-visible')) {
-    closeSidebar();
-  }
-});
-
-// Close sidebar when clicking a nav-item (improves UX)
-document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
-  item.addEventListener('click', () => {
-    closeSidebar();
-  });
-  // allow Enter/Space to activate links when focused
-  item.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      item.click();
-    }
-  });
-});
-
-// ===== INIT =====
-window.addEventListener('load', init);
-
-// ===== WELCOME POPUP LOGIC =====
-function showWelcomePopup() {
-  try {
-    if (welcomePopupShown) return;
-    welcomePopupShown = true;
-
-    const keyShow = 'showWelcomeOnNextVisit';
-    const shouldShow = localStorage.getItem(keyShow) || authRedirectPending;
-    if (!shouldShow) return;
-    try { localStorage.removeItem(keyShow); } catch (e) {}
-
-    const overlay = document.getElementById('welcomeOverlay');
-    if (!overlay) return;
-
-    const expiredCount = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'kadaluarsa').length;
-    const nearExpireCount = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'hampir').length;
-    const criticalCount = allObat.filter((obat) => Number(obat.jumlah) <= 2).length;
-
-    const roleTitle = document.getElementById('welcomeRoleTitle');
-    const roleHint = document.getElementById('welcomeRoleHint');
-    const priorityHint = document.getElementById('welcomePriorityHint');
-    const footerCopy = document.getElementById('welcomeFooterCopy');
-    const expiredCountEl = document.getElementById('welcomeExpiredCount');
-    const nearExpireCountEl = document.getElementById('welcomeNearExpireCount');
-    const criticalCountEl = document.getElementById('welcomeCriticalCount');
-
-    if (expiredCountEl) expiredCountEl.textContent = `${expiredCount} item`;
-    if (nearExpireCountEl) nearExpireCountEl.textContent = `${nearExpireCount} item`;
-    if (criticalCountEl) criticalCountEl.textContent = `${criticalCount} item`;
-
-    if (currentUser) {
-      const roleLabel = getRoleLabel(currentUser.role);
-      if (roleTitle) roleTitle.textContent = `Mode akses aktif: ${roleLabel}`;
-      if (roleHint) {
-        roleHint.textContent = isApj()
-          ? 'APJ dapat mengelola user, data obat, monitoring kadaluarsa, monitoring stok, dan laporan.'
-          : 'Apoteker Pendamping fokus pada operasional obat, monitoring kadaluarsa, monitoring stok, dan laporan.';
+    if (section) {
+      const targetSection = document.getElementById(`section-${section}`);
+      if (targetSection) {
+        targetSection.classList.add('active');
       }
     }
-
-    let highestPriorityText = 'Kondisi stok dan kadaluarsa terpantau normal hari ini.';
-    if (expiredCount > 0) {
-      highestPriorityText = `${expiredCount} obat sudah kadaluarsa. Tindak lanjuti dulu pada menu Monitoring Kadaluarsa.`;
-    } else if (nearExpireCount > 0) {
-      highestPriorityText = `${nearExpireCount} obat mendekati kadaluarsa (<=30 hari). Siapkan rencana penggunaan FEFO.`;
-    } else if (criticalCount > 0) {
-      highestPriorityText = `${criticalCount} obat berada pada stok kritis (<=2). Pertimbangkan restok prioritas.`;
+    const sidebar = document.getElementById('dashboardSidebar');
+    if (sidebar.classList.contains('is-open')) {
+      sidebar.classList.remove('is-open');
     }
-    if (priorityHint) priorityHint.textContent = highestPriorityText;
-
-    if (footerCopy) {
-      footerCopy.textContent = expiredCount > 0
-        ? 'Ada item yang perlu segera ditindaklanjuti. Buka dashboard untuk melihat detailnya.'
-        : 'Ringkasan awal sudah siap. Lanjutkan ke dashboard untuk memulai pekerjaan hari ini.';
-    }
-
-    overlay.classList.add('open');
-    overlay.setAttribute('aria-hidden', 'false');
-    // animate modal card
-    const modalEl = overlay.querySelector('.modal');
-    if (modalEl) {
-      modalEl.classList.remove('opening');
-      // trigger reflow then add class to animate
-      void modalEl.offsetWidth;
-      modalEl.classList.add('opening');
-      modalEl.addEventListener('animationend', () => modalEl.classList.remove('opening'), { once: true });
-    }
-
-    const closeBtn = document.getElementById('closeWelcome');
-    const startBtn = document.getElementById('startWelcome');
-
-    function close() {
-      overlay.classList.remove('open');
-      overlay.setAttribute('aria-hidden', 'true');
-    }
-
-    if (closeBtn) closeBtn.addEventListener('click', () => close(), { once: true });
-    if (startBtn) startBtn.addEventListener('click', () => { close(); }, { once: true });
-
-    // close when clicking outside modal content
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    }, { once: true });
-  } catch (err) {
-    console.error('Welcome popup error', err);
-  }
-}
-
-// show popup shortly after load (gives SPA time to initialize)
-window.addEventListener('load', () => setTimeout(showWelcomePopup, 600));
-bindObatDetailPopup();
-
-// Reports: download monthly PDF
-const downloadMonthlyBtn = document.getElementById('downloadMonthlyPdf');
-if (downloadMonthlyBtn) {
-  downloadMonthlyBtn.addEventListener('click', () => {
-    const monthInput = document.getElementById('reportMonth');
-    const m = monthInput ? monthInput.value : null;
-    if (!m) return showToast('Pilih bulan terlebih dahulu.', 'warning');
-    const url = (API_BASE ? API_BASE : '') + `/api/reports/monthly-pdf?month=${encodeURIComponent(m)}`;
-    // open in new tab to trigger download
-    window.open(url, '_blank');
   });
-  // default month to current month
-  const mi = document.getElementById('reportMonth');
-  if (mi && !mi.value) {
-    const now = new Date();
-    const y = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2,'0');
-    mi.value = `${y}-${mm}`;
-  }
-}
+});
 
-const openTambahBtn = document.getElementById('openTambahBtn');
-if (openTambahBtn) {
-  openTambahBtn.addEventListener('click', () => {
-    const card = document.getElementById('tambahObatCard');
-    if (!card) return;
-    setTambahObatPanelOpen(card.style.display !== 'block');
+const requestPasswordResetBtn = document.getElementById('requestPasswordResetBtn');
+if (requestPasswordResetBtn) {
+  requestPasswordResetBtn.addEventListener('click', async () => {
+    if (!currentUser || !currentUser.email) {
+      showToast('Email pengguna tidak ditemukan.', 'error');
+      return;
+    }
+      
+    requestPasswordResetBtn.disabled = true;
+    requestPasswordResetBtn.textContent = 'Mengirim...';
+
+    try {
+      const res = await fetch('/api/request-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUser.email }),
+      });
+      const data = await res.json();
+      showToast(data.message, res.ok ? 'success' : 'error');
+    } catch (err) {
+      showToast('Gagal meminta reset password. Coba lagi nanti.', 'error');
+    } finally {
+      requestPasswordResetBtn.disabled = false;
+      requestPasswordResetBtn.textContent = 'Kirim Link Reset Password';
+    }
   });
 }
 
-const closeTambahBtn = document.getElementById('closeTambahBtn');
-if (closeTambahBtn) {
-  closeTambahBtn.addEventListener('click', () => setTambahObatPanelOpen(false));
+const changePasswordForm = document.getElementById('changePasswordForm');
+if (changePasswordForm) {
+  changePasswordForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (newPassword !== confirmPassword) {
+      showToast('Password baru dan konfirmasi tidak cocok.', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast('Password baru minimal harus 6 karakter.', 'error');
+      return;
+    }
+    changePassword(currentPassword, newPassword);
+  });
 }
+
+// Initialize
+init();
+setupProfileDropdown();

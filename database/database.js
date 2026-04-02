@@ -75,7 +75,6 @@ class PostgresCompatDb {
             user: process.env.PGUSER || 'postgres',
             password: process.env.PGPASSWORD || '',
             connectionString: connectionString || undefined,
-            ssl: { rejectUnauthorized: false }
           },
 
     );

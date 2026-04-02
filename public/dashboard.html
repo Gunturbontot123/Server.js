@@ -68,13 +68,17 @@
           <input type="text" id="searchInput" class="search-box" placeholder="Cari obat, batch, atau kategori" />
         </div>
       <div class="header-right">
-        <div class="user-info">
+        <div class="user-info" id="userInfoDropdownToggle" tabindex="0" aria-haspopup="true" aria-expanded="false">
           <div class="user-avatar" id="userAvatar">A</div>
           <div class="user-details">
             <div class="user-name" id="userName">Admin</div>
             <div class="user-status" id="userPresenceLabel">Akses aktif</div>
             <div class="user-role-badge" id="userRoleLabel">Role: APJ</div>
           </div>
+        </div>
+        <div id="userDropdownMenu" class="dropdown-menu" style="display: none;">
+          <a href="#profile" class="dropdown-item" data-section="profile">Profil Saya</a>
+          <a href="#" id="logoutBtnDropdown" class="dropdown-item">Logout</a>
         </div>
       </div>
     </header>
@@ -87,7 +91,17 @@
       <section id="section-dashboard" class="content-section active">
         <div class="section-header">
           <h1>Dashboard</h1>
-          <p>Ringkasan cepat kadaluarsa dan stok obat.</p>
+          <p>Ringkasan kondisi stok dan masa berlaku obat untuk memulai pemantauan harian.</p>
+          <div class="header-guide" aria-label="Keterangan indikator dashboard">
+            <p class="header-guide-title">Keterangan Indikator</p>
+            <ul class="header-guide-list">
+              <li><strong>STK</strong><span>Total item obat yang terdaftar.</span></li>
+              <li><strong>EXP</strong><span>Jumlah item yang sudah kadaluarsa.</span></li>
+              <li><strong>DUE</strong><span>Jumlah item yang mendekati kadaluarsa.</span></li>
+              <li><strong>OK</strong><span>Jumlah item dengan kondisi stok aman.</span></li>
+              <li><strong>RST</strong><span>Jumlah item yang perlu restock.</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="dashboard-hero-strip">
@@ -185,6 +199,20 @@
         <div class="section-header">
           <h1>Mengelola Data Obat</h1>
           <p>Daftar lengkap semua obat untuk tambah, ubah, melihat stok, dan membuka penjelasan detail obat dari satu halaman.</p>
+          <div class="header-guide" aria-label="Keterangan header tabel data obat">
+            <p class="header-guide-title">Keterangan Header Tabel</p>
+            <ul class="header-guide-list">
+              <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
+              <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
+              <li><strong>Kategori</strong><span>Jenis atau kelompok obat.</span></li>
+              <li><strong>Jumlah</strong><span>Total stok unit saat ini.</span></li>
+              <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
+              <li><strong>Status</strong><span>Kondisi masa berlaku obat.</span></li>
+              <li><strong>Prioritas (P1-P3)</strong><span>Urutan tindakan penanganan.</span></li>
+              <li><strong>VED</strong><span>Tingkat kepentingan obat.</span></li>
+              <li><strong>Aksi</strong><span>Tombol edit atau hapus data.</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="data-obat-toolbar">
@@ -251,7 +279,6 @@
                 <th>Nama Obat</th>
                 <th>Batch</th>
                 <th>Kategori</th>
-                <th>Deskripsi</th>
                 <th>Jumlah</th>
                 <th>Kadaluarsa</th>
                 <th>Status</th>
@@ -270,6 +297,15 @@
         <div class="section-header">
           <h1>VED-FEFO</h1>
           <p>Kelola prioritas penanganan obat berdasarkan tingkat penting (VED) dan urutan kadaluarsa (FEFO).</p>
+          <div class="header-guide" aria-label="Keterangan VED FEFO">
+            <p class="header-guide-title">Keterangan VED-FEFO</p>
+            <ul class="header-guide-list">
+              <li><strong>Vital</strong><span>Kelompok obat paling kritis.</span></li>
+              <li><strong>Essential</strong><span>Kelompok obat penting untuk layanan.</span></li>
+              <li><strong>Desirable</strong><span>Kelompok obat prioritas normal.</span></li>
+              <li><strong>Ranking</strong><span>Urutan ditentukan oleh FEFO lalu VED.</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="data-tools">
@@ -334,6 +370,18 @@
         <div class="section-header">
           <h1>Monitoring Kadaluarsa</h1>
           <p>Pantau obat yang sudah kadaluarsa atau akan segera kadaluarsa.</p>
+          <div class="header-guide" aria-label="Keterangan header tabel monitoring kadaluarsa">
+            <p class="header-guide-title">Keterangan Header Tabel</p>
+            <ul class="header-guide-list">
+              <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
+              <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
+              <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
+              <li><strong>Sisa Hari</strong><span>Estimasi waktu menuju kadaluarsa.</span></li>
+              <li><strong>Status</strong><span>Kondisi masa berlaku saat ini.</span></li>
+              <li><strong>Prioritas</strong><span>Tingkat urgensi tindakan.</span></li>
+              <li><strong>VED-FEFO</strong><span>Gabungan kepentingan dan urutan tanggal.</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="report-grid report-grid-compact">
@@ -392,6 +440,18 @@
         <div class="section-header">
           <h1>Monitoring Stok</h1>
           <p>Pantau stok habis, stok menipis, kebutuhan reorder, dan prioritas tindakan obat dari satu menu.</p>
+          <div class="header-guide" aria-label="Keterangan header tabel monitoring stok">
+            <p class="header-guide-title">Keterangan Header Tabel</p>
+            <ul class="header-guide-list">
+              <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
+              <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
+              <li><strong>Jumlah</strong><span>Total stok unit saat ini.</span></li>
+              <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
+              <li><strong>Status Stok</strong><span>Kondisi aman, menipis, atau habis.</span></li>
+              <li><strong>Prioritas</strong><span>Urutan tindakan restock.</span></li>
+              <li><strong>VED-FEFO</strong><span>Konteks penting dan urutan keluar.</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="dashboard-info-card dashboard-stock-card">
@@ -475,6 +535,15 @@
         <div class="section-header">
           <h1>Mengelola Data User</h1>
           <p>Kelola data user serta role APJ dan Apoteker Pendamping dari dashboard.</p>
+          <div class="header-guide" aria-label="Keterangan header tabel data user">
+            <p class="header-guide-title">Keterangan Header Tabel</p>
+            <ul class="header-guide-list">
+              <li><strong>Username</strong><span>Nama akun pengguna.</span></li>
+              <li><strong>Email</strong><span>Alamat login pengguna.</span></li>
+              <li><strong>Role</strong><span>Tingkat akses APJ atau Apoteker Pendamping.</span></li>
+              <li><strong>Aksi</strong><span>Tombol menyimpan perubahan role.</span></li>
+            </ul>
+          </div>
           <p class="section-subnote">Akun APJ yang sedang dipakai tetap dikunci sebagai APJ untuk mencegah akses admin terputus.</p>
         </div>
 
@@ -504,6 +573,13 @@
         <div class="section-header">
           <h1>Cetak Laporan</h1>
           <p>Unduh laporan stok obat sesuai kebutuhan operasional.</p>
+          <div class="header-guide" aria-label="Keterangan form cetak laporan">
+            <p class="header-guide-title">Keterangan Form</p>
+            <ul class="header-guide-list">
+              <li><strong>Bulan Laporan</strong><span>Pilih periode data yang akan dicetak.</span></li>
+              <li><strong>Unduh PDF Bulanan</strong><span>Buat dan unduh file laporan sesuai periode.</span></li>
+            </ul>
+          </div>
         </div>
 
         <div class="form-card">
@@ -517,6 +593,37 @@
               <button id="downloadMonthlyPdf" type="button" class="btn-primary" style="width:100%;">Unduh PDF Bulanan</button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- ===== PROFILE SECTION ===== -->
+      <section id="section-profile" class="content-section">
+        <div class="section-header">
+          <h1>Profil Pengguna</h1>
+          <p>Lihat informasi profil Anda.</p>
+        </div>
+
+        <div class="form-card">
+          <h3>Informasi Akun</h3>
+          <div class="profile-info-grid">
+            <div class="profile-info-item">
+              <label>Nama Pengguna</label>
+              <p id="profileUsername">-</p>
+            </div>
+            <div class="profile-info-item">
+              <label>Email</label>
+              <p id="profileEmail">-</p>
+            </div>
+            <div class="profile-info-item">
+              <label>Role</label>
+              <p id="profileRole">-</p>
+            </div>
+          </div>
+        </div>
+        <div class="form-card">
+          <h3>Ubah Password</h3>
+          <p class="section-subnote">Untuk mengubah password, kami akan mengirimkan link ke email terdaftar Anda.</p>
+          <button type="button" id="requestPasswordResetBtn" class="btn-primary" style="margin-top: 12px;">Kirim Link Reset Password</button>
         </div>
       </section>
 

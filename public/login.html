@@ -109,6 +109,7 @@
           <p>Gunakan username atau email yang sudah terdaftar, lalu pilih role login yang sesuai.</p>
         </div>
 
+
         <div id="alert" class="login-alert" style="display:none;"></div>
         <div id="sessionNotice" class="login-session-notice" style="display:none;"></div>
 
@@ -346,7 +347,7 @@ async function handleLoginSubmit() {
       showAlert('Login berhasil. Dashboard sedang dibuka.', 'success');
       showAuthTransition('Login berhasil', 'Menyiapkan sesi dan membuka dashboard Anda.');
       await wait(520);
-      await confirmSessionAndGoDashboard();
+      window.location.replace(DASHBOARD_URL);
       return;
     }
 
@@ -360,24 +361,7 @@ async function handleLoginSubmit() {
   }
 }
 
-async function confirmSessionAndGoDashboard() {
-  const targetUrl = `${DASHBOARD_URL}?auth=1&t=${Date.now()}`;
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    try {
-      const res = await fetch((API_BASE ? API_BASE : '') + `/api/me?t=${Date.now()}`, {
-        credentials: 'include',
-        cache: 'no-store'
-      });
-      if (res.ok) {
-        try { sessionStorage.setItem('authRedirectPending', '1'); } catch (err) {}
-        window.location.replace(targetUrl);
-        return;
-      }
-    } catch (err) {}
-    await wait(150 * (attempt + 1));
-  }
-  throw new Error('Session belum aktif di browser.');
-}
+// Session cookie is already set by the server; redirect directly after login.
 
 function showSessionNotice(user) {
   const notice = document.getElementById('sessionNotice');

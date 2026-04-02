@@ -782,9 +782,110 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
-app.get('/api/me', (req, res) => {
-  if (req.session && req.session.user) return res.json({ user: req.session.user });
-  return res.status(401).json({ message: 'Not authenticated' });
+app.get('/api/me', authMiddleware, (req, res) => {
+  db.get('SELECT id, username, email, role FROM users WHERE id = ?', [req.session.user.id], (err, user) => {
+    if (err || !user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ user: { ...req.session.user, ...user } });
+  });
+});
+
+app.put('/api/user/password', authMiddleware, (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.session.user.id;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Password saat ini dan password baru harus diisi.' });
+  }
+
+  if (newPassword.length < 4) {
+    return res.status(400).json({ message: 'Password baru minimal 4 karakter.' });
+  }
+
+  db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err) {
+      console.error('Password change lookup error:', err);
+      return res.status(500).json({ message: 'DB error' });
+    }
+    if (!user) {
+      return res.status(404).json({ message: 'User tidak ditemukan.' });
+    }
+
+    if (!passwordMatches(currentPassword, user.password)) {
+      return res.status(400).json({ message: 'Password saat ini salah.' });
+    }
+
+    const hash = bcrypt.hashSync(newPassword, BCRYPT_ROUNDS);
+    db.run('UPDATE users SET password = ? WHERE id = ?', [hash, userId], (updateErr) => {
+      if (updateErr) {
+        console.error('Password change update error:', updateErr);
+        return res.status(500).json({ message: 'Gagal mengubah password.' });
+      }
+      addLog('auth', `User ${user.username} changed their password.`);
+      res.json({ message: 'Password berhasil diubah.' });
+    });
+  });
+});
+
+app.post('/api/request-password-reset', authMiddleware, (req, res) => {
+  const userId = req.session.user.id;
+
+  const complete = (delivery) => res.json({ 
+    message: delivery === 'email' 
+      ? 'Link reset password telah dikirim ke email Anda.'
+      : 'SMTP tidak terkonfigurasi. Link reset disimpan di log server.',
+    delivery
+  });
+
+  db.get("SELECT id, username, email FROM users WHERE id = ?", [userId], (err, user) => {
+    if (err || !user) {
+      console.error('Request reset password error:', err);
+      return res.status(500).json({ message: 'Gagal memproses permintaan: user tidak ditemukan.' });
+    }
+
+    const rawToken = createResetToken();
+    const tokenHash = hashResetToken(rawToken);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + PASSWORD_RESET_TTL_MS).toISOString();
+    const resetLink = `${APP_BASE_URL}/reset-password.html?token=${encodeURIComponent(rawToken)}`;
+
+    db.serialize(() => {
+      db.run("DELETE FROM password_reset_tokens WHERE user_id = ?", [user.id]);
+      db.run(
+        "INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at) VALUES (?,?,?,?,?)",
+        [uuidv4(), user.id, tokenHash, expiresAt, now.toISOString()],
+        async (insertErr) => {
+          if (insertErr) {
+            console.error('Reset password token insert error:', insertErr);
+            return res.status(500).json({ message: 'DB error' });
+          }
+
+          const subject = 'Reset Password Obat.Qu';
+          const text = `Halo ${user.username},\n\nBuka link berikut untuk mengganti password Anda: ${resetLink}\n\nLink ini berlaku selama 30 menit. Abaikan email ini jika Anda tidak meminta reset password.`;
+          const html = `
+            <div style="font-family:Arial,sans-serif;line-height:1.5;">
+              <h3>Reset Password Obat.Qu</h3>
+              <p>Halo <strong>${user.username}</strong>,</p>
+              <p>Klik tombol di bawah untuk mengganti password Anda.</p>
+              <p><a href="${resetLink}" style="display:inline-block;padding:10px 16px;background:#0fbf9b;color:#fff;text-decoration:none;border-radius:8px;">Ganti Password</a></p>
+              <p>Link berlaku selama 30 menit. Abaikan email ini jika Anda tidak meminta reset password.</p>
+            </div>`;
+
+          try {
+            await sendMail({ to: user.email, subject, text, html });
+            addLog('auth', `Password reset link sent to ${user.username}`);
+            complete('email');
+          } catch (mailError) {
+            console.error(`Gagal mengirim email reset password ke ${user.email}:`, mailError);
+            // Fallback: Log link ke file jika email gagal
+            fs.appendFileSync('email-fallback.log', `[${new Date().toISOString()}] RESET LINK for ${user.username} (${user.email}): ${resetLink}\n`);
+            complete('fallback-log');
+          }
+        }
+      );
+    });
+  });
 });
 
 /* ===============================
