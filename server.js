@@ -1643,7 +1643,7 @@ function writePanduanPdf(doc) {
     const y = top - 16;
     drawRoundedCard(left, y, contentWidth, 14, 7, colors.primarySoft, null);
     doc.fillColor(colors.primary).font('Helvetica-Bold').fontSize(8.6)
-      .text('BUKU PANDUAN OBAT.QU', left + 10, y + 3, { width: contentWidth - 20, align: 'left' });
+      .text('obatqu.online', left + 10, y + 3, { width: contentWidth - 20, align: 'left' });
     doc.y = top + 4;
   };
 
@@ -1657,7 +1657,7 @@ function writePanduanPdf(doc) {
       .text('DOKUMENTASI RESMI', left + 28, top + 23, { width: 130 });
 
     doc.fillColor('#f8fafc').font('Helvetica-Bold').fontSize(27)
-      .text('Buku Panduan Obat.Qu', left + 18, top + 52, { width: contentWidth - 36 });
+      .text('obatqu.online', left + 18, top + 52, { width: contentWidth - 36 });
 
     doc.fillColor('#cbd5e1').font('Helvetica').fontSize(11)
       .text('Versi 1.3 | April 2026', left + 20, top + 104, { width: 250 });
@@ -1772,12 +1772,12 @@ function writePanduanPdf(doc) {
 app.get('/api/panduan/pdf', (req, res) => {
   try {
     const doc = new PDFDocument({ margin: 42, size: 'A4', compress: false });
-    const fileName = 'Buku-Panduan-Obat.Qu-April-2026.pdf';
+    const fileName = 'obatqu-online-panduan-April-2026.pdf';
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     
-    doc.info.Title = 'Buku Panduan Obat.Qu';
+    doc.info.Title = 'obatqu.online - Panduan Penggunaan';
     doc.info.Author = 'Obat.Qu';
     doc.info.Subject = 'Panduan penggunaan sistem web Obat.Qu';
     doc.info.Creator = 'Obat.Qu Server';

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Buku Panduan - Obat.Qu</title>
+  <title>obatqu.online - Panduan Penggunaan</title>
   <script>
     if (window.location.protocol === 'file:') {
-      window.location.replace('http://localhost:3000/panduan.html');
+      window.location.replace('https://obatqu.online/panduan.html');
     }
   </script>
   <link rel="stylesheet" href="/style.css"/>
@@ -394,24 +394,24 @@
     <div class="panduan-sidebar-header">
       <div class="panduan-brand">
         <div class="panduan-brand-mark">OQ</div>
-        <div class="panduan-brand-text">Obat.Qu</div>
+        <div class="panduan-brand-text">obatqu</div>
       </div>
-      <div class="panduan-sidebar-title">Buku Panduan</div>
+      <div class="panduan-sidebar-title">Dokumentasi</div>
     </div>
     <nav class="panduan-nav">
       <a href="/dashboard.html" class="back-link">← Kembali ke Dashboard</a>
       <div class="nav-section-label">Memulai</div>
       <a href="#pengantar" onclick="setActive(this)">Pengantar Sistem</a>
-      <a href="#akun" onclick="setActive(this)">Akun &amp; Login</a>
-      <a href="#struktur-akses" onclick="setActive(this)">Struktur Akses &amp; Role</a>
-      <div class="nav-section-label">Fitur Dashboard</div>
+      <a href="#akun" onclick="setActive(this)">Akun & Login</a>
+      <a href="#struktur-akses" onclick="setActive(this)">Struktur Akses & Role</a>
+      <div class="nav-section-label">Fitur Utama</div>
       <a href="#dashboard" onclick="setActive(this)">Dashboard Utama</a>
       <a href="#data-obat" onclick="setActive(this)">Mengelola Data Obat</a>
+      <a href="#ved-fefo" onclick="setActive(this)">VED-FEFO (Prioritas Penanganan)</a>
       <a href="#monitoring-kadaluarsa" onclick="setActive(this)">Monitoring Kadaluarsa</a>
       <a href="#monitoring-stok" onclick="setActive(this)">Monitoring Stok</a>
-      <a href="#data-kadaluarsa" onclick="setActive(this)">VED-FEFO</a>
-      <a href="#laporan" onclick="setActive(this)">Cetak Laporan</a>
-      <a href="#manajemen-user" onclick="setActive(this)">Manajemen User</a>
+      <a href="#manajemen-user" onclick="setActive(this)">Mengelola Data User</a>
+      <a href="#laporan" onclick="setActive(this)">Laporan</a>
       <div class="nav-section-label">Bantuan</div>
       <a href="#faq" onclick="setActive(this)">FAQ</a>
       <a href="#glosarium" onclick="setActive(this)">Glosarium</a>
@@ -424,15 +424,15 @@
     <!-- Hero -->
     <div class="panduan-hero">
       <div class="panduan-hero-eyebrow">Dokumentasi Resmi</div>
-      <h1>Buku Panduan Obat.Qu</h1>
-      <p>Panduan lengkap penggunaan sistem manajemen apotek digital untuk alur akun, pengelolaan data obat, monitoring stok dan kadaluarsa, laporan operasional, serta manajemen pengguna berbasis role.</p>
+      <h1>obatqu.online</h1>
+      <p>Platform manajemen apotek digital untuk alur akun, pengelolaan data obat, monitoring stok dan kadaluarsa, laporan operasional, serta manajemen pengguna berbasis role dengan sistem VED-FEFO terintegrasi.</p>
       <div class="panduan-hero-meta">
-        <div class="panduan-hero-meta-item"><strong>Versi</strong><span>1.2 · Maret 2026</span></div>
+        <div class="panduan-hero-meta-item"><strong>Versi</strong><span>1.4 · April 2026</span></div>
         <div class="panduan-hero-meta-item"><strong>Bahasa</strong><span>Indonesia</span></div>
         <div class="panduan-hero-meta-item"><strong>Berlaku untuk</strong><span>APJ &amp; Apoteker Pendamping</span></div>
       </div>
       <div class="panduan-hero-actions">
-        <button type="button" class="panduan-hero-btn primary" onclick="downloadPanduanPdf()">Download PDF</button>
+        <button type="button" class="panduan-hero-btn primary" id="downloadPanduanBtn">Download PDF</button>
         <a href="/dashboard.html" class="panduan-hero-btn">Kembali ke Dashboard</a>
       </div>
     </div>
@@ -464,7 +464,7 @@
 
         <div class="info-box tip">
           <strong>Cara mengakses sistem</strong>
-          Buka browser dan ketik <strong>http://localhost:3000</strong> pada address bar, lalu tekan Enter. Jika file HTML dibuka langsung dari komputer, sistem otomatis mengarahkan ke alamat tersebut selama server aktif berjalan.
+          Buka browser dan ketik <strong>https://obatqu.online</strong> pada address bar, lalu tekan Enter. Jika file HTML dibuka langsung dari komputer, sistem otomatis mengarahkan ke alamat tersebut selama server aktif berjalan.
         </div>
 
         <table class="feature-table" style="margin-top:0;">
@@ -473,12 +473,12 @@
           </thead>
           <tbody>
             <tr><td><strong>Dashboard Ringkasan</strong></td><td>Tampilkan indikator stok, kadaluarsa, dan restock dalam satu layar dengan navigasi cepat ke menu terkait.</td></tr>
-            <tr><td><strong>Mengelola Data Obat</strong></td><td>Tambah, ubah, dan hapus data obat beserta batch, kategori, dan deskripsi.</td></tr>
-            <tr><td><strong>Monitoring Kadaluarsa</strong></td><td>Pantau obat yang sudah atau akan segera kadaluarsa secara otomatis.</td></tr>
-            <tr><td><strong>Monitoring Stok</strong></td><td>Lihat stok habis, menipis, perlu reorder, dan peringatan otomatis.</td></tr>
-            <tr><td><strong>VED-FEFO</strong></td><td>Kelompokkan obat berdasarkan kategori Vital, Essential, Desirable dengan urutan FEFO.</td></tr>
-            <tr><td><strong>Cetak Laporan</strong></td><td>Unduh PDF bulanan dari dashboard dan gunakan modul laporan untuk PDF/CSV operasional, notifikasi, serta statistik VED.</td></tr>
-            <tr><td><strong>Manajemen User</strong></td><td>Kelola akun pengguna dan penetapan role (khusus APJ).</td></tr>
+            <tr><td><strong>Mengelola Data Obat</strong></td><td>Tambah, ubah, dan hapus data obat beserta batch, kategori, deskripsi, dan catat obat yang dikeluarkan.</td></tr>
+            <tr><td><strong>VED-FEFO</strong></td><td>Kelompokkan obat berdasarkan kategori Vital, Essential, Desirable dengan urutan FEFO untuk prioritas penanganan.</td></tr>
+            <tr><td><strong>Monitoring Kadaluarsa</strong></td><td>Pantau obat yang sudah atau akan segera kadaluarsa dengan kategori status (Aman, Hampir Kadaluarsa, Kadaluarsa).</td></tr>
+            <tr><td><strong>Monitoring Stok</strong></td><td>Lihat status stok (Habis, Menipis, Reorder) dan risiko kehabisan stok berdasarkan pola pemakaian.</td></tr>
+            <tr><td><strong>Mengelola Data User</strong></td><td>Kelola akun pengguna, penetapan role, manajemen hak akses, dan atur pengaturan email VED-FEFO otomatis (khusus APJ).</td></tr>
+            <tr><td><strong>Laporan</strong></td><td>Unduh laporan stok, kritis, aktivitas, pelepasan obat dalam format PDF dan CSV untuk analisis manajemen.</td></tr>
           </tbody>
         </table>
       </section>
@@ -532,7 +532,7 @@
             <div class="step-num">1</div>
             <div class="step-body">
               <strong>Buka halaman Login</strong>
-              <p>Akses <code>http://localhost:3000/login.html</code> atau <code>http://localhost:3000</code>.</p>
+              <p>Akses <code>https://obatqu.online/login.html</code> atau <code>https://obatqu.online</code>.</p>
             </div>
           </div>
           <div class="step-item">
@@ -627,12 +627,12 @@
           </thead>
           <tbody>
             <tr><td>Dashboard Ringkasan</td><td>✅</td><td>✅</td></tr>
-            <tr><td>Mengelola Data Obat (lihat, tambah, edit, hapus)</td><td>✅</td><td>✅</td></tr>
+            <tr><td>Mengelola Data Obat (lihat, tambah, edit, hapus, obat keluar)</td><td>✅</td><td>✅</td></tr>
+            <tr><td>VED-FEFO (prioritas penanganan)</td><td>✅</td><td>✅</td></tr>
             <tr><td>Monitoring Kadaluarsa</td><td>✅</td><td>✅</td></tr>
             <tr><td>Monitoring Stok</td><td>✅</td><td>✅</td></tr>
-            <tr><td>VED-FEFO</td><td>✅</td><td>✅</td></tr>
-            <tr><td>Cetak Laporan (PDF/CSV)</td><td>✅</td><td>✅</td></tr>
-            <tr><td>Manajemen User (ubah role)</td><td>✅</td><td>❌ Tidak tersedia</td></tr>
+            <tr><td>Mengelola Data User</td><td>✅</td><td>❌ Tidak tersedia</td></tr>
+            <tr><td>Laporan (PDF/CSV)</td><td>✅</td><td>✅</td></tr>
           </tbody>
         </table>
 
@@ -657,7 +657,7 @@
           <tbody>
             <tr><td><strong>Stok Total</strong></td><td>Jumlah total unit obat yang tersedia di seluruh entri data.</td></tr>
             <tr><td><strong>Kadaluarsa</strong></td><td>Jumlah item obat yang sudah melewati tanggal kadaluarsa.</td></tr>
-            <tr><td><strong>Hampir Kadaluarsa</strong></td><td>Item yang akan kadaluarsa dalam waktu dekat (≤ 30 hari).</td></tr>
+            <tr><td><strong>Hampir Kadaluarsa</strong></td><td>Item yang akan kadaluarsa dalam waktu dekat (≤ 6 bulan / 180 hari).</td></tr>
             <tr><td><strong>Stok Baik</strong></td><td>Item dengan stok cukup dan masa kadaluarsa masih aman.</td></tr>
             <tr><td><strong>Restock</strong></td><td>Jumlah item yang perlu segera dipesan ulang.</td></tr>
           </tbody>
@@ -677,7 +677,7 @@
       <section class="panduan-section" id="data-obat">
         <div class="panduan-section-badge">Data Obat</div>
         <h2>Mengelola Data Obat</h2>
-        <p>Menu utama untuk mencatat dan memperbarui semua informasi obat. Dari sini Anda bisa menambah obat baru, mengubah data, menghapus entri yang sudah tidak dipakai, dan membaca detail obat dengan sekali klik.</p>
+        <p>Menu utama untuk mencatat dan memperbarui semua informasi obat. Dari sini Anda bisa menambah obat baru, mengubah data, menghapus entri yang sudah tidak dipakai, membaca detail obat dengan sekali klik, dan mencatat obat yang dikeluarkan/terjual untuk tracking pola penggunaan.</p>
 
         <h3 style="font-size:16px; color:#0c2822; margin:20px 0 12px;">Menambah Obat Baru</h3>
         <div class="step-list">
@@ -765,6 +765,50 @@
           Klik langsung pada <strong>nama obat</strong> di tabel untuk membuka popup yang berisi definisi obat, kategori, status stok, tanggal kadaluarsa, prioritas, dan ringkasan pemantauan obat tersebut.
         </div>
 
+        <h3 style="font-size:16px; color:#0c2822; margin:24px 0 12px;">Catat Obat Keluar</h3>
+        <p>Catat obat yang dikeluarkan/terjual untuk tracking pola penggunaan dan analisis kebutuhan restock. Fitur ini terintegrasi dalam menu Mengelola Data Obat dengan tombol khusus di toolbar.</p>
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Klik tombol "Obat Keluar"</strong>
+              <p>Di toolbar menu Mengelola Data Obat, ada tombol "Obat Keluar" berwarna abu-abu. Klik untuk membuka form pencatatan.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Pilih obat dari dropdown</strong>
+              <p>Pilih obat yang akan dicatat pelepasannya. Dropdown menampilkan format: <em>Nama Obat (Stok: XX unit)</em> untuk memudahkan identifikasi.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Masukkan jumlah yang dikeluarkan</strong>
+              <p>Isi kolom <strong>Jumlah Dikeluarkan</strong> dengan angka unit yang terjual atau dimusnahkan.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <strong>Tambahkan keterangan (opsional)</strong>
+              <p>Jelaskan alasan pelepasan di kolom <strong>Keterangan</strong>, misal "Terjual kepada pasien" atau "Dimusnahkan karena kadaluarsa".</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <strong>Klik "Catat Obat Keluar"</strong>
+              <p>Sistem akan mencatat pelepasan dan otomatis memperbarui stok. Notifikasi sukses akan ditampilkan.</p>
+            </div>
+          </div>
+        </div>
+        <div class="info-box tip" style="margin-top:16px;">
+          <strong>Tracking Pola Penggunaan</strong>
+          Data pelepasan obat disimpan untuk analisis restock dan laporan manajemen. Lihat menu <em>Laporan</em> untuk melihat laporan penggunaan obat per jenis dan periode.
+        </div>
+
         <h3 style="font-size:16px; color:#0c2822; margin:24px 0 12px;">Kategori Obat</h3>
         <table class="feature-table">
           <thead><tr><th>Kategori</th><th>Penjelasan</th></tr></thead>
@@ -821,7 +865,23 @@
 
         <div class="info-box info" style="margin-top:16px;">
           <strong>Batas "Hampir Kadaluarsa"</strong>
-          Obat dianggap hampir kadaluarsa jika sisa masa berlakunya ≤ 30 hari dari tanggal hari ini.
+          Obat dianggap hampir kadaluarsa jika sisa masa berlakunya ≤ 6 bulan (180 hari) dari tanggal hari ini.
+        </div>
+
+        <div class="info-box tip" style="margin-top:16px;">
+          <strong>Contoh: Threshold Status Kadaluarsa</strong>
+          <p>Sistem menghitung sisa hari sampai kadaluarsa dan mengklasifikasi status obat:</p>
+          <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+            <li><strong>Sudah Kadaluarsa (sisa hari < 0)</strong><br/>
+            <em>Obat melewati tanggal kadaluarsa. Status: KADALUARSA. Tindakan: Segera buang/tarik dari etalase.</em></li>
+            <li><strong>Kadaluarsa (sisa hari ≤ 60 hari / 2 bulan)</strong><br/>
+            <em>Masa pakai tinggal 2 bulan atau kurang. Status: KADALUARSA. Tindakan: Prioritaskan gunakan segera, jangan restock.</em></li>
+            <li><strong>Hampir Kadaluarsa (61 - 180 hari / 3 - 6 bulan)</strong><br/>
+            <em>Masa pakai 3-6 bulan lagi. Status: HAMPIR KADALUARSA. Tindakan: Monitor ketat, prioritaskan pemakaian, evaluasi penjualan.</em></li>
+            <li><strong>Aman (sisa hari > 180 hari)</strong><br/>
+            <em>Masa pakai masih panjang > 6 bulan. Status: BAIK/AMAN. Tindakan: Manajemen normal, boleh restock jika stok rendah.</em></li>
+          </ul>
+          <p style="margin-top:12px; font-style:italic; color:#555;">Semakin sedikit sisa hari, semakin tinggi urgensi penanganan yang diperlukan.</p>
         </div>
       </section>
 
@@ -867,6 +927,26 @@
             </div>
           </div>
         </div>
+
+        <div class="info-box tip" style="margin-top:16px;">
+          <strong>Contoh: Kebutuhan Restock Berdasarkan Lead Time Kategori</strong>
+          <p>Sistem menyarankan restock jika estimasi hari stok <em>(daysOfStock)</em> ≤ <em>lead time</em> kategori obat:</p>
+          <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+            <li><strong>Paracetamol (TABLET BEBAS)</strong><br/>
+            <em>Stok: 20 unit, Penjualan: 3 unit/hari, Lead Time: 7 hari<br/>
+            Estimasi hari stok = 20 ÷ 3 = 6.67 hari<br/>
+            6.67 ≤ 7? YA → Status: <strong>URGENT REORDER</strong></em></li>
+            <li><strong>Injeksi (INJEKSI)</strong><br/>
+            <em>Stok: 15 unit, Penjualan: 1 unit/hari, Lead Time: 14 hari<br/>
+            Estimasi hari stok = 15 ÷ 1 = 15 hari<br/>
+            15 ≤ 14? TIDAK → Status: <strong>AMAN</strong> (stok masih cukup, belum perlu reorder)</em></li>
+            <li><strong>Sirup Obat Batuk (SIRUP)</strong><br/>
+            <em>Stok: 2 unit, Penjualan: 1 unit/hari, Lead Time: 14 hari<br/>
+            Estimasi hari stok = 2 ÷ 1 = 2 hari<br/>
+            2 ≤ 14? YA → Status: <strong>URGENT REORDER + P1</strong> (paling mendesak)</em></li>
+          </ul>
+          <p style="margin-top:12px; font-style:italic; color:#555;"><strong>Lead time per kategori:</strong> SIRUP/INJEKSI (14 hari), TABLET KERAS (10 hari), TABLET BEBAS/SALEP/ETALASE LUAR (7 hari).</p>
+        </div>
       </section>
 
       <hr class="panduan-divider" />
@@ -874,9 +954,9 @@
        <!-- ══════════════════════════════════════
          8. VED-FEFO
        ══════════════════════════════════════ -->
-      <section class="panduan-section" id="data-kadaluarsa">
+      <section class="panduan-section" id="ved-fefo">
         <div class="panduan-section-badge">VED‑FEFO</div>
-         <h2>VED-FEFO</h2>
+         <h2>VED-FEFO (Prioritas Penanganan Obat)</h2>
         <p>Menu ini mengelompokkan obat ke tiga kategori berdasarkan tingkat kepentingannya (<strong>VED</strong>), lalu mengurutkan setiap kategori berdasarkan obat yang paling dekat masa kadaluarsanya (<strong>FEFO</strong>) dengan visual ranking utama.</p>
 
         <table class="feature-table">
@@ -887,6 +967,22 @@
             <tr><td><span style="font-weight:700;color:#2563eb;">D — Desirable</span></td><td>Obat dengan prioritas normal.</td><td>Tetap habiskan sesuai urutan FEFO; tidak perlu penanganan darurat.</td></tr>
           </tbody>
         </table>
+
+        <div class="info-box tip" style="margin-top:16px;">
+          <strong>Contoh: Prioritas Stok Berdasarkan VED</strong>
+          <p>Sistem mengukur prioritas obat dengan menggabungkan <strong>jenis VED</strong> dan <strong>jumlah stok</strong>:</p>
+          <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+            <li><strong>VITAL (V) dengan stok 5 unit → Prioritas P1 (Tinggi/Kritis)</strong><br/>
+            <em>Obat kritis dengan stok rendah harus segera dipadu-gunakan dan dipesan ulang.</em></li>
+            <li><strong>ESSENTIAL (E) dengan stok 5 unit → Prioritas P2 (Sedang)</strong><br/>
+            <em>Obat penting dengan stok rendah perlu dimonitor ketat.</em></li>
+            <li><strong>DESIRABLE (D) dengan stok 5 unit → Prioritas P3 (Rendah)</strong><br/>
+            <em>Obat standar dengan stok masih cukup, manajemen normal.</em></li>
+            <li><strong>Qty = 0 (habis) → Selalu Prioritas P1 (Kritis)</strong><br/>
+            <em>Habis = critical, harus reorder segera apapun VED-nya.</em></li>
+          </ul>
+          <p style="margin-top:12px; font-style:italic; color:#555;">Semakin tinggi prioritas (P1 &gt; P2 &gt; P3), semakin mendesak tindakan yang diperlukan.</p>
+        </div>
 
         <div class="step-list" style="margin-top:16px;">
           <div class="step-item">
@@ -928,21 +1024,22 @@
       <hr class="panduan-divider" />
 
       <!-- ══════════════════════════════════════
-           9. CETAK LAPORAN
+           9. LAPORAN
       ══════════════════════════════════════ -->
       <section class="panduan-section" id="laporan">
         <div class="panduan-section-badge">Laporan</div>
-        <h2>Cetak Laporan</h2>
+        <h2>Laporan</h2>
         <p>Sistem menyediakan dua alur laporan. Dari dashboard, pengguna dapat mengunduh PDF bulanan. Selain itu tersedia modul laporan untuk notifikasi sistem, statistik VED, dan unduhan laporan operasional PDF/CSV.</p>
 
         <table class="feature-table">
           <thead><tr><th>Jenis Laporan</th><th>Isi Laporan</th><th>Format</th></tr></thead>
           <tbody>
-            <tr><td><strong>Laporan Bulanan</strong></td><td>Rekap per bulan yang dipilih dari menu Cetak Laporan pada dashboard.</td><td>PDF</td></tr>
-            <tr><td><strong>Laporan Lengkap Stok</strong></td><td>Seluruh obat beserta detail VED, jumlah, dan status kadaluarsa.</td><td>PDF, CSV</td></tr>
-            <tr><td><strong>Ringkasan Stok &amp; Kadaluarsa</strong></td><td>Analisis kategori Vital, Essential, Desirable dengan rekomendasi.</td><td>PDF</td></tr>
-            <tr><td><strong>Laporan Kritis</strong></td><td>Obat kadaluarsa, hampir kadaluarsa, dan stok kritis.</td><td>PDF</td></tr>
-            <tr><td><strong>Laporan Harian</strong></td><td>Ringkasan aktivitas harian beserta ringkasan stok &amp; perubahan.</td><td>PDF</td></tr>
+            <tr><td><strong>Detail Stok Lengkap</strong></td><td>Inventaris lengkap semua obat dengan batch, kategori, VED, jumlah, dan tanggal kadaluarsa.</td><td>PDF, CSV</td></tr>
+            <tr><td><strong>Ringkasan Kategori VED</strong></td><td>Breakdown jumlah obat per kategori Vital, Essential, Desirable dengan analisis prioritas dan rekomendasi.</td><td>PDF</td></tr>
+            <tr><td><strong>Laporan Obat Kritis</strong></td><td>Daftar obat yang memerlukan tindakan: kadaluarsa, hampir expired, dan stok habis/menipis.</td><td>PDF</td></tr>
+            <tr><td><strong>Laporan Aktivitas Harian</strong></td><td>Ringkasan aktivitas hari ini: obat baru ditambah, dikeluarkan, perubahan stok, dan perubahan kategori.</td><td>PDF</td></tr>
+            <tr><td><strong>Laporan Pelepasan Obat</strong></td><td>Tracking obat yang dikeluarkan/terjual per periode dengan detail jenis, jumlah, dan aktor yang merilis.</td><td>PDF</td></tr>
+            <tr><td><strong>Rekomendasi Restock</strong></td><td>Saran pemesanan berdasarkan pola penggunaan, lead time kategori, dan klasifikasi VED untuk optimalisasi inventory.</td><td>PDF</td></tr>
           </tbody>
         </table>
 
@@ -950,7 +1047,7 @@
           <div class="step-item">
             <div class="step-num">1</div>
             <div class="step-body">
-              <strong>Buka menu "Cetak Laporan"</strong>
+              <strong>Buka menu "Laporan"</strong>
               <p>Klik di sidebar. Pada dashboard, isi bulan laporan untuk unduh PDF bulanan. Jika membuka modul laporan, pilihan laporan ditampilkan dalam kartu-kartu.</p>
             </div>
           </div>
@@ -972,7 +1069,7 @@
 
         <div class="info-box info" style="margin-top:12px;">
           <strong>Akses laporan</strong>
-          Fitur Cetak Laporan tersedia untuk <span class="role-badge role-apj">APJ</span> dan <span class="role-badge role-pendamping">Apoteker Pendamping</span>.
+          Fitur Laporan tersedia untuk <span class="role-badge role-apj">APJ</span> dan <span class="role-badge role-pendamping">Apoteker Pendamping</span>.
         </div>
       </section>
 
@@ -983,7 +1080,7 @@
       ══════════════════════════════════════ -->
       <section class="panduan-section" id="manajemen-user">
         <div class="panduan-section-badge">Admin</div>
-        <h2>Manajemen User <span class="role-badge role-apj" style="font-size:12px; vertical-align:middle;">APJ</span></h2>
+        <h2>Mengelola Data User <span class="role-badge role-apj" style="font-size:12px; vertical-align:middle;">APJ</span></h2>
         <p>Menu eksklusif untuk akun APJ. Digunakan untuk melihat semua pengguna yang terdaftar dan mengatur role akses mereka.</p>
 
         <div class="step-list">
@@ -1014,6 +1111,21 @@
             <div class="step-body">
               <strong>Muat ulang daftar</strong>
               <p>Klik <em>Muat Ulang User</em> untuk memperbarui daftar pengguna terbaru.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <strong>Atur Pengaturan Email VED-FEFO (Baru)</strong>
+              <p><strong>APJ saja</strong>: Di bagian bawah menu "Mengelola Data User", tersedia fitur <strong>Pengaturan Email VED-FEFO</strong>. Di sini Anda dapat:</p>
+              <ul style="margin-top: 8px; margin-bottom: 8px; padding-left: 20px;">
+                <li>Mengatur <strong>interval pengiriman otomatis</strong> (1-30 hari)</li>
+                <li>Memilih <strong>waktu pengiriman</strong> (format HH:MM)</li>
+                <li>Mengaktifkan/menonaktifkan pengiriman email otomatis dengan toggle</li>
+                <li>Klik <strong>Simpan Pengaturan</strong> untuk menyimpan konfigurasi</li>
+                <li>Klik <strong>Kirim Test Email</strong> untuk menguji konfigurasi (email akan dikirim segera)</li>
+              </ul>
+              <div class="step-tip" style="margin-top: 8px;">Email otomatis akan mengirim laporan VED-FEFO sesuai interval yang telah diatur, membantu monitoring prioritas stok obat secara berkala.</div>
             </div>
           </div>
         </div>
@@ -1063,7 +1175,7 @@
               <span class="faq-icon">+</span>
             </div>
             <div class="faq-a">
-              Obat dianggap hampir kadaluarsa jika sisa masa berlakunya <strong>30 hari atau kurang</strong> dari hari ini.
+              Obat dianggap hampir kadaluarsa jika sisa masa berlakunya <strong>6 bulan (180 hari) atau kurang</strong> dari hari ini.
             </div>
           </div>
           <div class="faq-item">
@@ -1101,7 +1213,7 @@
               <span class="faq-icon">+</span>
             </div>
             <div class="faq-a">
-              Tidak disarankan. Jika Anda membuka file HTML langsung (protokol <code>file://</code>), browser secara otomatis akan diarahkan ke <strong>http://localhost:3000</strong>. Pastikan server sudah berjalan sebelum membuka sistem.
+              Tidak disarankan. Jika Anda membuka file HTML langsung (protokol <code>file://</code>), browser secara otomatis akan diarahkan ke <strong>https://obatqu.online</strong>. Pastikan server sudah berjalan sebelum membuka sistem.
             </div>
           </div>
         </div>
@@ -1162,7 +1274,7 @@
             <p>Skala prioritas tindakan stok: P1 = paling mendesak, P3 = urgensi lebih rendah.</p>
           </div>
           <div class="glos-item">
-            <strong>localhost:3000</strong>
+            <strong>obatqu.online</strong>
             <p>Alamat akses sistem di komputer lokal. Server harus aktif agar alamat ini dapat diakses.</p>
           </div>
         </div>
@@ -1170,7 +1282,7 @@
 
       <!-- Footer -->
       <div style="text-align:center; padding-top:40px; color:#7a9e99; font-size:13px; border-top:1px solid #d9eeea;">
-        <p>Obat.Qu · Sistem Manajemen Apotek Digital · Versi 1.1 · Maret 2026</p>
+        <p>obatqu.online · Platform Manajemen Apotek Digital · Versi 1.4 · April 2026</p>
         <a href="/dashboard.html" style="color:#0fbf9b; text-decoration:none; font-size:14px;">← Kembali ke Dashboard</a>
       </div>
 
@@ -1179,58 +1291,83 @@
 </div>
 
 <script>
-  const API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:3000' : '';
+  const API_BASE = (window.location.protocol === 'file:') ? 'https://obatqu.online' : '';
 
-  async function downloadPanduanPdf() {
+  function downloadPanduanPdf(button) {
     const endpoint = `${API_BASE}/api/panduan/pdf`;
-    const button = document.querySelector('.panduan-hero-btn.primary');
-    const originalLabel = button ? button.textContent : '';
+    const originalLabel = button.textContent;
 
-    try {
-      if (button) {
-        button.disabled = true;
-        button.textContent = 'Menyiapkan PDF...';
-      }
+    console.log('[PANDUAN-DOWNLOAD] Starting download from:', endpoint);
+    
+    button.disabled = true;
+    button.textContent = 'Menyiapkan PDF...';
 
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        credentials: 'include'
+    fetch(endpoint, { mode: 'cors' })
+      .then(res => {
+        console.log('[PANDUAN-DOWNLOAD] Response:', res.status, res.statusText, res.headers.get('content-type'));
+        if (!res.ok) {
+          throw new Error(`HTTP Error: ${res.status}`);
+        }
+        return res.blob();
+      })
+      .then(blob => {
+        console.log('[PANDUAN-DOWNLOAD] Blob received, size:', blob.size);
+        
+        if (!blob || blob.size === 0) {
+          console.error('[PANDUAN-DOWNLOAD] Blob is empty!');
+          throw new Error('Blob kosong');
+        }
+
+        // Create and trigger download
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'obatqu-online-panduan.pdf';
+        link.style.display = 'none';
+        
+        console.log('[PANDUAN-DOWNLOAD] Appending link and clicking');
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Cleanup
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+          console.log('[PANDUAN-DOWNLOAD] URL revoked');
+        }, 100);
+        
+        console.log('[PANDUAN-DOWNLOAD] Download completed');
+        button.textContent = '✓ PDF Berhasil Diunduh';
+        setTimeout(() => {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }, 2000);
+      })
+      .catch(error => {
+        console.error('[PANDUAN-DOWNLOAD] Error:', error.message);
+        
+        // Fallback: direct navigation
+        console.log('[PANDUAN-DOWNLOAD] Trying fallback download');
+        window.location.href = endpoint;
+        
+        setTimeout(() => {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }, 1000);
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const contentDisposition = response.headers.get('content-disposition') || '';
-      const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-      const fileName = fileNameMatch ? fileNameMatch[1] : 'Buku-Panduan-Obat.Qu.pdf';
-
-      const blobUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = blobUrl;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      // Fallback 1: direct navigation to endpoint (forces browser download behavior).
-      try {
-        window.location.assign(endpoint);
-        return;
-      } catch (directError) {
-        // Fallback 2: print dialog so user can save to PDF when server is unreachable.
-        alert('Download PDF otomatis gagal. Pastikan server aktif di http://localhost:3000. Sistem akan membuka dialog Print agar Anda tetap bisa simpan sebagai PDF.');
-        window.print();
-      }
-    } finally {
-      if (button) {
-        button.disabled = false;
-        button.textContent = originalLabel || 'Download PDF';
-      }
-    }
   }
+
+  // Attach download button listener
+  document.addEventListener('DOMContentLoaded', () => {
+    const downloadBtn = document.getElementById('downloadPanduanBtn');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        downloadPanduanPdf(downloadBtn);
+      });
+    }
+  });
 
   // FAQ toggle
   function toggleFaq(el) {

@@ -752,8 +752,8 @@
 
               <!-- Buttons -->
               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button type="button" onclick="saveEmailSettings()" style="padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background-color 0.3s;">💾 Simpan Pengaturan</button>
-                <button type="button" onclick="sendTestEmail()" style="padding: 10px 20px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background-color 0.3s;">🚀 Kirim Test Email</button>
+                <button type="button" class="email-save-btn" style="padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background-color 0.3s;">💾 Simpan Pengaturan</button>
+                <button type="button" class="email-test-btn" style="padding: 10px 20px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background-color 0.3s;">🚀 Kirim Test Email</button>
               </div>
 
               <div id="emailActionResult" style="display: none; margin-top: 15px;"></div>
@@ -777,43 +777,43 @@
             <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📋 Detail Stok Lengkap</h3>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Inventaris lengkap semua obat dengan batch, kategori, VED, jumlah, dan tanggal kadaluarsa.</p>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Paracetamol | Batch 2024-001 | VED: V | Qty: 50 | Exp: 31-Okt-2025</p>
-            <button onclick="downloadReport('full-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
-            <button onclick="downloadReport('full-csv')" style="width: 100%; padding: 10px; margin-top: 8px; background: #00d2c2; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download CSV</button>
+            <button class="report-download-btn" data-report-type="full-pdf" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+            <button class="report-download-btn" data-report-type="full-csv" style="width: 100%; padding: 10px; margin-top: 8px; background: #00d2c2; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download CSV</button>
           </div>
 
           <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
             <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">🎯 Ringkasan Kategori VED</h3>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Breakdown jumlah obat per kategori Vital, Essential, Desirable dengan analisis prioritas dan rekomendasi.</p>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Vital: 45 item | Essential: 120 item | Desirable: 230 item</p>
-            <button onclick="downloadReport('ved-summary-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+            <button class="report-download-btn" data-report-type="ved-summary-pdf" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
           </div>
 
           <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
             <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">⚠️ Laporan Obat Kritis</h3>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Daftar obat yang memerlukan tindakan segera: kadaluarsa, hampir expired, dan stok habis/menipis.</p>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Amoxilin (Qty: 2, Exp: 15-Mei-2026) | Vitamin B12 (Qty: 0)</p>
-            <button onclick="downloadReport('critical-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+            <button class="report-download-btn" data-report-type="critical-pdf" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
           </div>
 
           <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
             <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📅 Laporan Aktivitas Harian</h3>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Ringkasan aktivitas hari ini: obat baru, dikeluarkan, perubahan stok, dan kategori.</p>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Penambahan: 5 item | Pelepasan: 12 unit | Kategori berubah: 2 item</p>
-            <button onclick="downloadReport('daily-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+            <button class="report-download-btn" data-report-type="daily-pdf" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
           </div>
 
           <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
             <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📊 Laporan Pelepasan Obat</h3>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Tracking obat yang dikeluarkan/terjual per periode dengan detail jenis, jumlah, dan aktor yang merilis.</p>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Paracetamol: 25 unit (Guntur) | Ibuprofen: 10 unit (Student)</p>
-            <button onclick="downloadReport('management-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+            <button class="report-download-btn" data-report-type="management-pdf" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
           </div>
 
           <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
             <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📈 Rekomendasi Restock</h3>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Saran pemesanan berdasarkan pola penggunaan, lead time kategori, dan klasifikasi VED.</p>
             <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Paracetamol (V): Pesan 200 unit | Vitamin C (D): Pesan 100 unit</p>
-            <button onclick="downloadReport('restock-analysis-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+            <button class="report-download-btn" data-report-type="restock-analysis-pdf" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
           </div>
         </div>
 

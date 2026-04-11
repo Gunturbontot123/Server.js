@@ -5,10 +5,7 @@
 /build
 
 # Data
-data.db
-*.db
-*.sqlite
-*.sqlite3
+# SQLite files removed - using PostgreSQL now
 
 # Environment variables
 .env
