@@ -296,6 +296,74 @@ function downloadReport(type) {
     });
 }
 
+function downloadPanduanPdf() {
+  const url = (API_BASE || '') + '/api/panduan/pdf';
+  console.log('[DOWNLOAD] Panduan PDF Starting:', { url });
+  showToast('Mengunduh buku panduan...', 'info');
+  
+  fetch(url, {
+    method: 'GET',
+    credentials: 'include'
+  })
+    .then(res => {
+      console.log('[DOWNLOAD] Panduan Response received:', {
+        status: res.status,
+        statusText: res.statusText,
+        contentType: res.headers.get('content-type'),
+        contentDisposition: res.headers.get('content-disposition'),
+        contentLength: res.headers.get('content-length')
+      });
+      
+      if (!res.ok) {
+        console.error('[DOWNLOAD] Panduan Response not ok');
+        return res.text().then(text => {
+          console.error('[DOWNLOAD] Panduan Error response text:', text);
+          try {
+            const data = JSON.parse(text);
+            throw new Error(data.message || 'Gagal membuat panduan PDF');
+          } catch (e) {
+            throw new Error('Gagal membuat panduan PDF: ' + res.statusText);
+          }
+        });
+      }
+      
+      return res.blob();
+    })
+    .then(blob => {
+      console.log('[DOWNLOAD] Panduan Blob received:', { size: blob.size, type: blob.type });
+      
+      if (blob.size === 0) {
+        console.error('[DOWNLOAD] Panduan Blob empty!');
+        throw new Error('File panduan kosong');
+      }
+      
+      // Create download link
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = 'Buku-Panduan-Obat.Qu.pdf';
+      
+      console.log('[DOWNLOAD] Creating panduan download:', link.download);
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        console.log('[DOWNLOAD] Panduan Cleanup done');
+      }, 100);
+      
+      showToast('Buku panduan berhasil diunduh.', 'success');
+      console.log('[DOWNLOAD] Panduan Success');
+    })
+    .catch(err => {
+      console.error('[DOWNLOAD] Panduan Error:', err.message, err.stack);
+      showToast('Gagal mengunduh panduan: ' + err.message, 'error');
+    });
+}
+
 function updateProfileInfo() {
   if (!currentUser) return;
   const usernameEl = document.getElementById('profileUsername');
