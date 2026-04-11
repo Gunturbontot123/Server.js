@@ -1498,39 +1498,43 @@ function writeSummaryLines(doc, summary) {
 
 const PANDUAN_PDF_SECTIONS = [
   {
-    title: '1. Pengantar Sistem',
+    title: '1. Pengantar Sistem obatqu',
     paragraphs: [
-      'obatqu adalah sistem informasi manajemen apotek berbasis web untuk alur akun, pengelolaan data obat, monitoring stok dan kadaluarsa, penerapan VED-FEFO, serta laporan operasional.',
-      'Akses sistem melalui https://obatqu.online selama server aktif berjalan. Jika file HTML dibuka langsung dari komputer, sistem akan diarahkan kembali ke alamat obatqu.online tersebut.'
+      'obatqu adalah sistem informasi manajemen apotek berbasis web yang dirancang untuk membantu petugas apotek mengelola data obat, memantau kadaluarsa, mengontrol stok, menjalankan prioritas VED-FEFO, dan mengunduh laporan operasional dari antarmuka yang konsisten.',
+      'Akses sistem melalui https://obatqu.online pada browser. Jika file HTML dibuka langsung dari komputer, sistem otomatis mengarahkan ke alamat tersebut selama server aktif berjalan.'
     ],
     bullets: [
-      'Dashboard ringkasan kondisi stok, kadaluarsa, dan aktivitas.',
-      'Pengelolaan data obat meliputi tambah, ubah, hapus, batch, kategori, dan deskripsi.',
-      'Monitoring kadaluarsa, monitoring stok, VED-FEFO, laporan, dan manajemen user berbasis role.'
+      'Dashboard ringkasan: Indikator stok, kadaluarsa, dan restock dalam satu layar dengan navigasi cepat ke menu terkait.',
+      'Mengelola Data Obat: Tambah, ubah, hapus data obat beserta batch, kategori, dan deskripsi. Catat obat yang dikeluarkan.',
+      'VED-FEFO: Kelompokkan obat berdasarkan kategori (Vital, Essential, Desirable) dengan urutan FEFO untuk prioritas penanganan.',
+      'Monitoring Kadaluarsa: Pantau obat yang sudah atau akan segera kadaluarsa dengan status (Aman, Hampir Kadaluarsa, Kadaluarsa).',
+      'Monitoring Stok: Lihat status stok (Habis, Menipis, Reorder) dan risiko kehabisan stok berdasarkan pola pemakaian.',
+      'Mengelola Data User: Kelola akun pengguna, penetapan role, manajemen hak akses, dan atur pengaturan email VED-FEFO (APJ saja).',
+      'Laporan: Unduh laporan stok, kritis, aktivitas, pelepasan obat dalam format PDF dan CSV.'
     ]
   },
   {
     title: '2. Akun dan Login',
     paragraphs: [
-      'Pendaftaran akun membutuhkan username unik, email, password minimal 4 karakter, dan role pengguna.',
-      'Login mewajibkan pemilihan role. Akun APJ dapat masuk sebagai APJ atau sebagai Apoteker Pendamping. Akun Apoteker Pendamping hanya dapat masuk sebagai Apoteker Pendamping.'
+      'Semua pengguna wajib memiliki akun sebelum dapat mengakses dashboard. Proses akun meliputi pendaftaran, masuk, dan pemulihan password.',
+      'Pendaftaran membutuhkan username unik, email, password minimal 4 karakter, dan pilihan role (APJ atau Apoteker Pendamping).',
+      'Login mewajibkan pemilihan role. Akun APJ dapat masuk sebagai APJ atau sebagai Apoteker Pendamping, namun Akun Apoteker Pendamping hanya dapat masuk dengan role tersebut.'
     ],
     bullets: [
-      'Gunakan username atau email saat login.',
-      'Jika satu email dipakai lebih dari satu akun, login harus menggunakan username.',
+      'Gunakan username atau email saat login. Jika satu email dipakai lebih dari satu akun, gunakan username agar sistem mengenali akun yang benar.',
       'Fitur reset password mengirim link ke email terdaftar atau ke fallback log server jika SMTP belum aktif.',
-      'Jika email dipakai beberapa akun, reset password harus dilakukan memakai username.'
+      'Role yang dipilih saat daftar menentukan hak akses di seluruh sistem.'
     ]
   },
   {
-    title: '3. Hak Akses Role',
+    title: '3. Hak Akses dan Role',
     paragraphs: [
-      'Sistem mendukung dua role utama: APJ dan Apoteker Pendamping.',
-      'Keduanya dapat mengakses pengelolaan obat, monitoring, VED-FEFO, dan laporan. Manajemen user hanya tersedia untuk APJ.'
+      'Sistem mendukung dua role utama: APJ (Apoteker Penanggung Jawab) dan Apoteker Pendamping.',
+      'Keduanya dapat mengakses pengelolaan obat, monitoring, VED-FEFO, dan laporan. Manajemen user dan pengaturan email VED-FEFO hanya tersedia untuk APJ.'
     ],
     bullets: [
-      'APJ: akses penuh termasuk mengelola role user.',
-      'Apoteker Pendamping: fokus pada operasional obat dan laporan.',
+      'APJ: Akses penuh termasuk mengelola role pengguna lain dan mengatur pengaturan email VED-FEFO.',
+      'Apoteker Pendamping: Fokus pada operasional obat, monitoring, dan laporan.',
       'Akun APJ yang sedang aktif tidak dapat didemote dari dashboard untuk mencegah putus akses admin.'
     ]
   },
@@ -1538,12 +1542,12 @@ const PANDUAN_PDF_SECTIONS = [
     title: '4. Dashboard Utama',
     paragraphs: [
       'Dashboard menampilkan ringkasan cepat kondisi operasional dan role aktif pengguna setelah login berhasil.',
-      'Indikator utama yang ditampilkan adalah total item obat, kadaluarsa, hampir kadaluarsa, stok baik, restock, dan aktivitas.'
+      'Indikator utama adalah total item obat, kadaluarsa, hampir kadaluarsa (30 hari), stok baik, restock, dan aktivitas.'
     ],
     bullets: [
-      'Hampir kadaluarsa dihitung untuk obat dengan sisa masa berlaku 30 hari atau kurang.',
-      'Restock merangkum item yang perlu pengisian ulang karena stok rendah atau habis.',
-      'Quick Start membantu membuka menu prioritas kerja secara langsung.'
+      'Quick Start membantu membuka menu prioritas kerja secara langsung.',
+      'Ringkasan Indikator: Lihat total obat, status expired, hampir kadaluarsa, stok baik, stok menipis, dan reorder dalam satu pandangan.',
+      'Akses cepat ke menu Mengelola Obat, Monitoring, VED-FEFO, Laporan, dan lainnya melalui navigasi sidebar.'
     ]
   },
   {
@@ -1553,48 +1557,50 @@ const PANDUAN_PDF_SECTIONS = [
       'Kolom utama meliputi nama obat, batch, kategori, deskripsi, jumlah, tanggal kadaluarsa, status, prioritas, dan VED.'
     ],
     bullets: [
-      'Tambah obat memakai form inline tanpa pindah halaman.',
-      'Klik nama obat untuk membuka popup detail obat.',
+      'Tambah obat menggunakan form inline tanpa pindah halaman.',
+      'Klik nama obat untuk membuka popup detail dan melihat history obat.',
       'Tombol "Obat Keluar" untuk mencatat pelepasan obat dan tracking pola penggunaan.',
-      'Kategori yang dipakai sistem mengikuti data kategori yang tersedia di database.'
+      'Filter berdasarkan kategori, status, atau VED untuk pencarian cepat.'
     ]
   },
   {
-    title: '6. Monitoring Kadaluarsa dan Stok',
+    title: '6. Monitoring dan VED-FEFO',
     paragraphs: [
       'Monitoring kadaluarsa menampilkan obat yang sudah kadaluarsa atau hampir kadaluarsa agar penanganan dapat diprioritaskan.',
-      'Monitoring stok menampilkan status habis, menipis, dan kebutuhan reorder, lengkap dengan prioritas tindakan dan peringatan otomatis.'
+      'VED-FEFO mengelompokkan obat berdasarkan tingkat kepentingan lalu mengurutkan penanganan berdasarkan tanggal kadaluarsa terdekat (FEFO).',
+      'Monitoring stok menampilkan status habis, menipis, dan kebutuhan reorder lengkap dengan prioritas tindakan dan peringatan otomatis.'
     ],
     bullets: [
-      'Stok habis: jumlah 0, prioritas P1.',
-      'Stok menipis: jumlah 1 sampai 5, prioritas P2.',
-      'Reorder: ringkasan item dengan stok 5 atau kurang.',
-      'Peringatan otomatis membantu memantau stok menipis dan obat mendekati kadaluarsa.'
+      'Vital (V): Prioritas paling tinggi untuk ketersediaan stok dan penanganan kadaluarsa terlebih dahulu.',
+      'Essential (E): Penting dan perlu dipantau rutin agar selalu tersedia.',
+      'Desirable (D): Prioritas normal, pantau jika mulai menipis.',
+      'Stok habis (Qty 0) = P1, Stok menipis (Qty 1-5) = P2, Reorder = Ringkasan dengan Qty ≤ 5.'
     ]
   },
   {
-    title: '7. VED-FEFO dan Laporan',
+    title: '7. Laporan dan Unduhan',
     paragraphs: [
-      'VED-FEFO mengelompokkan obat berdasarkan tingkat kepentingan lalu mengurutkan penanganan berdasarkan tanggal kadaluarsa terdekat.',
-      'Sistem laporan menyediakan PDF bulanan dari dashboard serta laporan PDF dan CSV operasional lainnya.'
+      'Sistem laporan menyediakan laporan dari dashboard serta laporan PDF dan CSV operasional lainnya.',
+      'Laporan mencakup laporan stok lengkap, ringkasan VED, laporan kritis (obat kadaluarsa + stok habis), laporan harian, laporan pelepasan, dan rekomendasi restock.'
     ],
     bullets: [
-      'Vital: prioritas paling tinggi untuk ketersediaan stok.',
-      'Essential: penting dan perlu dipantau rutin.',
-      'Desirable: prioritas normal.',
-      'Laporan yang tersedia mencakup laporan stok lengkap, ringkasan VED, laporan kritis, laporan harian, dan laporan bulanan.'
+      'Detail Stok Lengkap (PDF/CSV): Inventaris lengkap semua obat dengan batch, kategori, VED, jumlah, dan tanggal kadaluarsa.',
+      'Laporan Obat Kritis (PDF): Daftar obat yang perlu tindakan segera (kadaluarsa, hampir expired, stok habis/menipis).',
+      'Laporan Aktivitas Harian (PDF): Ringkasan obat baru, dikeluarkan, perubahan stok, dan kategori hari ini.',
+      'Rekomendasi Restock (PDF): Saran pemesanan berdasarkan pola penggunaan, lead time, dan klasifikasi VED.'
     ]
   },
   {
-    title: '8. Manajemen User dan Catatan Akhir',
+    title: '8. Mengelola Data User dan Pengaturan',
     paragraphs: [
       'Menu manajemen user dipakai APJ untuk melihat daftar user, mencari user, dan mengubah role akun.',
-      'Gunakan buku panduan ini sebagai referensi operasional harian agar penggunaan sistem tetap konsisten dengan aturan role dan monitoring yang berlaku.'
+      'Fitur baru: APJ dapat mengatur pengaturan email VED-FEFO otomatis di bagian bawah menu "Mengelola Data User".'
     ],
     bullets: [
-      'Cari user berdasarkan username atau email.',
-      'Perubahan role disimpan dari dashboard oleh APJ.',
-      'Jika fitur email belum aktif, proses reset password tetap bisa dijalankan melalui fallback log server.'
+      'Cari user berdasarkan username atau email untuk menemukan akun dengan cepat.',
+      'Ubah role pengguna dari APJ atau Apoteker Pendamping sesuai kebutuhan organisasi.',
+      'Pengaturan Email VED-FEFO: Set interval pengiriman (1-30 hari), waktu pengiriman (HH:MM), aktifkan/nonaktifkan, dan test pengiriman.',
+      'Gunakan buku panduan ini sebagai referensi operasional harian agar penggunaan sistem tetap konsisten dengan aturan role dan monitoring.'
     ]
   }
 ];
