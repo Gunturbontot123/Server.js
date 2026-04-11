@@ -47,9 +47,10 @@
         <span class="nav-icon">US</span>
         <span class="nav-label">Mengelola Data User</span>
       </a>
-      <a href="#laporan" class="nav-item" id="reportsNav" data-section="laporan" data-desc="Cetak dan unduh laporan stok obat." role="menuitem" tabindex="0">
-        <span class="nav-icon">CL</span>
-        <span class="nav-label">Cetak Laporan</span>
+      <hr style="margin:12px 0; border:none; border-top:1px solid rgba(255,255,255,0.1);">
+      <a href="#laporan" class="nav-item" id="reportsNav" data-section="laporan" data-desc="Unduh laporan stok obat." role="menuitem" tabindex="0">
+        <span class="nav-icon">LP</span>
+        <span class="nav-label">Laporan</span>
       </a>
       <hr style="margin:12px 0; border:none; border-top:1px solid rgba(255,255,255,0.1);">
       <a href="#" class="nav-item" id="logoutBtn" role="menuitem" tabindex="0">
@@ -64,7 +65,7 @@
     <!-- Top Navbar / Header -->
     <header class="dashboard-header">
         <div class="header-left">
-          <button id="dotMenu" class="dot-menu" aria-label="Buka menu">⋯</button>
+          <button id="dotMenu" class="dot-menu" aria-label="Buka menu">☰</button>
           <input type="text" id="searchInput" class="search-box" placeholder="Cari obat, batch, atau kategori" />
         </div>
       <div class="header-right">
@@ -75,10 +76,9 @@
             <div class="user-status" id="userPresenceLabel">Akses aktif</div>
             <div class="user-role-badge" id="userRoleLabel">Role: APJ</div>
           </div>
-        </div>
-        <div id="userDropdownMenu" class="dropdown-menu" style="display: none;">
-          <a href="#profile" class="dropdown-item" data-section="profile">Profil Saya</a>
-          <a href="#" id="logoutBtnDropdown" class="dropdown-item">Logout</a>
+          <div id="userDropdownMenu" class="dropdown-menu" style="display: none;">
+            <a href="#profile" class="dropdown-item" data-section="profile">Profil Saya</a>
+          </div>
         </div>
       </div>
     </header>
@@ -92,16 +92,6 @@
         <div class="section-header">
           <h1>Dashboard</h1>
           <p>Ringkasan kondisi stok dan masa berlaku obat untuk memulai pemantauan harian.</p>
-          <div class="header-guide" aria-label="Keterangan indikator dashboard">
-            <p class="header-guide-title">Keterangan Indikator</p>
-            <ul class="header-guide-list">
-              <li><strong>STK</strong><span>Total item obat yang terdaftar.</span></li>
-              <li><strong>EXP</strong><span>Jumlah item yang sudah kadaluarsa.</span></li>
-              <li><strong>DUE</strong><span>Jumlah item yang mendekati kadaluarsa.</span></li>
-              <li><strong>OK</strong><span>Jumlah item dengan kondisi stok aman.</span></li>
-              <li><strong>RST</strong><span>Jumlah item yang perlu restock.</span></li>
-            </ul>
-          </div>
         </div>
 
         <div class="dashboard-hero-strip">
@@ -162,6 +152,28 @@
               <p id="restockCountStat" class="stat-number">0</p>
             </div>
           </div>
+          <div class="stat-card stat-blue">
+            <div class="stat-icon">LOG</div>
+            <div class="stat-content">
+              <h3>Aktivitas</h3>
+              <p id="activityCountStat" class="stat-number">0</p>
+              <span class="stat-note">Log terbaru tersimpan</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="activity-grid">
+          <div class="activity-card">
+            <div class="activity-header">
+              <h3>Aktivitas Terbaru</h3>
+              <span class="activity-count">Total <strong id="activityCountLabel">0</strong></span>
+            </div>
+            <ul id="activityList" class="activity-list"></ul>
+          </div>
+          <div class="log-card">
+            <h3>Log Detail</h3>
+            <ul id="logList" class="log-list"></ul>
+          </div>
         </div>
 
         <div class="dashboard-info-card">
@@ -191,7 +203,30 @@
               <p>Jumlah item yang perlu pengisian ulang karena stok menipis atau sudah habis.</p>
             </div>
           </div>
+
+          <div class="dashboard-color-guide" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(15,191,155,0.1);">
+            <h4 style="margin: 0 0 16px; color: #0fbf9b; font-size: 14px; font-weight: 600;">🎨 Keterangan Warna Indikator</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 24px; height: 24px; border-radius: 6px; background: #2563eb; flex-shrink: 0;"></div>
+                <span style="font-size: 13px; color: #7f8c8d;"><strong>Biru</strong> - Informasi Umum (Total, Aktivitas)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 24px; height: 24px; border-radius: 6px; background: #e74c3c; flex-shrink: 0;"></div>
+                <span style="font-size: 13px; color: #7f8c8d;"><strong>Merah</strong> - Kritis/Bahaya (Kadaluarsa)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 24px; height: 24px; border-radius: 6px; background: #f39c12; flex-shrink: 0;"></div>
+                <span style="font-size: 13px; color: #7f8c8d;"><strong>Oranye</strong> - Perhatian (Hampir Kadaluarsa/Restock)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 24px; height: 24px; border-radius: 6px; background: #27ae60; flex-shrink: 0;"></div>
+                <span style="font-size: 13px; color: #7f8c8d;"><strong>Hijau</strong> - Aman/Normal (Stok Baik)</span>
+              </div>
+            </div>
+          </div>
         </div>
+
       </section>
 
       <!-- ===== DATA OBAT SECTION ===== -->
@@ -199,20 +234,6 @@
         <div class="section-header">
           <h1>Mengelola Data Obat</h1>
           <p>Daftar lengkap semua obat untuk tambah, ubah, melihat stok, dan membuka penjelasan detail obat dari satu halaman.</p>
-          <div class="header-guide" aria-label="Keterangan header tabel data obat">
-            <p class="header-guide-title">Keterangan Header Tabel</p>
-            <ul class="header-guide-list">
-              <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
-              <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
-              <li><strong>Kategori</strong><span>Jenis atau kelompok obat.</span></li>
-              <li><strong>Jumlah</strong><span>Total stok unit saat ini.</span></li>
-              <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
-              <li><strong>Status</strong><span>Kondisi masa berlaku obat.</span></li>
-              <li><strong>Prioritas (P1-P3)</strong><span>Urutan tindakan penanganan.</span></li>
-              <li><strong>VED</strong><span>Tingkat kepentingan obat.</span></li>
-              <li><strong>Aksi</strong><span>Tombol edit atau hapus data.</span></li>
-            </ul>
-          </div>
         </div>
 
         <div class="data-obat-toolbar">
@@ -224,6 +245,7 @@
           </div>
           <div class="data-tools data-tools-actions">
             <button id="openTambahBtn" type="button" class="btn-primary">Tambah Obat</button>
+            <button id="openObatKeluarBtn" type="button" class="btn-secondary">Obat Keluar</button>
           </div>
         </div>
 
@@ -252,11 +274,20 @@
                 <input type="date" id="inputKadaluarsa" required />
               </div>
               <div class="form-group">
-                <label>Kategori</label>
-                <select id="inputKategori">
-                  <option value="">-- Pilih jenis --</option>
+                <label>VED *</label>
+                <select id="inputVed" required>
+                  <option value="">-- Pilih VED --</option>
+                  <option value="V">V (Vital)</option>
+                  <option value="E">E (Essential)</option>
+                  <option value="D">D (Desirable)</option>
                 </select>
               </div>
+            </div>
+            <div class="form-group">
+              <label>Kategori</label>
+              <select id="inputKategori">
+                <option value="">-- Pilih jenis --</option>
+              </select>
             </div>
             <div class="form-group">
               <label>Batch / Lot</label>
@@ -270,6 +301,34 @@
               <button type="submit" class="btn-primary">Simpan Obat</button>
             </div>
           </form>
+        </div>
+
+        <div id="obatKeluarCard" class="form-card" style="display:none;">
+          <div class="inline-form-header">
+            <div>
+              <h3>Catat Obat Keluar</h3>
+              <p>Catat obat yang dikeluarkan/terjual untuk tracking pola penggunaan.</p>
+            </div>
+            <button id="closeObatKeluarBtn" type="button" class="btn-secondary">Tutup</button>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Pilih Obat</label>
+              <select id="releaseObatSelect" required>
+                <option value="">-- Pilih Obat --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Jumlah Dikeluarkan</label>
+              <input type="number" id="releaseQty" min="1" placeholder="Jumlah unit" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Keterangan</label>
+            <textarea id="releaseKeterangan" placeholder="Misal: Obat terjual kepada pasien, atau obat dimusnahkan karena kadaluarsa" rows="2"></textarea>
+          </div>
+          <button type="button" id="submitReleaseBtn" class="btn-primary" style="margin-top: 12px;">Catat Obat Keluar</button>
+          <div id="releaseStatus" style="margin-top: 12px; padding: 10px; border-radius: 8px; display: none;"></div>
         </div>
 
         <div class="table-card">
@@ -290,6 +349,21 @@
             <tbody id="tableObat"></tbody>
           </table>
         </div>
+
+        <div class="header-guide" aria-label="Keterangan header tabel data obat">
+          <p class="header-guide-title">Keterangan Header Tabel</p>
+          <ul class="header-guide-list">
+            <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
+            <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
+            <li><strong>Kategori</strong><span>Jenis atau kelompok obat.</span></li>
+            <li><strong>Jumlah</strong><span>Total stok unit saat ini.</span></li>
+            <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
+            <li><strong>Status</strong><span>Kondisi masa berlaku obat.</span></li>
+            <li><strong>Prioritas (P1-P3)</strong><span>Urutan tindakan penanganan.</span></li>
+            <li><strong>VED</strong><span>Tingkat kepentingan obat.</span></li>
+            <li><strong>Aksi</strong><span>Tombol edit atau hapus data.</span></li>
+          </ul>
+        </div>
       </section>
 
       <!-- ===== VED-FEFO SECTION ===== -->
@@ -297,27 +371,15 @@
         <div class="section-header">
           <h1>VED-FEFO</h1>
           <p>Kelola prioritas penanganan obat berdasarkan tingkat penting (VED) dan urutan kadaluarsa (FEFO).</p>
-          <div class="header-guide" aria-label="Keterangan VED FEFO">
-            <p class="header-guide-title">Keterangan VED-FEFO</p>
-            <ul class="header-guide-list">
-              <li><strong>Vital</strong><span>Kelompok obat paling kritis.</span></li>
-              <li><strong>Essential</strong><span>Kelompok obat penting untuk layanan.</span></li>
-              <li><strong>Desirable</strong><span>Kelompok obat prioritas normal.</span></li>
-              <li><strong>Ranking</strong><span>Urutan ditentukan oleh FEFO lalu VED.</span></li>
-            </ul>
-          </div>
         </div>
 
         <div class="data-tools">
           <select id="vedTimeFilter" class="filter-select">
             <option value="">Semua Waktu</option>
             <option value="expired">Sudah Lewat</option>
-            <option value="0-30">0 - 30 Hari</option>
-            <option value="31-90">31 - 90 Hari</option>
-            <option value=">90">Lebih dari 90 Hari</option>
-          </select>
-          <select id="vedMonthFilter" class="filter-select">
-            <option value="">Semua Bulan</option>
+            <option value="0-60">Hampir Kadaluarsa (0-60 Hari)</option>
+            <option value="61-180">Perhatian (61-180 Hari)</option>
+            <option value=">180">Aman (> 180 Hari)</option>
           </select>
         </div>
 
@@ -363,6 +425,27 @@
             <ul id="vedDesirableList" class="ved-list"></ul>
           </div>
         </div>
+
+        <div class="header-guide" aria-label="Keterangan VED FEFO">
+          <p class="header-guide-title">Keterangan VED-FEFO</p>
+          <ul class="header-guide-list">
+            <li><strong>Vital</strong><span>Kelompok obat paling kritis.</span></li>
+            <li><strong>Essential</strong><span>Kelompok obat penting untuk layanan.</span></li>
+            <li><strong>Desirable</strong><span>Kelompok obat prioritas normal.</span></li>
+            <li><strong>Ranking</strong><span>Urutan ditentukan oleh FEFO lalu VED.</span></li>
+          </ul>
+          
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #ddd;">
+            <p class="header-guide-title">Contoh: Prioritas Stok Berdasarkan VED</p>
+            <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Sistem menggabungkan kategori VED dan jumlah stok untuk menentukan prioritas tindakan:</p>
+            <ul class="header-guide-list" style="font-size: 13px;">
+              <li><strong style="color: #dc2626;">VITAL (V) stok 5 unit → P1 (Tinggi/Kritis)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Obat kritis dengan stok rendah harus segera digunakan dan dipesan.</span></li>
+              <li><strong style="color: #d97706;">ESSENTIAL (E) stok 5 unit → P2 (Sedang)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Obat penting dengan stok rendah perlu dimonitor ketat.</span></li>
+              <li><strong style="color: #2563eb;">DESIRABLE (D) stok 5 unit → P3 (Rendah)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Obat standar dengan stok cukup, manajemen normal.</span></li>
+              <li><strong style="color: #111;">Qty = 0 (habis) → Selalu P1 (Kritis)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Habis = critical apapun VED-nya, harus reorder segera.</span></li>
+            </ul>
+          </div>
+        </div>
       </section>
 
       <!-- ===== MONITORING KADALUARSA SECTION ===== -->
@@ -370,18 +453,6 @@
         <div class="section-header">
           <h1>Monitoring Kadaluarsa</h1>
           <p>Pantau obat yang sudah kadaluarsa atau akan segera kadaluarsa.</p>
-          <div class="header-guide" aria-label="Keterangan header tabel monitoring kadaluarsa">
-            <p class="header-guide-title">Keterangan Header Tabel</p>
-            <ul class="header-guide-list">
-              <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
-              <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
-              <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
-              <li><strong>Sisa Hari</strong><span>Estimasi waktu menuju kadaluarsa.</span></li>
-              <li><strong>Status</strong><span>Kondisi masa berlaku saat ini.</span></li>
-              <li><strong>Prioritas</strong><span>Tingkat urgensi tindakan.</span></li>
-              <li><strong>VED-FEFO</strong><span>Gabungan kepentingan dan urutan tanggal.</span></li>
-            </ul>
-          </div>
         </div>
 
         <div class="report-grid report-grid-compact">
@@ -405,6 +476,9 @@
             <option value="kadaluarsa">Kadaluarsa</option>
             <option value="hampir">Hampir Kadaluarsa</option>
             <option value="baik">Baik</option>
+          </select>
+          <select id="monitoringMonthFilter" class="filter-select">
+            <option value="">Semua Bulan</option>
           </select>
         </div>
 
@@ -433,6 +507,30 @@
             <tbody id="monitoringExpiryTable"></tbody>
           </table>
         </div>
+
+        <div class="header-guide" aria-label="Keterangan header tabel monitoring kadaluarsa">
+          <p class="header-guide-title">Keterangan Header Tabel</p>
+          <ul class="header-guide-list">
+            <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
+            <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
+            <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
+            <li><strong>Sisa Hari</strong><span>Estimasi waktu menuju kadaluarsa.</span></li>
+            <li><strong>Status</strong><span>Kondisi masa berlaku saat ini.</span></li>
+            <li><strong>Prioritas</strong><span>Tingkat urgensi tindakan.</span></li>
+            <li><strong>VED-FEFO</strong><span>Gabungan kepentingan dan urutan tanggal.</span></li>
+          </ul>
+          
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #ddd;">
+            <p class="header-guide-title">Contoh: Threshold Status Kadaluarsa</p>
+            <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Sistem menghitung sisa hari sampai kadaluarsa dan mengklasifikasi status obat:</p>
+            <ul class="header-guide-list" style="font-size: 13px;">
+              <li><strong style="color: #dc2626;">Sudah Kadaluarsa (daysLeft < 0)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Obat melewati tanggal kadaluarsa. Status: KADALUARSA. Tindakan: Segera buang/tarik dari etalase.</span></li>
+              <li><strong style="color: #d97706;">Kadaluarsa (daysLeft ≤ 60 hari / 2 bulan)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Masa pakai tinggal 2 bulan atau kurang. Status: KADALUARSA. Tindakan: Prioritaskan gunakan segera, jangan restock.</span></li>
+              <li><strong style="color: #f59e0b;">Hampir Kadaluarsa (61-180 hari / 3-6 bulan)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Masa pakai 3-6 bulan lagi. Status: HAMPIR KADALUARSA. Tindakan: Monitor ketat, prioritaskan pemakaian, evaluasi penjualan.</span></li>
+              <li><strong style="color: #10b981;">Aman (daysLeft > 180 hari)</strong><br/><span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Masa pakai masih panjang > 6 bulan. Status: BAIK/AMAN. Tindakan: Manajemen normal, boleh restock jika stok rendah.</span></li>
+            </ul>
+          </div>
+        </div>
       </section>
 
       <!-- ===== MONITORING STOK SECTION ===== -->
@@ -440,18 +538,6 @@
         <div class="section-header">
           <h1>Monitoring Stok</h1>
           <p>Pantau stok habis, stok menipis, kebutuhan reorder, dan prioritas tindakan obat dari satu menu.</p>
-          <div class="header-guide" aria-label="Keterangan header tabel monitoring stok">
-            <p class="header-guide-title">Keterangan Header Tabel</p>
-            <ul class="header-guide-list">
-              <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
-              <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
-              <li><strong>Jumlah</strong><span>Total stok unit saat ini.</span></li>
-              <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
-              <li><strong>Status Stok</strong><span>Kondisi aman, menipis, atau habis.</span></li>
-              <li><strong>Prioritas</strong><span>Urutan tindakan restock.</span></li>
-              <li><strong>VED-FEFO</strong><span>Konteks penting dan urutan keluar.</span></li>
-            </ul>
-          </div>
         </div>
 
         <div class="dashboard-info-card dashboard-stock-card">
@@ -528,22 +614,48 @@
           <div id="autoAlertSummary" class="section-subnote" style="margin-top:8px;">Belum ada peringatan.</div>
           <ul id="autoAlertList" class="auto-alert-list"></ul>
         </div>
+
+        <div class="header-guide" aria-label="Keterangan header tabel monitoring stok">
+          <p class="header-guide-title">Keterangan Header Tabel</p>
+          <ul class="header-guide-list">
+            <li><strong>Nama Obat</strong><span>Nama item obat.</span></li>
+            <li><strong>Batch</strong><span>Nomor lot obat.</span></li>
+            <li><strong>Jumlah</strong><span>Total stok unit saat ini.</span></li>
+            <li><strong>Kadaluarsa</strong><span>Tanggal akhir masa berlaku.</span></li>
+            <li><strong>Status Stok</strong><span>Kondisi aman, menipis, atau habis.</span></li>
+            <li><strong>Prioritas</strong><span>Urutan tindakan restock.</span></li>
+            <li><strong>VED-FEFO</strong><span>Konteks penting dan urutan keluar.</span></li>
+          </ul>
+          
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #ddd;">
+            <p class="header-guide-title">Contoh: Kebutuhan Restock Berdasarkan Lead Time Kategori</p>
+            <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Sistem menyarankan restock jika estimasi hari stok (daysOfStock) ≤ lead time kategori obat:</p>
+            <ul class="header-guide-list" style="font-size: 13px;">
+              <li><strong style="color: #dc2626;">Paracetamol (TABLET BEBAS)</strong><br/>
+              <span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Stok: 20 unit, Penjualan: 3 unit/hari, Lead Time: 7 hari<br/>
+              Estimasi hari stok = 20 ÷ 3 = 6.67 hari<br/>
+              <strong>6.67 ≤ 7?</strong> YA → Status: URGENT REORDER (Perlu Reorder)</span></li>
+              
+              <li><strong style="color: #d97706;">Injeksi (INJEKSI)</strong><br/>
+              <span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Stok: 15 unit, Penjualan: 1 unit/hari, Lead Time: 14 hari<br/>
+              Estimasi hari stok = 15 ÷ 1 = 15 hari<br/>
+              <strong>15 ≤ 14?</strong> TIDAK → Status: AMAN (Stok masih cukup, belum perlu reorder)</span></li>
+              
+              <li><strong style="color: #10b981;">Sirup Obat Batuk (SIRUP)</strong><br/>
+              <span style="display: block; color: #777; font-weight: normal; margin-top: 4px;">Stok: 2 unit, Penjualan: 1 unit/hari, Lead Time: 14 hari<br/>
+              Estimasi hari stok = 2 ÷ 1 = 2 hari<br/>
+              <strong>2 ≤ 14?</strong> YA → Status: URGENT REORDER + P1 (Paling mendesak, stok hampir habis)</span></li>
+            </ul>
+            <p style="margin-top: 12px; font-size: 12px; color: #666;"><strong>Lead time per kategori:</strong> SIRUP/INJEKSI (14 hari), TABLET KERAS (10 hari), TABLET BEBAS/SALEP/ETALASE LUAR (7 hari).</p>
+          </div>
+        </div>
       </section>
 
       <!-- ===== USERS SECTION ===== -->
       <section id="section-users" class="content-section">
         <div class="section-header">
           <h1>Mengelola Data User</h1>
-          <p>Kelola data user serta role APJ dan Apoteker Pendamping dari dashboard.</p>
-          <div class="header-guide" aria-label="Keterangan header tabel data user">
-            <p class="header-guide-title">Keterangan Header Tabel</p>
-            <ul class="header-guide-list">
-              <li><strong>Username</strong><span>Nama akun pengguna.</span></li>
-              <li><strong>Email</strong><span>Alamat login pengguna.</span></li>
-              <li><strong>Role</strong><span>Tingkat akses APJ atau Apoteker Pendamping.</span></li>
-              <li><strong>Aksi</strong><span>Tombol menyimpan perubahan role.</span></li>
-            </ul>
-          </div>
+          <p>Kelola data user serta role APJ dan Apoteker Pendamping, serta atur pengaturan email VED-FEFO dari dashboard.</p>
           <p class="section-subnote">Akun APJ yang sedang dipakai tetap dikunci sebagai APJ untuk mencegah akses admin terputus.</p>
         </div>
 
@@ -566,37 +678,168 @@
             </table>
           </div>
         </div>
+
+        <div class="header-guide" aria-label="Keterangan header tabel data user">
+          <p class="header-guide-title">Keterangan Header Tabel</p>
+          <ul class="header-guide-list">
+            <li><strong>Username</strong><span>Nama akun pengguna.</span></li>
+            <li><strong>Email</strong><span>Alamat login pengguna.</span></li>
+            <li><strong>Role</strong><span>Tingkat akses APJ atau Apoteker Pendamping.</span></li>
+            <li><strong>Aksi</strong><span>Tombol menyimpan perubahan role.</span></li>
+          </ul>
+        </div>
+
+        <!-- Email Settings Section -->
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e0e0e0;">
+          <h2 style="color: #2c3e50; margin-bottom: 15px;">⚙️ Pengaturan Email VED-FEFO</h2>
+          <p style="color: #7f8c8d; margin-bottom: 20px;">Atur interval dan jadwal pengiriman laporan VED-FEFO otomatis ke semua APJ dan Apoteker Pendamping.</p>
+
+          <div class="form-card">
+            <div id="emailSettingsLoading" style="display: none; text-align: center; padding: 20px;">
+              <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+              <p style="margin-top: 10px; color: #7f8c8d;">Memuat pengaturan email...</p>
+            </div>
+
+            <div id="emailSettingsForm" style="display: none;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <!-- Interval -->
+                <div style="display: flex; flex-direction: column;">
+                  <label style="font-weight: 600; margin-bottom: 8px; color: #34495e;">Interval Pengiriman (hari)*</label>
+                  <input type="number" id="emailIntervalInput" min="1" max="30" placeholder="Contoh: 5" style="padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 14px;" />
+                  <small style="color: #7f8c8d; margin-top: 5px;">Email akan dikirim setiap berapa hari? (1-30 hari)</small>
+                </div>
+
+                <!-- Email Time -->
+                <div style="display: flex; flex-direction: column;">
+                  <label style="font-weight: 600; margin-bottom: 8px; color: #34495e;">Jam Pengiriman (WIB)*</label>
+                  <input type="time" id="emailTimeInput" style="padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 14px;" />
+                  <small style="color: #7f8c8d; margin-top: 5px;">Jam berapa email harus dikirim? (format HH:MM WIB)</small>
+                </div>
+              </div>
+
+              <!-- Enable/Disable -->
+              <div style="margin-bottom: 20px;">
+                <label style="font-weight: 600; margin-bottom: 8px; color: #34495e; display: block;">Status Pengiriman</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <label style="position: relative; display: inline-block; width: 50px; height: 24px;">
+                    <input type="checkbox" id="emailEnabledCheckbox" style="opacity: 0; width: 0; height: 0;" />
+                    <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #bdc3c7; transition: .4s; border-radius: 24px; width: 50px; height: 24px;" class="toggle-slider-email"></span>
+                  </label>
+                  <span id="emailStatusDisplay" style="color: #e74c3c; font-weight: 600;">⏸️ Nonaktif</span>
+                </div>
+                <small style="color: #7f8c8d; margin-top: 8px; display: block;">Nonaktifkan untuk menghentikan pengiriman email otomatis</small>
+              </div>
+
+              <!-- Current Status Display -->
+              <div style="background-color: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                  <span style="font-weight: 600; color: #34495e;">Status:</span>
+                  <span id="emailCurrentStatus" style="color: #7f8c8d;">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                  <span style="font-weight: 600; color: #34495e;">Interval:</span>
+                  <span id="emailCurrentInterval" style="color: #7f8c8d;">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                  <span style="font-weight: 600; color: #34495e;">Jam Pengiriman:</span>
+                  <span id="emailCurrentTime" style="color: #7f8c8d;">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                  <span style="font-weight: 600; color: #34495e;">Pengiriman Terakhir:</span>
+                  <span id="emailLastSent" style="color: #7f8c8d;">-</span>
+                </div>
+              </div>
+
+              <!-- Buttons -->
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" onclick="saveEmailSettings()" style="padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background-color 0.3s;">💾 Simpan Pengaturan</button>
+                <button type="button" onclick="sendTestEmail()" style="padding: 10px 20px; background-color: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background-color 0.3s;">🚀 Kirim Test Email</button>
+              </div>
+
+              <div id="emailActionResult" style="display: none; margin-top: 15px;"></div>
+            </div>
+
+            <div id="emailSettingsError" style="display: none; padding: 15px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 20px;"></div>
+          </div>
+        </div>
       </section>
+
+
 
       <!-- ===== LAPORAN SECTION ===== -->
       <section id="section-laporan" class="content-section">
         <div class="section-header">
-          <h1>Cetak Laporan</h1>
-          <p>Unduh laporan stok obat sesuai kebutuhan operasional.</p>
-          <div class="header-guide" aria-label="Keterangan form cetak laporan">
-            <p class="header-guide-title">Keterangan Form</p>
-            <ul class="header-guide-list">
-              <li><strong>Bulan Laporan</strong><span>Pilih periode data yang akan dicetak.</span></li>
-              <li><strong>Unduh PDF Bulanan</strong><span>Buat dan unduh file laporan sesuai periode.</span></li>
-            </ul>
+          <h1>📊 Laporan</h1>
+          <p>Unduh laporan stok obat dalam format PDF dan CSV</p>
+        </div>
+        <div class="report-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
+          <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
+            <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📋 Detail Stok Lengkap</h3>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Inventaris lengkap semua obat dengan batch, kategori, VED, jumlah, dan tanggal kadaluarsa.</p>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Paracetamol | Batch 2024-001 | VED: V | Qty: 50 | Exp: 31-Okt-2025</p>
+            <button onclick="downloadReport('full-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+            <button onclick="downloadReport('full-csv')" style="width: 100%; padding: 10px; margin-top: 8px; background: #00d2c2; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download CSV</button>
+          </div>
+
+          <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
+            <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">🎯 Ringkasan Kategori VED</h3>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Breakdown jumlah obat per kategori Vital, Essential, Desirable dengan analisis prioritas dan rekomendasi.</p>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Vital: 45 item | Essential: 120 item | Desirable: 230 item</p>
+            <button onclick="downloadReport('ved-summary-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+          </div>
+
+          <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
+            <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">⚠️ Laporan Obat Kritis</h3>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Daftar obat yang memerlukan tindakan segera: kadaluarsa, hampir expired, dan stok habis/menipis.</p>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Amoxilin (Qty: 2, Exp: 15-Mei-2026) | Vitamin B12 (Qty: 0)</p>
+            <button onclick="downloadReport('critical-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+          </div>
+
+          <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
+            <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📅 Laporan Aktivitas Harian</h3>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Ringkasan aktivitas hari ini: obat baru, dikeluarkan, perubahan stok, dan kategori.</p>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Penambahan: 5 item | Pelepasan: 12 unit | Kategori berubah: 2 item</p>
+            <button onclick="downloadReport('daily-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+          </div>
+
+          <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
+            <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📊 Laporan Pelepasan Obat</h3>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Tracking obat yang dikeluarkan/terjual per periode dengan detail jenis, jumlah, dan aktor yang merilis.</p>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Paracetamol: 25 unit (Guntur) | Ibuprofen: 10 unit (Student)</p>
+            <button onclick="downloadReport('management-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
+          </div>
+
+          <div class="report-card" style="background: linear-gradient(135deg, rgba(15,191,155,0.08), rgba(74,222,128,0.08)); border: 1px solid rgba(15,191,155,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(15,191,155,0.05);">
+            <h3 style="margin: 0 0 10px; color: #0fbf9b; font-size: 18px;">📈 Rekomendasi Restock</h3>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Deskripsi:</strong> Saran pemesanan berdasarkan pola penggunaan, lead time kategori, dan klasifikasi VED.</p>
+            <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.95rem; line-height: 1.5;"><strong>Contoh:</strong> Paracetamol (V): Pesan 200 unit | Vitamin C (D): Pesan 100 unit</p>
+            <button onclick="downloadReport('restock-analysis-pdf')" style="width: 100%; padding: 10px; margin-top: 12px; background: #0fbf9b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📥 Download PDF</button>
           </div>
         </div>
 
-        <div class="form-card">
-          <h3>Unduh Laporan Bulanan</h3>
-          <div class="grid-2">
-            <div class="form-group">
-              <label>Bulan Laporan</label>
-              <input type="month" id="reportMonth" />
-            </div>
-            <div class="form-group" style="display:flex; align-items:flex-end;">
-              <button id="downloadMonthlyPdf" type="button" class="btn-primary" style="width:100%;">Unduh PDF Bulanan</button>
-            </div>
-          </div>
+        <div class="header-guide" aria-label="Keterangan laporan dan use case">
+          <p class="header-guide-title">📊 Jenis-Jenis Laporan</p>
+          <ul class="header-guide-list">
+            <li><strong>Detail Stok Lengkap</strong><span>Inventaris lengkap semua obat dengan batch, kategori, VED, jumlah, tanggal kadaluarsa, dan informasi lengkap lainnya. Gunakan untuk audit stok menyeluruh dan laporan manajemen.</span></li>
+            <li><strong>Ringkasan Kategori VED</strong><span>Breakdown jumlah obat per kategori Vital, Essential, Desirable dengan analisis prioritas. Membantu strategi pengelolaan stok berdasarkan tingkat kepentingan.</span></li>
+            <li><strong>Laporan Obat Kritis</strong><span>Daftar obat yang memerlukan tindakan segera: sudah kadaluarsa, hampir expired, atau stok habis/menipis. Gunakan untuk peringatan dan tindakan cepat.</span></li>
+            <li><strong>Laporan Aktivitas Harian</strong><span>Ringkasan aktivitas hari ini: obat baru ditambahkan, dikeluarkan, perubahan stok, dan perubahan kategori. Untuk tracking dan reconciliation harian.</span></li>
+            <li><strong>Laporan Pelepasan Obat</strong><span>Tracking obat yang dikeluarkan/terjual per periode dengan detail jenis, jumlah, dan aktor yang merilis. Untuk audit trail dan analisis penggunaan obat.</span></li>
+            <li><strong>Rekomendasi Restock</strong><span>Saran pemesanan berdasarkan pola penggunaan, lead time kategori, dan klasifikasi VED. Alat perencanaan procurement yang cerdas.</span></li>
+          </ul>
+
+          <p class="header-guide-title" style="margin-top: 20px;">📋 Use Case Laporan</p>
+          <ul class="header-guide-list" style="font-size: 13px;">
+            <li><strong>Audit Stok Rutin</strong><span>Gunakan Detail Stok Lengkap dan Ringkasan VED untuk verifikasi inventaris secara berkala.</span></li>
+            <li><strong>Monitoring Kedaluwarsa</strong><span>Laporan Obat Kritis menunjukkan obat yang sudah atau akan kadaluarsa untuk tindakan penghapusan.</span></li>
+            <li><strong>Perencanaan Pemesanan</strong><span>Rekomendasi Restock memberikan saran jumlah pemesanan berdasarkan analisis data penggunaan.</span></li>
+            <li><strong>Tracking Pelepasan</strong><span>Laporan Pelepasan Obat memungkinkan audit trail lengkap siapa yang merilis obat dan berapa jumlahnya.</span></li>
+            <li><strong>Analisis Aktivitas Harian</strong><span>Laporan Aktivitas Harian untuk reconciliation dan verifikasi perubahan stok yang terjadi dalam sehari.</span></li>
+          </ul>
         </div>
       </section>
 
-      <!-- ===== PROFILE SECTION ===== -->
+      <!-- ===== PROFILE SECTION =====' -->
       <section id="section-profile" class="content-section">
         <div class="section-header">
           <h1>Profil Pengguna</h1>
@@ -624,6 +867,16 @@
           <h3>Ubah Password</h3>
           <p class="section-subnote">Untuk mengubah password, kami akan mengirimkan link ke email terdaftar Anda.</p>
           <button type="button" id="requestPasswordResetBtn" class="btn-primary" style="margin-top: 12px;">Kirim Link Reset Password</button>
+        </div>
+
+        <div class="header-guide" aria-label="Keterangan profil pengguna">
+          <p class="header-guide-title">Informasi Akun</p>
+          <ul class="header-guide-list">
+            <li><strong>Nama Pengguna</strong><span>Nama login akun Anda di sistem.</span></li>
+            <li><strong>Email</strong><span>Alamat email terdaftar untuk akun Anda.</span></li>
+            <li><strong>Role</strong><span>Hak akses Anda dalam sistem (APJ atau Apoteker Pendamping).</span></li>
+            <li><strong>Reset Password</strong><span>Klik tombol untuk mengirim link reset password ke email Anda. Link berlaku selama 1 jam.</span></li>
+          </ul>
         </div>
       </section>
 
@@ -707,12 +960,8 @@
     <div class="modal-body obat-detail-body">
       <div class="obat-detail-grid">
         <div class="obat-detail-card">
-          <strong>Definisi singkat</strong>
+          <strong>Definisi Obat</strong>
           <p id="obatDetailDescription">Penjelasan obat akan tampil di sini.</p>
-        </div>
-        <div class="obat-detail-card obat-detail-card-accent">
-          <strong>Definisi kategori</strong>
-          <p id="obatDetailCategoryDescription">Penjelasan kategori akan tampil di sini.</p>
         </div>
       </div>
       <div class="obat-detail-meta">
@@ -762,7 +1011,21 @@
 
 <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
+<!-- Dashboard Entry Overlay (Loading) -->
+<div id="dashboardEntryOverlay" class="dashboard-entry-overlay" aria-hidden="true" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 30, 30, 0.95); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity 260ms ease-in-out;">
+  <div style="text-align: center; color: white;">
+    <div style="font-size: 32px; margin-bottom: 16px; animation: spin 1s linear infinite;">⟳</div>
+    <strong style="display: block; font-size: 18px; margin-bottom: 8px;">Memuat Dashboard</strong>
+    <span style="display: block; font-size: 14px; color: rgba(255,255,255,0.7);">Menyiapkan ringkasan stok, aktivitas, dan notifikasi terbaru.</span>
+  </div>
+</div>
+
+<style>
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  #dashboardEntryOverlay.open { opacity: 1; pointer-events: auto; }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="/app.js?v=20260313-obat-detail-popup"></script>
+<script src="/app.js?v=20260402-ved-edit"></script>
 </body>
 </html>

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengaturan Scheduler Email - Obat.Qu</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .settings-container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+
+    .settings-card {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .settings-card h2 {
+      margin-top: 0;
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #34495e;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group button {
+      font-size: 14px;
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid #bdc3c7;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    }
+
+    .form-group button {
+      width: auto;
+      padding: 10px 20px;
+      cursor: pointer;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      font-weight: 600;
+      transition: background-color 0.3s;
+    }
+
+    .form-group button:hover {
+      background-color: #2980b9;
+    }
+
+    .form-group button:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #bdc3c7;
+      transition: .4s;
+      border-radius: 24px;
+      width: 50px;
+      height: 24px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: #27ae60;
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .status-badge.active {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .status-badge.inactive {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .info-box {
+      background-color: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #1565c0;
+    }
+
+    .alert {
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .alert.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .config-display {
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+
+    .config-display .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .config-display .row label {
+      font-weight: 600;
+      color: #34495e;
+      min-width: 150px;
+    }
+
+    .config-display .row value {
+      color: #7f8c8d;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .button-group button {
+      width: auto;
+    }
+
+    .button-group button.secondary {
+      background-color: #95a5a6;
+    }
+
+    .button-group button.secondary:hover {
+      background-color: #7f8c8d;
+    }
+
+    .button-group button.danger {
+      background-color: #e74c3c;
+    }
+
+    .button-group button.danger:hover {
+      background-color: #c0392b;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .last-sent-info {
+      font-size: 13px;
+      color: #7f8c8d;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+
+    @media (max-width: 768px) {
+      .settings-container {
+        padding: 10px;
+      }
+
+      .settings-card {
+        padding: 15px;
+      }
+
+      .form-group input,
+      .form-group select {
+        max-width: 100%;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      .button-group button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <div class="navbar-brand">📋 Obat.Qu - Pengaturan Scheduler Email</div>
+    <div class="navbar-menu">
+      <a href="/dashboard.html">Dashboard</a>
+      <a href="/reports.html">Laporan</a>
+      <a href="#" onclick="logout()" style="color: #e74c3c;">Logout</a>
+    </div>
+  </div>
+
+  <div class="settings-container">
+    <div class="alert" id="alert"></div>
+
+    <!-- Info Box -->
+    <div class="info-box">
+      ℹ️ Halaman ini memungkinkan Anda untuk mengatur interval pengiriman laporan VED-FEFO melalui email.
+      Anda dapat mengubah berapa hari skali laporan dikirim, jam pengiriman, dan mengaktifkan/menonaktifkan fitur.
+    </div>
+
+    <!-- Settings Card -->
+    <div class="settings-card">
+      <h2>⚙️ Pengaturan Laporan VED-FEFO Email</h2>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Memuat pengaturan...</p>
+      </div>
+
+      <form id="schedulerForm" style="display: none;">
+        <!-- Enable/Disable -->
+        <div class="form-group">
+          <label>Status Pengiriman Email</label>
+          <div class="toggle-group">
+            <label class="toggle-switch">
+              <input type="checkbox" id="enableScheduler" onchange="toggleScheduler()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span id="enabledStatus">Memproses...</span>
+          </div>
+          <p style="font-size: 12px; color: #7f8c8d; margin-top: 10px;">
+            Nonaktifkan untuk menghentikan pengiriman email otomatis
+          </p>
+        </div>
+
+        <!-- Interval -->
+        <div class="form-group">
+          <label for="intervalDays">Interval Pengiriman (dalam hari)*</label>
+          <input type="number" id="intervalDays" min="1" max="30" placeholder="Contoh: 5" required>
+          <p style="font-size: 12px; color: #7f8c8d; margin-top: 5px;">
+            Email akan dikirim setiap berapa hari? (1-30 hari)
+          </p>
+        </div>
+
+        <!-- Email Time -->
+        <div class="form-group">
+          <label for="emailTime">Jam Pengiriman (WIB)*</label>
+          <input type="time" id="emailTime" required>
+          <p style="font-size: 12px; color: #7f8c8d; margin-top: 5px;">
+            Jam berapa email harus dikirim? (format HH:MM WIB)
+          </p>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-group">
+          <div class="button-group">
+            <button type="button" onclick="saveSettings()" class="btn-primary">💾 Simpan Pengaturan</button>
+            <button type="button" onclick="sendTestEmail()" class="btn-secondary secondary">🧪 Kirim Email Test</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Config Display -->
+      <div class="config-display" id="configDisplay" style="display: none;">
+        <div class="row">
+          <label>Status:</label>
+          <value id="statusDisplay">-</value>
+        </div>
+        <div class="row">
+          <label>Interval:</label>
+          <value id="intervalDisplay">-</value>
+        </div>
+        <div class="row">
+          <label>Jam Pengiriman:</label>
+          <value id="timeDisplay">-</value>
+        </div>
+        <div class="row">
+          <label>Pengiriman Terakhir:</label>
+          <value id="lastSentDisplay">-</value>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Email Section -->
+    <div class="settings-card">
+      <h2>🧪 Test Pengiriman Email</h2>
+      <div class="info-box">
+        Gunakan tombol di bawah untuk mengirim email test laporan VED-FEFO saat ini kepada semua APJ dan Apoteker.
+        Ini tidak akan mengubah jadwal pengiriman normal.
+      </div>
+      <div class="form-group">
+        <button type="button" onclick="sendTestEmailFull()" class="btn-primary">🚀 Kirim Email Test Sekarang</button>
+      </div>
+      <div id="testEmailResult"></div>
+    </div>
+
+    <!-- Help Section -->
+    <div class="settings-card">
+      <h2>❓ Bantuan & Informasi</h2>
+      <div style="font-size: 14px; line-height: 1.8;">
+        <h4>Bagaimana cara kerja scheduler email?</h4>
+        <ul>
+          <li><strong>Interval:</strong> Menentukan berapa hari sekali email laporan dikirim</li>
+          <li><strong>Jam Pengiriman:</strong> Menentukan jam berapa email harus dikirim setiap harinya (dalam WIB)</li>
+          <li><strong>Penerima:</strong> Email dikirim ke semua user APJ dan Apoteker Pendamping yang sudah mendaftar</li>
+          <li><strong>Konten:</strong> Laporan mencakup ringkasan VED-FEFO, obat urgent, dan rekomendasi penjualan</li>
+        </ul>
+
+        <h4>Apa itu VED-FEFO?</h4>
+        <ul>
+          <li><strong>VED:</strong> Vital, Essential, Desirable - klasifikasi obat berdasarkan pentingnya</li>
+          <li><strong>FEFO:</strong> First Expiry First Out - strategi penjualan obat dengan masa berlaku terdekat terlebih dahulu</li>
+        </ul>
+
+        <h4>Persyaratan Email</h4>
+        <ul>
+          <li>Konfigurasi SMTP harus sudah dilakukan di .env</li>
+          <li>Semua user harus memiliki email di profil mereka</li>
+          <li>Email akan disimpan di email-fallback.log jika SMTP error</li>
+        </ul>
+
+        <h4>Tips</h4>
+        <ul>
+          <li>Gunakan interval 3-7 hari untuk monitoring rutin</li>
+          <li>Set jam pengiriman pada pagi hari (08:00-10:00) agar cepat ditindaklanjuti</li>
+          <li>Gunakan fitur test email untuk verifikasi konfigurasi email</li>
+          <li>Cek email-fallback.log jika ada email yang gagal dikirim</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let currentConfigId = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+      
+      // Hanya APJ yang bisa akses halaman ini
+      if (user.role !== 'APJ') {
+        alert('Hanya APJ yang bisa mengakses pengaturan scheduler');
+        window.location.href = '/dashboard.html';
+        return;
+      }
+
+      loadSchedulerConfig();
+    });
+
+    // Load Scheduler Config
+    async function loadSchedulerConfig() {
+      showLoading(true);
+      try {
+        const response = await fetch('/api/scheduler-config/ved_fefo_email', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error('Gagal memuat konfigurasi');
+        }
+
+        const config = await response.json();
+        currentConfigId = config.id;
+
+        // Fill form
+        document.getElementById('enableScheduler').checked = config.enabled === true || config.enabled === 1;
+        document.getElementById('intervalDays').value = config.interval_hari || 5;
+        document.getElementById('emailTime').value = config.email_jam || '08:00';
+
+        updateStatusDisplay(config);
+        showLoading(false);
+        document.getElementById('schedulerForm').style.display = 'block';
+
+      } catch (error) {
+        showAlert('error', '❌ Gagal memuat konfigurasi: ' + error.message);
+        showLoading(false);
+      }
+    }
+
+    // Update Status Display
+    function updateStatusDisplay(config) {
+      const statusEl = document.getElementById('enabledStatus');
+      statusEl.textContent = config.enabled ? '✅ Aktif' : '⏸️ Nonaktif';
+      statusEl.style.color = config.enabled ? '#27ae60' : '#e74c3c';
+
+      document.getElementById('statusDisplay').textContent = config.enabled ? '✅ Aktif' : '⏸️ Nonaktif';
+      document.getElementById('intervalDisplay').textContent = `${config.interval_hari} hari`;
+      document.getElementById('timeDisplay').textContent = config.email_jam + ' WIB';
+      document.getElementById('lastSentDisplay').textContent = config.last_sent_at 
+        ? new Date(config.last_sent_at).toLocaleString('id-ID') 
+        : 'Belum pernah dikirim';
+
+      document.getElementById('configDisplay').style.display = 'block';
+    }
+
+    // Toggle Scheduler
+    function toggleScheduler() {
+      const enabled = document.getElementById('enableScheduler').checked;
+      document.getElementById('enabledStatus').textContent = enabled ? '✅ Aktif' : '⏸️ Nonaktif';
+      document.getElementById('enabledStatus').style.color = enabled ? '#27ae60' : '#e74c3c';
+    }
+
+    // Save Settings
+    async function saveSettings() {
+      const enabled = document.getElementById('enableScheduler').checked;
+      const intervalDays = parseInt(document.getElementById('intervalDays').value);
+      const emailTime = document.getElementById('emailTime').value;
+
+      // Validation
+      if (!intervalDays || intervalDays < 1 || intervalDays > 30) {
+        showAlert('error', '❌ Interval harus antara 1-30 hari');
+        return;
+      }
+
+      if (!emailTime) {
+        showAlert('error', '❌ Jam pengiriman harus diisi');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/scheduler-config/${currentConfigId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            interval_hari: intervalDays,
+            enabled: enabled,
+            email_jam: emailTime
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Gagal menyimpan pengaturan');
+        }
+
+        const result = await response.json();
+        showAlert('success', '✅ Pengaturan berhasil disimpan!');
+        
+        // Reload config
+        setTimeout(loadSchedulerConfig, 1000);
+
+      } catch (error) {
+        showAlert('error', '❌ Gagal menyimpan pengaturan: ' + error.message);
+      }
+    }
+
+    // Send Test Email
+    async function sendTestEmailFull() {
+      try {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = '⏳ Mengirim...';
+
+        const response = await fetch('/api/reports/send-ved-fefo-email', {
+          method: 'POST',
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          throw new Error('Gagal mengirim email test');
+        }
+
+        const result = await response.json();
+        
+        const resultDiv = document.getElementById('testEmailResult');
+        resultDiv.innerHTML = `
+          <div class="alert success show" style="margin-top: 15px;">
+            <strong>✅ Email Berhasil Dikirim!</strong><br>
+            Berhasil dikirim ke <strong>${result.successCount}</strong> penerima<br>
+            <small>Penerima: ${result.recipients.join(', ')}</small>
+          </div>
+        `;
+
+        btn.disabled = false;
+        btn.textContent = '🚀 Kirim Email Test Sekarang';
+
+      } catch (error) {
+        const resultDiv = document.getElementById('testEmailResult');
+        resultDiv.innerHTML = `
+          <div class="alert error show" style="margin-top: 15px;">
+            <strong>❌ Gagal Mengirim Email</strong><br>
+            ${error.message}
+          </div>
+        `;
+        event.target.disabled = false;
+        event.target.textContent = '🚀 Kirim Email Test Sekarang';
+      }
+    }
+
+    // Helper Functions
+    function showLoading(show) {
+      document.getElementById('loading').classList.toggle('show', show);
+    }
+
+    function showAlert(type, message) {
+      const alertEl = document.getElementById('alert');
+      alertEl.className = `alert ${type} show`;
+      alertEl.textContent = message;
+      setTimeout(() => {
+        alertEl.classList.remove('show');
+      }, 5000);
+    }
+
+    function logout() {
+      fetch('/api/logout', { method: 'GET', credentials: 'include' })
+        .then(() => {
+          sessionStorage.clear();
+          window.location.href = '/login.html';
+        });
+    }
+  </script>
+</body>
+</html>

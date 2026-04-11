@@ -36,6 +36,7 @@ const SESSION_COOKIE_OPTIONS = {
 
 const db = require('./database/database');
 const { sendMail, isEmailConfigured } = require('./utils/email');
+const { setupScheduler } = require('./utils/scheduler');
 
 function isBcryptHash(value) {
   return /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
@@ -227,6 +228,80 @@ function backfillObatDescriptions() {
   });
 }
 
+function initializeKategoriConfig() {
+  db.get('SELECT COUNT(*) AS total FROM kategori_config', (err, row) => {
+    if (err || (row && row.total > 0)) return;
+
+    const defaultKategori = [
+      { nama: 'SIRUP', lead_time: 14, min_stok: 5, optimal_stok: 20, reorder_qty: 30, keterangan: 'Sirup oral - lead time lama, reorder cepat saat stok turun' },
+      { nama: 'TABLET BEBAS', lead_time: 7, min_stok: 10, optimal_stok: 30, reorder_qty: 50, keterangan: 'Tablet bebas/umum - lead time sedang' },
+      { nama: 'TABLET KERAS', lead_time: 10, min_stok: 8, optimal_stok: 25, reorder_qty: 40, keterangan: 'Tablet keras - perlu resep, lead time lebih panjang' },
+      { nama: 'SALEP', lead_time: 7, min_stok: 5, optimal_stok: 15, reorder_qty: 20, keterangan: 'Salep/krim topical' },
+      { nama: 'ETALASE LUAR', lead_time: 7, min_stok: 10, optimal_stok: 20, reorder_qty: 30, keterangan: 'Obat display/etalase luar' },
+      { nama: 'INJEKSI', lead_time: 14, min_stok: 3, optimal_stok: 12, reorder_qty: 20, keterangan: 'Injeksi - lead time panjang, minimum stok ketat' }
+    ];
+
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION');
+      const stmt = db.prepare('INSERT INTO kategori_config (id, nama, lead_time_hari, min_stok, optimal_stok, reorder_qty, keterangan, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      
+      defaultKategori.forEach(kat => {
+        stmt.run([uuidv4(), kat.nama, kat.lead_time, kat.min_stok, kat.optimal_stok, kat.reorder_qty, kat.keterangan, new Date().toISOString()]);
+      });
+
+      stmt.finalize((finalErr) => {
+        if (finalErr) {
+          console.error('Kategori config init error:', finalErr);
+          db.run('ROLLBACK');
+          return;
+        }
+        db.run('COMMIT', (commitErr) => {
+          if (commitErr) {
+            console.error('Kategori config commit error:', commitErr);
+            db.run('ROLLBACK');
+            return;
+          }
+          console.log(`Kategori config diinisialisasi dengan ${defaultKategori.length} tipe obat`);
+        });
+      });
+    });
+  });
+}
+
+function initializeSchedulerConfig(callback) {
+  db.get('SELECT COUNT(*) AS total FROM scheduler_config', (err, row) => {
+    if (err) {
+      console.error('Scheduler config check error:', err);
+      if (callback) callback(err);
+      return;
+    }
+    
+    if (row && row.total > 0) {
+      console.log('✅ Scheduler config sudah ada di database');
+      if (callback) callback(null);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    
+    // Default scheduler config untuk VED-FEFO email
+    console.log('[INIT] Menginisialisasi scheduler_config dengan default values...');
+    db.run(
+      "INSERT INTO scheduler_config (id, config_type, interval_hari, enabled, email_jam, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [uuidv4(), 'ved_fefo_email', 5, true, '08:00', now, now],
+      (err) => {
+        if (err) {
+          console.error('❌ Scheduler config init error:', err);
+          if (callback) callback(err);
+          return;
+        }
+        console.log('✅ Scheduler config diinisialisasi dengan default: VED-FEFO email setiap 5 hari jam 08:00');
+        if (callback) callback(null);
+      }
+    );
+  });
+}
+
 /* ===============================
   DATABASE (shared module)
 ================================ */
@@ -275,12 +350,55 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS kategori_config (
+      id TEXT PRIMARY KEY,
+      nama TEXT UNIQUE NOT NULL,
+      lead_time_hari INTEGER DEFAULT 7,
+      min_stok INTEGER DEFAULT 10,
+      optimal_stok INTEGER DEFAULT 30,
+      reorder_qty INTEGER DEFAULT 50,
+      keterangan TEXT,
+      created_at TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS stock_movements (
+      id TEXT PRIMARY KEY,
+      obat_id TEXT NOT NULL,
+      obat_nama TEXT NOT NULL,
+      jenis_movement TEXT,
+      jumlah INTEGER,
+      keterangan TEXT,
+      waktu TEXT,
+      created_at TEXT,
+      FOREIGN KEY (obat_id) REFERENCES obat(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS scheduler_config (
+      id TEXT PRIMARY KEY,
+      config_type TEXT UNIQUE NOT NULL,
+      interval_hari INTEGER DEFAULT 5,
+      enabled BOOLEAN DEFAULT true,
+      email_jam TEXT DEFAULT '08:00',
+      last_sent_at TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    )
+  `);
+
   db.all(`
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'obat'
   `, (err, cols) => {
-    if (err) return;
+    if (err) {
+      console.error('Error checking obat columns:', err);
+      return;
+    }
     const colNames = (cols || []).map(c => c.column_name);
     const missingColumns = [];
     if (!colNames.includes('batch')) missingColumns.push("ALTER TABLE obat ADD COLUMN batch TEXT");
@@ -290,6 +408,9 @@ db.serialize(() => {
     if (!missingColumns.length) {
       bootstrapObatIfEmpty();
       backfillObatDescriptions();
+      initializeKategoriConfig();
+      // Initialize scheduler with callback to ensure it completes
+      setTimeout(() => initializeSchedulerConfig(), 500);
       return;
     }
 
@@ -300,6 +421,9 @@ db.serialize(() => {
         if (pending === 0) {
           bootstrapObatIfEmpty();
           backfillObatDescriptions();
+          initializeKategoriConfig();
+          // Initialize scheduler with callback to ensure it completes
+          setTimeout(() => initializeSchedulerConfig(), 500);
         }
       });
     });
@@ -390,6 +514,18 @@ function classifyVED(jumlah) {
   return 'D';
 }
 
+function normalizeVED(input, jumlah) {
+  const ved = String(input || '').trim().toUpperCase();
+  if (['V', 'E', 'D'].includes(ved)) return ved;
+  return null;
+}
+
+function resolveStoredVED(obat) {
+  const fromDb = normalizeVED(obat && obat.ved);
+  if (fromDb) return fromDb;
+  return classifyVED(obat && obat.jumlah);
+}
+
 // Hitung umur obat (hari tersisa sampai kadaluarsa)
 function getAgeStatus(kadaluarsaStr) {
   if (!kadaluarsaStr) return { daysLeft: null, status: 'unknown', urgency: 0 };
@@ -400,7 +536,7 @@ function getAgeStatus(kadaluarsaStr) {
   // Parse berbagai format expiry
   let expiryDate;
   try {
-    // Coba format "OKT.27" -> "27-10-2027" atau "2027-10-27"
+    // Coba format "OKT.27" -> last day of October 2027
     if (kadaluarsaStr.includes('.')) {
       const parts = kadaluarsaStr.split('.');
       if (parts.length === 2) {
@@ -409,7 +545,8 @@ function getAgeStatus(kadaluarsaStr) {
         const monthMap = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MEI: 5, JUN: 6, JUL: 7, AGU: 8, SEP: 9, OKT: 10, NOV: 11, DES: 12 };
         const month = monthMap[monthStr] || 1;
         const year = 2000 + parseInt(yearStr);
-        expiryDate = new Date(year, month - 1, 28); // 28 hari terakhir bulan
+        // Use last day of the month: new Date(year, month, 0) gives last day of (month-1)
+        expiryDate = new Date(year, month, 0);  // Last day of target month
       }
     } else {
       // Coba format ISO atau DD-MM-YYYY
@@ -424,15 +561,15 @@ function getAgeStatus(kadaluarsaStr) {
   const daysLeft = Math.floor((expiryDate - today) / (1000 * 60 * 60 * 24));
   
   let status, urgency;
-  if (daysLeft < 0) {
+  if (daysLeft < 0 || daysLeft <= 60) {
     status = 'kadaluarsa';
-    urgency = 3; // Highest priority - remove immediately
-  } else if (daysLeft <= 30) {
+    urgency = 3; // Highest priority - 2 months threshold
+  } else if (daysLeft <= 180) {
     status = 'hampir_kadaluarsa';
-    urgency = 2;
-  } else if (daysLeft <= 90) {
+    urgency = 2; // 6 months threshold
+  } else if (daysLeft <= 365) {
     status = 'perhatian';
-    urgency = 1;
+    urgency = 1; // 1 year threshold for monitoring
   } else {
     status = 'aman';
     urgency = 0;
@@ -444,7 +581,7 @@ function getAgeStatus(kadaluarsaStr) {
 // Analisis VED dengan rekomendasi
 function analyzeObatVED(obat) {
   const n = parseInt(obat.jumlah || 0);
-  const ved = classifyVED(n);
+  const ved = resolveStoredVED(obat);
   const age = getAgeStatus(obat.kadaluarsa);
   
   let recommendation = '';
@@ -455,7 +592,7 @@ function analyzeObatVED(obat) {
     recommendation = '🔴 SEGERA BUANG - Obat sudah kadaluarsa';
     action = 'remove';
   } else if (age.status === 'hampir_kadaluarsa') {
-    recommendation = '⚠️  PRIORITAS - Gunakan segera (≤30 hari)';
+    recommendation = '⚠️  PRIORITAS - Gunakan segera (≤6 bulan)';
     action = 'urgent';
   } else if (ved === 'V') {
     recommendation = '🟡 VITAL - Stok sangat rendah, pesan segera';
@@ -479,6 +616,35 @@ function addLog(type, message) {
     "INSERT INTO logs (id,type,message,time) VALUES (?,?,?,?)",
     [uuidv4(), type, message, new Date().toISOString()]
   );
+}
+
+function getActorLabel(req) {
+  const user = req && req.session && req.session.user ? req.session.user : null;
+  if (!user) return 'unknown';
+  return `${user.username} (${formatRoleLabel(user.role)})`;
+}
+
+function buildObatChangeSummary(beforeRow, afterRow) {
+  const fields = [
+    ['nama', 'Nama'],
+    ['jumlah', 'Jumlah'],
+    ['kadaluarsa', 'Kadaluarsa'],
+    ['kategori', 'Kategori'],
+    ['batch', 'Batch'],
+    ['ved', 'VED'],
+    ['deskripsi', 'Deskripsi']
+  ];
+
+  const changes = [];
+  fields.forEach(([key, label]) => {
+    const beforeValue = beforeRow && beforeRow[key] != null ? String(beforeRow[key]) : '';
+    const afterValue = afterRow && afterRow[key] != null ? String(afterRow[key]) : '';
+    if (beforeValue !== afterValue) {
+      changes.push(`${label}: "${beforeValue || '-'}" -> "${afterValue || '-'}"`);
+    }
+  });
+
+  return changes.join('; ');
 }
 
 /* ===============================
@@ -700,10 +866,10 @@ app.post('/api/reset-password/request', (req, res) => {
 });
 
 app.get('/api/reset-password/validate', (req, res) => {
-  const tokenHash = hashResetToken(req.query.token);
   if (!req.query.token) {
     return res.status(400).json({ message: 'Token wajib diisi.' });
   }
+  const tokenHash = hashResetToken(req.query.token);
 
   db.get(
     `SELECT prt.id, u.username
@@ -901,6 +1067,7 @@ app.get('/api/users', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
 app.put('/api/users/:id/role', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
   const nextRole = String((req.body && req.body.role) || '').trim().toUpperCase();
   const targetId = Number(req.params.id);
+  const actor = getActorLabel(req);
 
   if (!Number.isInteger(targetId) || targetId < 1) {
     return res.status(400).json({ message: 'ID user tidak valid' });
@@ -921,7 +1088,7 @@ app.put('/api/users/:id/role', authMiddleware, roleMiddleware(['APJ']), (req, re
 
     db.run("UPDATE users SET role = ? WHERE id = ?", [nextRole, targetId], (updateErr) => {
       if (updateErr) return res.status(500).json({ message: 'DB error' });
-      addLog('user', `Role ${user.username} diubah dari ${user.role} ke ${nextRole}`);
+      addLog('audit', `Ubah role: ${user.username} dari ${user.role} ke ${nextRole} oleh ${actor}`);
       return res.json({
         message: `Role ${user.username} berhasil diubah menjadi ${formatRoleLabel(nextRole)}`,
         user: { id: user.id, username: user.username, role: nextRole }
@@ -941,49 +1108,88 @@ app.get('/api/obat', authMiddleware, (req, res) => {
 });
 
 app.post('/api/obat', authMiddleware, (req, res) => {
-  const { nama, jumlah, kadaluarsa, kategori, batch, deskripsi } = req.body || {};
+  const { nama, jumlah, kadaluarsa, kategori, batch, deskripsi, ved: vedInput } = req.body || {};
   if (!nama || jumlah == null) return res.status(400).json({ message: 'Nama dan jumlah wajib diisi' });
-  const ved = classifyVED(jumlah);
+  const ved = normalizeVED(vedInput, jumlah) || classifyVED(jumlah);
   const finalDeskripsi = resolveObatDescription(nama, deskripsi);
+  const actor = getActorLabel(req);
 
   db.run(
     "INSERT INTO obat (id,nama,jumlah,kadaluarsa,ved,kategori,batch,deskripsi) VALUES (?,?,?,?,?,?,?,?)",
     [uuidv4(), nama, jumlah, kadaluarsa, ved, kategori || 'TABLET BEBAS', batch || '', finalDeskripsi],
     function (err) {
       if (err) return res.status(500).json({ message: 'DB error' });
-      addLog('obat', `Tambah ${nama}`);
+      addLog('audit', `Tambah obat: ${nama} (Batch ${batch || '-'}) oleh ${actor}`);
       return res.json({ message: 'Obat ditambahkan' });
     }
   );
 });
 
 app.put('/api/obat/:id', authMiddleware, (req, res) => {
-  const { nama, jumlah, kadaluarsa, kategori, batch, deskripsi } = req.body || {};
+  const { nama, jumlah, kadaluarsa, kategori, batch, deskripsi, ved: vedInput } = req.body || {};
   if (!nama || jumlah == null) return res.status(400).json({ message: 'Nama dan jumlah wajib diisi' });
-  const ved = classifyVED(jumlah);
   const finalDeskripsi = resolveObatDescription(nama, deskripsi);
+  const trimmedVed = String(vedInput || '').trim();
+  const actor = getActorLabel(req);
 
-  db.run(
-    "UPDATE obat SET nama=?, jumlah=?, kadaluarsa=?, ved=?, kategori=?, batch=?, deskripsi=? WHERE id=?",
-    [nama, jumlah, kadaluarsa, ved, kategori || 'TABLET BEBAS', batch || '', finalDeskripsi, req.params.id],
-    function (err) {
-      if (err) return res.status(500).json({ message: 'DB error' });
-      addLog('obat', `Update ${nama}`);
-      return res.json({ message: 'Updated' });
+  const runUpdate = (vedValue, beforeRow) => {
+    db.run(
+      "UPDATE obat SET nama=?, jumlah=?, kadaluarsa=?, ved=?, kategori=?, batch=?, deskripsi=? WHERE id=?",
+      [nama, jumlah, kadaluarsa, vedValue, kategori || 'TABLET BEBAS', batch || '', finalDeskripsi, req.params.id],
+      function (err) {
+        if (err) return res.status(500).json({ message: 'DB error' });
+        const afterRow = {
+          nama,
+          jumlah,
+          kadaluarsa,
+          ved: vedValue,
+          kategori: kategori || 'TABLET BEBAS',
+          batch: batch || '',
+          deskripsi: finalDeskripsi
+        };
+        const summary = buildObatChangeSummary(beforeRow, afterRow);
+        const summaryText = summary ? `Perubahan: ${summary}` : 'Perubahan: tidak terdeteksi';
+        addLog('audit', `Edit obat: ${nama} (ID ${req.params.id}) oleh ${actor}. ${summaryText}`);
+        return res.json({ message: 'Updated' });
+      }
+    );
+  };
+
+  db.get("SELECT * FROM obat WHERE id = ?", [req.params.id], (findErr, row) => {
+    if (findErr) return res.status(500).json({ message: 'DB error' });
+    if (!row) return res.status(404).json({ message: 'Obat tidak ditemukan' });
+
+    if (trimmedVed) {
+      const normalized = normalizeVED(trimmedVed, jumlah);
+      if (!normalized) {
+        return res.status(400).json({ message: 'VED harus diisi dengan V, E, atau D.' });
+      }
+      return runUpdate(normalized, row);
     }
-  );
+
+    const existingVed = row.ved ? row.ved : classifyVED(jumlah);
+    return runUpdate(existingVed, row);
+  });
 });
 
-app.delete('/api/obat/:id', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
-  db.run(
-    "DELETE FROM obat WHERE id=?",
-    [req.params.id],
-    function (err) {
-      if (err) return res.status(500).json({ message: 'DB error' });
-      addLog('obat', `Delete ID ${req.params.id}`);
-      return res.json({ message: 'Deleted' });
-    }
-  );
+app.delete('/api/obat/:id', authMiddleware, (req, res) => {
+  const user = req.session && req.session.user ? req.session.user : null;
+  const actor = user ? `${user.username} (${formatRoleLabel(user.role)})` : 'unknown';
+
+  db.get("SELECT id, nama, batch FROM obat WHERE id = ?", [req.params.id], (findErr, obat) => {
+    if (findErr) return res.status(500).json({ message: 'DB error' });
+    if (!obat) return res.status(404).json({ message: 'Obat tidak ditemukan' });
+
+    db.run(
+      "DELETE FROM obat WHERE id=?",
+      [req.params.id],
+      function (err) {
+        if (err) return res.status(500).json({ message: 'DB error' });
+        addLog('audit', `Hapus obat: ${obat.nama} (Batch ${obat.batch || '-'}) oleh ${actor}`);
+        return res.json({ message: 'Deleted' });
+      }
+    );
+  });
 });
 
 /* ===============================
@@ -1004,12 +1210,121 @@ app.post('/api/keluar', authMiddleware, (req, res) => {
         [newJumlah, classifyVED(newJumlah), obat.id],
         (err2) => {
           if (err2) return res.status(500).json({ message: 'DB error' });
-          addLog('fefo', `FEFO ${obat.nama}`);
+          
+          // Track stock movement
+          const movementId = uuidv4();
+          const now = new Date().toISOString();
+          db.run(
+            "INSERT INTO stock_movements (id, obat_id, obat_nama, jenis_movement, jumlah, keterangan, waktu, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [movementId, obat.id, obat.nama, 'RELEASE_FEFO', 1, 'Obat keluar via FEFO', obat.kadaluarsa || 'Tanpa tanggal', now],
+            (err3) => {
+              if (err3) console.error('Stock movement log error:', err3);
+            }
+          );
+          
+          addLog('fefo', `FEFO ${obat.nama} oleh ${req.session.user.username} (${formatRoleLabel(req.session.user.role)})`);
           return res.json({ message: 'FEFO berhasil' });
         }
       );
     }
   );
+});
+
+// Release/Sale tracking endpoint - Simplified & more robust
+app.post('/api/release', authMiddleware, async (req, res) => {
+  try {
+    const { obat_id, jumlah, keterangan } = req.body || {};
+    
+    console.log('=== /api/release START ===');
+    console.log('Request:', { obat_id, jumlah, keterangan });
+    
+    // Validasi input
+    if (!obat_id) {
+      console.error('[FAIL] obat_id missing');
+      return res.status(400).json({ message: 'Obat ID diperlukan' });
+    }
+    
+    const qtyInt = parseInt(jumlah || 0);
+    if (isNaN(qtyInt) || qtyInt < 1) {
+      console.error('[FAIL] jumlah invalid:', jumlah);
+      return res.status(400).json({ message: 'Jumlah harus angka positif' });
+    }
+    
+    console.log('[OK] Input valid. qtyInt=' + qtyInt);
+    
+    // Get obat - using Promise wrapper
+    const obat = await new Promise((resolve, reject) => {
+      db.get("SELECT * FROM obat WHERE id = ?", [obat_id], (err, row) => {
+        if (err) reject(new Error('DB GET error: ' + err.message));
+        if (!row) reject(new Error('Obat not found with id: ' + obat_id));
+        resolve(row);
+      });
+    });
+    
+    console.log('[OK] Obat found:', obat.nama, 'Current stok:', obat.jumlah);
+    
+    const releaseQty = Math.min(qtyInt, obat.jumlah);
+    const newJumlah = Math.max(0, obat.jumlah - releaseQty);
+    
+    console.log('[INFO] releaseQty=' + releaseQty + ', newJumlah=' + newJumlah);
+    
+    // Update obat stok
+    await new Promise((resolve, reject) => {
+      db.run(
+        "UPDATE obat SET jumlah=?, ved=? WHERE id=?",
+        [newJumlah, classifyVED(newJumlah), obat.id],
+        (err) => {
+          if (err) reject(new Error('DB UPDATE error: ' + err.message));
+          console.log('[OK] Stok updated');
+          resolve();
+        }
+      );
+    });
+    
+    // Record movement (don't block on this)
+    const movementId = uuidv4();
+    const now = new Date().toISOString();
+    db.run(
+      "INSERT INTO stock_movements (id, obat_id, obat_nama, jenis_movement, jumlah, keterangan, waktu, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [movementId, obat.id, obat.nama, 'RELEASE', releaseQty, keterangan || '', obat.kadaluarsa || '', now],
+      (err) => {
+        if (err) console.error('[WARN] Movement insert error:', err.message);
+        else console.log('[OK] Movement recorded');
+      }
+    );
+    
+    // Log activity (async, don't block)
+    setImmediate(() => {
+      try {
+        addLog('release', 'Release ' + releaseQty + 'x ' + obat.nama + ' by ' + req.session.user.username);
+        console.log('[OK] Activity logged');
+      } catch (logErr) {
+        console.error('[WARN] Log error:', logErr.message);
+      }
+    });
+    
+    // SEND RESPONSE IMMEDIATELY
+    console.log('[OK] Sending response with status 200');
+    res.json({ 
+      message: 'Release berhasil', 
+      released: releaseQty, 
+      remaining: newJumlah 
+    });
+    console.log('=== /api/release END (SUCCESS) ===\n');
+    
+  } catch (err) {
+    console.error('[ERROR] Exception caught:', err.message);
+    console.log('=== /api/release END (ERROR) ===\n');
+    
+    if (res.headersSent) {
+      console.error('[CRITICAL] Headers already sent, cannot send error response');
+      return;
+    }
+    
+    res.status(500).json({ 
+      message: 'Gagal: ' + err.message 
+    });
+  }
 });
 
 /* ===============================
@@ -1093,6 +1408,7 @@ app.get('/api/fefo-recommendations', authMiddleware, (req, res) => {
 app.get('/api/notifications', authMiddleware, (req, res) => {
   db.all("SELECT * FROM obat", (err, rows) => {
     if (err) return res.status(500).json({ message: 'DB error' });
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit || 200) || 200));
     
     const notifications = [];
     
@@ -1150,7 +1466,7 @@ app.get('/api/notifications', authMiddleware, (req, res) => {
       total: notifications.length,
       critical: notifications.filter(n => n.urgency >= 2).length,
       warning: notifications.filter(n => n.urgency === 1).length,
-      notifications: notifications.slice(0, 20)
+      notifications: notifications.slice(0, limit)
     });
   });
 });
@@ -1233,12 +1549,13 @@ const PANDUAN_PDF_SECTIONS = [
   {
     title: '5. Mengelola Data Obat',
     paragraphs: [
-      'Menu data obat digunakan untuk menambah, mengubah, menghapus, memfilter, dan melihat detail obat dari satu halaman.',
+      'Menu data obat digunakan untuk menambah, mengubah, menghapus, memfilter, melihat detail obat, dan mencatat obat yang dikeluarkan dari satu halaman.',
       'Kolom utama meliputi nama obat, batch, kategori, deskripsi, jumlah, tanggal kadaluarsa, status, prioritas, dan VED.'
     ],
     bullets: [
       'Tambah obat memakai form inline tanpa pindah halaman.',
       'Klik nama obat untuk membuka popup detail obat.',
+      'Tombol "Obat Keluar" untuk mencatat pelepasan obat dan tracking pola penggunaan.',
       'Kategori yang dipakai sistem mengikuti data kategori yang tersedia di database.'
     ]
   },
@@ -1343,7 +1660,7 @@ function writePanduanPdf(doc) {
       .text('Buku Panduan Obat.Qu', left + 18, top + 52, { width: contentWidth - 36 });
 
     doc.fillColor('#cbd5e1').font('Helvetica').fontSize(11)
-      .text('Versi 1.1 | Maret 2026', left + 20, top + 104, { width: 250 });
+      .text('Versi 1.3 | April 2026', left + 20, top + 104, { width: 250 });
     doc.text('Sistem Manajemen Apotek Digital', left + 20, top + 120, { width: 320 });
 
     const boxY = top + 132;
@@ -1455,135 +1772,190 @@ function writePanduanPdf(doc) {
 app.get('/api/panduan/pdf', (req, res) => {
   try {
     const doc = new PDFDocument({ margin: 42, size: 'A4', compress: false });
-    setPdfHeaders(res, 'Buku-Panduan-Obat.Qu-Maret-2026.pdf');
+    const fileName = 'Buku-Panduan-Obat.Qu-April-2026.pdf';
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    
     doc.info.Title = 'Buku Panduan Obat.Qu';
     doc.info.Author = 'Obat.Qu';
     doc.info.Subject = 'Panduan penggunaan sistem web Obat.Qu';
     doc.info.Creator = 'Obat.Qu Server';
+    
     doc.pipe(res);
     writePanduanPdf(doc);
     doc.end();
   } catch (err) {
     console.error('Panduan PDF generation error:', err);
     if (!res.headersSent) {
-      return res.status(500).json({ message: 'Gagal membuat PDF panduan.' });
+      return res.status(500).json({ message: 'Gagal membuat PDF panduan: ' + err.message });
     }
-    return res.end();
+    res.end();
   }
 });
 
 app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req, res) => {
-  db.all("SELECT * FROM obat ORDER BY nama ASC", (err, rows) => {
-    if (err) return res.status(500).json({ message: 'DB error' });
+  try {
+    console.log('[REPORT] /api/reports/pdf START');
     
-    const doc = new PDFDocument({ margin: 30 });
-    const fileName = `Laporan-Stok-Obat-${new Date().toISOString().split('T')[0]}.pdf`;
-    
-    setPdfHeaders(res, fileName);
-    doc.pipe(res);
-    
-    // Header
-    doc.fontSize(20).font('Helvetica-Bold').text('🏥 LAPORAN STOK OBAT', { align: 'center' });
-    doc.fontSize(10).font('Helvetica').text('ObatQU.id - Pharmacy Management System', { align: 'center' });
-    doc.text(`Tanggal: ${new Date().toLocaleDateString('id-ID')}`, { align: 'center' });
-    doc.moveDown();
-    
-    // Summary Statistics
-    doc.fontSize(12).font('Helvetica-Bold').text('RINGKASAN');
-    doc.fontSize(10).font('Helvetica');
-    
-    const stats = { V: 0, E: 0, D: 0, expired: 0, nearExpiry: 0, safe: 0 };
-    const vedList = { V: [], E: [], D: [] };
-    
-    rows.forEach(obat => {
-      const analysis = analyzeObatVED(obat);
-      stats[analysis.ved]++;
-      vedList[analysis.ved].push(obat);
-      
-      if (analysis.status === 'kadaluarsa') stats.expired++;
-      else if (analysis.status === 'hampir_kadaluarsa') stats.nearExpiry++;
-      else if (analysis.status === 'aman') stats.safe++;
-    });
-    
-    doc.text(`Total Obat: ${rows.length}`);
-    doc.text(`  • Vital (V): ${stats.V} | Essential (E): ${stats.E} | Desirable (D): ${stats.D}`);
-    doc.text(`Status: Aman: ${stats.safe} | Perhatian: ${stats.nearExpiry} | Kadaluarsa: ${stats.expired}`);
-    doc.moveDown();
-    
-    // VED Classification Table
-    doc.fontSize(12).font('Helvetica-Bold').text('KLASIFIKASI VED');
-    doc.fontSize(9).font('Helvetica');
-    
-    const tableTop = doc.y;
-    const col1 = 50, col2 = 200, col3 = 350, col4 = 450;
-    
-    // Headers
-    doc.text('Kategori', col1, tableTop);
-    doc.text('Jumlah', col2, tableTop);
-    doc.text('Keterangan', col3, tableTop);
-    
-    let y = tableTop + 20;
-    const categories = [
-      { code: 'V', label: 'VITAL', desc: '≤2 unit (Stok Kritis)', items: vedList.V },
-      { code: 'E', label: 'ESSENTIAL', desc: '3-10 unit (Pantau)', items: vedList.E },
-      { code: 'D', label: 'DESIRABLE', desc: '>10 unit (Aman)', items: vedList.D }
-    ];
-    
-    categories.forEach(cat => {
-      doc.text(`${cat.code} - ${cat.label}`, col1, y);
-      doc.text(cat.items.length.toString(), col2, y);
-      doc.text(cat.desc, col3, y);
-      y += 15;
-    });
-    
-    doc.moveDown();
-    
-    // Detailed Medicine List
-    doc.fontSize(12).font('Helvetica-Bold').text('DAFTAR OBAT (Terperinci)');
-    doc.fontSize(8).font('Helvetica');
-    
-    y = doc.y;
-    const detailTop = y;
-    
-    // Table headers
-    doc.text('No', 30, y);
-    doc.text('Nama Obat', 60, y);
-    doc.text('Qty', 280, y);
-    doc.text('VED', 320, y);
-    doc.text('Kadaluarsa', 360, y);
-    doc.text('Status', 450, y);
-    
-    y += 12;
-    doc.moveTo(30, y).lineTo(550, y).stroke();
-    y += 5;
-    
-    let rowNum = 1;
-    rows.forEach(obat => {
-      const analysis = analyzeObatVED(obat);
-      const statusEmoji = analysis.status === 'kadaluarsa' ? '🔴' : 
-                         analysis.status === 'hampir_kadaluarsa' ? '⚠️' : 
-                         analysis.status === 'aman' ? '✅' : '❓';
-      
-      doc.text(`${rowNum}`, 30, y);
-      doc.text(obat.nama.substring(0, 25), 60, y);
-      doc.text(obat.jumlah.toString(), 280, y);
-      doc.text(analysis.ved, 320, y);
-      doc.text(obat.kadaluarsa || '-', 360, y);
-      doc.text(statusEmoji, 450, y);
-      
-      y += 12;
-      if (y > 700) {
-        doc.addPage();
-        y = 50;
+    db.all("SELECT * FROM obat ORDER BY nama ASC", (err, rows) => {
+      try {
+        if (err) {
+          console.error('[REPORT] DB query error:', err.message);
+          if (!res.headersSent) {
+            return res.status(500).json({ message: 'Database error' });
+          }
+          return;
+        }
+        
+        if (!Array.isArray(rows) || rows.length === 0) {
+          console.warn('[REPORT] No data from database');
+          rows = [];
+        }
+        
+        console.log('[REPORT] Creating PDF with ' + rows.length + ' items');
+        
+        const doc = new PDFDocument({ margin: 30, bufferPages: false });
+        const fileName = `Laporan-Stok-${new Date().toISOString().split('T')[0]}.pdf`;
+        
+        // Set headers FIRST before piping
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        
+        console.log('[REPORT] Headers set, starting pipe');
+        
+        // Pipe document to response
+        doc.on('error', (err) => {
+          console.error('[REPORT] Document error:', err.message);
+          if (!res.headersSent) {
+            res.status(500).json({ message: 'PDF generation error' });
+          } else {
+            res.end();
+          }
+        });
+        
+        res.on('error', (err) => {
+          console.error('[REPORT] Response error:', err.message);
+          doc.end();
+        });
+        
+        doc.pipe(res);
+        
+        // Start adding content
+        doc.fontSize(20).font('Helvetica-Bold').text('🏥 LAPORAN STOK OBAT', { align: 'center' });
+        doc.fontSize(10).font('Helvetica').text('ObatQU.id - Pharmacy Management System', { align: 'center' });
+        doc.text(`Tanggal: ${new Date().toLocaleDateString('id-ID')}`, { align: 'center' });
+        doc.moveDown();
+        
+        // Summary Statistics
+        doc.fontSize(12).font('Helvetica-Bold').text('RINGKASAN');
+        doc.fontSize(10).font('Helvetica');
+        
+        const stats = { V: 0, E: 0, D: 0, expired: 0, nearExpiry: 0, safe: 0 };
+        const vedList = { V: [], E: [], D: [] };
+        
+        rows.forEach(obat => {
+          const analysis = analyzeObatVED(obat);
+          stats[analysis.ved]++;
+          vedList[analysis.ved].push(obat);
+          
+          if (analysis.status === 'kadaluarsa') stats.expired++;
+          else if (analysis.status === 'hampir_kadaluarsa') stats.nearExpiry++;
+          else if (analysis.status === 'aman') stats.safe++;
+        });
+        
+        doc.text(`Total Obat: ${rows.length}`);
+        doc.text(`  • Vital (V): ${stats.V} | Essential (E): ${stats.E} | Desirable (D): ${stats.D}`);
+        doc.text(`Status: Aman: ${stats.safe} | Perhatian: ${stats.nearExpiry} | Kadaluarsa: ${stats.expired}`);
+        doc.moveDown();
+        
+        // VED Classification
+        doc.fontSize(12).font('Helvetica-Bold').text('KLASIFIKASI VED');
+        doc.fontSize(9).font('Helvetica');
+        
+        const tableTop = doc.y;
+        const col1 = 50, col2 = 200, col3 = 350;
+        
+        doc.text('Kategori', col1, tableTop);
+        doc.text('Jumlah', col2, tableTop);
+        doc.text('Keterangan', col3, tableTop);
+        
+        let y = tableTop + 20;
+        const categories = [
+          { code: 'V', label: 'VITAL', desc: '≤2 unit (Stok Kritis)', items: vedList.V },
+          { code: 'E', label: 'ESSENTIAL', desc: '3-10 unit (Pantau)', items: vedList.E },
+          { code: 'D', label: 'DESIRABLE', desc: '>10 unit (Aman)', items: vedList.D }
+        ];
+        
+        categories.forEach(cat => {
+          doc.text(`${cat.code} - ${cat.label}`, col1, y);
+          doc.text(cat.items.length.toString(), col2, y);
+          doc.text(cat.desc, col3, y);
+          y += 15;
+        });
+        
+        doc.moveDown();
+        
+        // Detailed Medicine List
+        doc.fontSize(12).font('Helvetica-Bold').text('DAFTAR OBAT');
+        doc.fontSize(8).font('Helvetica');
+        
+        y = doc.y;
+        doc.text('No', 30, y);
+        doc.text('Nama Obat', 60, y);
+        doc.text('Qty', 280, y);
+        doc.text('VED', 320, y);
+        doc.text('Kadaluarsa', 360, y);
+        doc.text('Status', 450, y);
+        
+        y += 12;
+        doc.moveTo(30, y).lineTo(550, y).stroke();
+        y += 5;
+        
+        let rowNum = 1;
+        rows.forEach(obat => {
+          const analysis = analyzeObatVED(obat);
+          const statusEmoji = analysis.status === 'kadaluarsa' ? '🔴' : 
+                             analysis.status === 'hampir_kadaluarsa' ? '⚠️' : 
+                             analysis.status === 'aman' ? '✅' : '❓';
+          
+          doc.text(`${rowNum}`, 30, y);
+          doc.text(obat.nama.substring(0, 25), 60, y);
+          doc.text(obat.jumlah.toString(), 280, y);
+          doc.text(analysis.ved, 320, y);
+          doc.text(obat.kadaluarsa || '-', 360, y);
+          doc.text(statusEmoji, 450, y);
+          
+          y += 12;
+          if (y > 700) {
+            doc.addPage();
+            y = 50;
+          }
+          rowNum++;
+        });
+        
+        doc.moveDown();
+        doc.fontSize(9).font('Helvetica').text('Laporan otomatis ObatQU.id', { align: 'center' });
+        
+        console.log('[REPORT] Content added, finalizing');
+        doc.end();
+        console.log('[REPORT] /api/reports/pdf END (success)');
+        
+      } catch (innerErr) {
+        console.error('[REPORT] Inner error:', innerErr.message, innerErr.stack);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error: ' + innerErr.message });
+        }
       }
-      rowNum++;
     });
     
-    doc.moveDown();
-    doc.fontSize(9).font('Helvetica').text('Laporan ini dibuat otomatis oleh sistem ObatQU.id', { align: 'center' });
-    
-    doc.end();
-  });
+  } catch (err) {
+    console.error('[REPORT] Outer error:', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
 });
 
 // Simplified VED Summary PDF
@@ -1604,7 +1976,7 @@ app.get('/api/reports/ved-summary-pdf', authMiddleware, roleMiddleware(ALLOWED_R
     // Analysis by category
     const categories = { V: [], E: [], D: [] };
     rows.forEach(obat => {
-      const ved = classifyVED(obat.jumlah);
+      const ved = resolveStoredVED(obat);
       categories[ved].push(obat);
     });
     
@@ -1647,11 +2019,12 @@ app.get('/api/reports/csv', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
     };
 
     const csvLines = [
-      ['Nama', 'Batch', 'Kategori', 'Jumlah', 'Kadaluarsa', 'VED'].join(','),
+      ['Nama', 'Batch', 'Kategori', 'Deskripsi', 'Jumlah', 'Kadaluarsa', 'VED'].join(','),
       ...rows.map((row) => [
         escapeCsv(row.nama),
         escapeCsv(row.batch),
         escapeCsv(row.kategori),
+        escapeCsv(row.deskripsi),
         escapeCsv(row.jumlah),
         escapeCsv(row.kadaluarsa),
         escapeCsv(row.ved)
@@ -1779,6 +2152,447 @@ app.get('/api/reports/monthly-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES
 });
 
 /* ===============================
+   MANAGEMENT REPORTS
+================================ */
+
+// Management Report - Shows released/sold quantities and analysis
+app.get('/api/reports/management-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req, res) => {
+  db.all("SELECT * FROM stock_movements ORDER BY waktu DESC", (err, movements) => {
+    if (err) return res.status(500).json({ message: 'DB error' });
+
+    db.all("SELECT * FROM obat ORDER BY nama ASC", (obatErr, obat) => {
+      if (obatErr) return res.status(500).json({ message: 'DB error' });
+
+      const doc = new PDFDocument({ margin: 36 });
+      const fileName = `Management-Report-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      setPdfHeaders(res, fileName);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(18).font('Helvetica-Bold').text('📊 LAPORAN MANAJEMEN OBAT', { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(10).font('Helvetica').text(`Dibuat: ${new Date().toLocaleString('id-ID')}`, { align: 'center' });
+      doc.moveDown();
+
+      // Summary
+      const totalReleased = movements.reduce((sum, m) => sum + (m.jumlah || 0), 0);
+      const uniqueItems = [...new Set(movements.map(m => m.obat_nama))].length;
+      const releaseTypes = {};
+      movements.forEach(m => {
+        releaseTypes[m.jenis_movement] = (releaseTypes[m.jenis_movement] || 0) + 1;
+      });
+
+      doc.fontSize(12).font('Helvetica-Bold').text('RINGKASAN PELEPASAN OBAT');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Total Pelepasan: ${totalReleased} unit`);
+      doc.text(`Jenis Obat: ${uniqueItems} item`);
+      doc.text(`Jumlah Transaksi: ${movements.length} kali`);
+      Object.entries(releaseTypes).forEach(([type, count]) => {
+        doc.text(`  • ${type}: ${count} transaksi`);
+      });
+      doc.moveDown();
+
+      // Released by Medicine
+      doc.fontSize(12).font('Helvetica-Bold').text('RINCIAN PELEPASAN BERDASARKAN OBAT');
+      doc.fontSize(9).font('Helvetica');
+
+      const releaseByObat = {};
+      movements.forEach(m => {
+        if (!releaseByObat[m.obat_nama]) {
+          releaseByObat[m.obat_nama] = { total: 0, transactions: [] };
+        }
+        releaseByObat[m.obat_nama].total += m.jumlah || 0;
+        releaseByObat[m.obat_nama].transactions.push({
+          type: m.jenis_movement,
+          qty: m.jumlah,
+          date: m.waktu,
+          notes: m.keterangan
+        });
+      });
+
+      let y = doc.y;
+      Object.entries(releaseByObat).sort((a, b) => b[1].total - a[1].total).forEach((entry, idx) => {
+        const [obatName, data] = entry;
+        doc.fontSize(10).font('Helvetica-Bold').text(`${idx + 1}. ${obatName}`, 40, y);
+        doc.fontSize(9).font('Helvetica').text(`Total Pelepasan: ${data.total} unit`, 40, y + 15);
+        
+        let ty = y + 30;
+        data.transactions.slice(0, 5).forEach(tx => {
+          doc.fontSize(8).text(`  • ${tx.type} (${tx.qty} unit) - ${tx.date} - ${tx.notes || '-'}`, 45, ty);
+          ty += 10;
+        });
+        
+        if (data.transactions.length > 5) {
+          doc.fontSize(8).text(`  ... dan ${data.transactions.length - 5} transaksi lainnya`, 45, ty);
+        }
+        
+        y = ty + 15;
+        if (y > 650) {
+          doc.addPage();
+          y = 50;
+        }
+      });
+
+      doc.moveDown();
+      doc.fontSize(9).font('Helvetica').text('Laporan ini dibuat otomatis oleh sistem ObatQU.id', { align: 'center' });
+      
+      doc.end();
+    });
+  });
+});
+
+// Restock Analysis Report
+app.get('/api/reports/restock-analysis-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req, res) => {
+  db.all("SELECT * FROM obat ORDER BY nama ASC", (obatErr, obat) => {
+    if (obatErr) return res.status(500).json({ message: 'DB error' });
+
+    db.all("SELECT * FROM stock_movements WHERE jenis_movement IN ('RELEASE', 'RELEASE_FEFO') ORDER BY created_at DESC", (movErr, movements) => {
+      if (movErr) return res.status(500).json({ message: 'DB error' });
+
+      // Fetch kategori config
+      db.all("SELECT * FROM kategori_config", (katErr, kategoriConfig) => {
+        if (katErr) return res.status(500).json({ message: 'DB error' });
+
+        const doc = new PDFDocument({ margin: 36 });
+        const fileName = `Restock-Analysis-${new Date().toISOString().split('T')[0]}.pdf`;
+        
+        setPdfHeaders(res, fileName);
+        doc.pipe(res);
+
+        // Header
+        doc.fontSize(18).font('Helvetica-Bold').text('📈 ANALISIS & REKOMENDASI RESTOCK (BERDASARKAN JENIS OBAT & LEAD TIME)', { align: 'center' });
+        doc.moveDown(0.5);
+        doc.fontSize(10).font('Helvetica').text(`Dibuat: ${new Date().toLocaleString('id-ID')}`, { align: 'center' });
+        doc.moveDown();
+
+        // Calculate usage rates
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const releaseHistory = {};
+        movements.forEach(m => {
+          const movDate = new Date(m.created_at);
+          if (movDate >= thirtyDaysAgo) {
+            if (!releaseHistory[m.obat_nama]) {
+              releaseHistory[m.obat_nama] = { total: 0, count: 0 };
+            }
+            releaseHistory[m.obat_nama].total += m.jumlah || 0;
+            releaseHistory[m.obat_nama].count += 1;
+          }
+        });
+
+        // Get kategori config map
+        const kategoriMap = {};
+        kategoriConfig.forEach(k => {
+          kategoriMap[k.nama] = {
+            leadTime: k.lead_time_hari,
+            minStock: k.min_stok,
+            optimalStock: k.optimal_stok,
+            reorderQty: k.reorder_qty
+          };
+        });
+
+        // Default config for unmapped categories
+        const defaultConfig = {
+          leadTime: 7,
+          minStock: 10,
+          optimalStock: 30,
+          reorderQty: 50
+        };
+
+        // Generate recommendations
+        const recommendations = obat.map(o => {
+          const currentStock = o.jumlah;
+          const usage = releaseHistory[o.nama] || { total: 0, count: 0 };
+          const dailyUsage = usage.total / 30;
+          const kategori = o.kategori || 'TABLET BEBAS';
+          
+          // Get config for this category
+          const config = kategoriMap[kategori] || defaultConfig;
+          const leadTime = config.leadTime;
+          const minStock = config.minStock;
+          const optimalStock = config.optimalStock;
+          const reorderQty = config.reorderQty;
+          
+          let recommendation = '';
+          let daysOfStock = dailyUsage > 0 ? Math.round(currentStock / dailyUsage) : 999;
+          let reorderLevel = dailyUsage * leadTime; // Berapa stok yg dibutuhkan untuk lead time
+          
+          // Logic berbasis kategori dan lead time:
+          // Jika stok saat ini akan habis dalam waktu <= lead time, URGENT
+          if (currentStock <= 0) {
+            recommendation = '🔴 URGENT - Stok habis, pesan SEGERA ke supplier';
+          } else if (daysOfStock <= leadTime) {
+            // Stok saat ini tidak akan cukup sampai pesanan tiba
+            recommendation = `🔴 URGENT - Restock sekarang! Ada ${daysOfStock} hari stok, lead time ${leadTime} hari`;
+          } else if (daysOfStock <= leadTime + 2) {
+            // Margin kecil saja untuk buffer
+            recommendation = `🟠 HIGH PRIORITY - Pesan dalam 1-2 hari. Stok: ${daysOfStock} hari, lead time: ${leadTime} hari`;
+          } else if (currentStock < minStock) {
+            // Stok di bawah minimum untuk kategori ini
+            recommendation = `🟡 MEDIUM - Stok ${currentStock} unit < minimum ${minStock}. Rencanakan pemesanan`;
+          } else if (currentStock < optimalStock && dailyUsage > 1) {
+            // Diantara minimum dan optimal, usage tinggi
+            recommendation = '🟡 MEDIUM - Pertimbangkan pesan minggu depan';
+          } else if (dailyUsage > 5) {
+            // Penggunaan sangat tinggi, monitor ketat
+            recommendation = '🟣 HIGH TURNOVER - Monitor ketat, usage tinggi ' + dailyUsage.toFixed(2) + ' unit/hari';
+          } else {
+            recommendation = '✅ OK - Stok cukup';
+          }
+          
+          return {
+            nama: o.nama,
+            kategori,
+            currentStock,
+            dailyUsage: dailyUsage.toFixed(2),
+            daysOfStock,
+            monthlyUsage: usage.total,
+            minStock,
+            optimalStock,
+            reorderQty,
+            leadTime,
+            recommendation
+          };
+        }).sort((a, b) => {
+          // Sort by priority: urgent first, high next
+          const priorityMap = { '🔴': 0, '🟠': 1, '🟡': 2, '🟣': 3, '✅': 4 };
+          const aPriority = priorityMap[a.recommendation.charAt(0)] || 5;
+          const bPriority = priorityMap[b.recommendation.charAt(0)] || 5;
+          return aPriority - bPriority;
+        });
+
+        // Overall Statistics
+        doc.fontSize(12).font('Helvetica-Bold').text('STATISTIK PENGGUNAAN (30 HARI TERAKHIR)');
+        doc.fontSize(10).font('Helvetica');
+        
+        const totalUsage = Object.values(releaseHistory).reduce((sum, r) => sum + r.total, 0);
+        const avgDailyUsage = (totalUsage / 30).toFixed(2);
+        const highTurnover = recommendations.filter(r => parseFloat(r.dailyUsage) > 2).length;
+        const urgentCount = recommendations.filter(r => r.recommendation.startsWith('🔴')).length;
+        const highCount = recommendations.filter(r => r.recommendation.startsWith('🟠')).length;
+        
+        doc.text(`Total Penggunaan: ${totalUsage} unit / 30 hari`);
+        doc.text(`Rata-rata Harian: ${avgDailyUsage} unit/hari`);
+        doc.text(`Obat Putaran Tinggi (>2 unit/hari): ${highTurnover} item`);
+        doc.text(`⚠️  URGENT (segera pesan): ${urgentCount} item`);
+        doc.text(`📌 HIGH PRIORITY (1-2 hari): ${highCount} item`);
+        doc.moveDown();
+
+        // Recommendations by Priority
+        doc.fontSize(12).font('Helvetica-Bold').text('REKOMENDASI RESTOCK (BERDASARKAN LEAD TIME & KATEGORI)');
+        doc.fontSize(9).font('Helvetica');
+
+        let y = doc.y;
+        const priorityGroups = {
+          '🔴 URGENT - PESAN SEKARANG': recommendations.filter(r => r.recommendation.startsWith('🔴')),
+          '🟠 HIGH PRIORITY - 1-2 HARI': recommendations.filter(r => r.recommendation.startsWith('🟠')),
+          '🟡 MEDIUM - RENCANA MINGGU DEPAN': recommendations.filter(r => r.recommendation.startsWith('🟡')),
+          '🟣 HIGH TURNOVER - MONITOR': recommendations.filter(r => r.recommendation.startsWith('🟣')),
+          '✅ OK - AMAN': recommendations.filter(r => r.recommendation.startsWith('✅'))
+        };
+
+        Object.entries(priorityGroups).forEach(([priority, items]) => {
+          if (items.length === 0) return;
+          
+          doc.fontSize(11).font('Helvetica-Bold').text(priority, 40, y);
+          y += 15;
+          
+          items.forEach(item => {
+            doc.fontSize(8).font('Helvetica').text(`• ${item.nama} (${item.kategori})`, 45, y);
+            doc.fontSize(8).text(`  Stok: ${item.currentStock} unit | Usage: ${item.dailyUsage} unit/hari | Hari stok: ${item.daysOfStock} hari`, 50, y + 9);
+            doc.fontSize(8).text(`  Lead time: ${item.leadTime} hari | Min: ${item.minStock}, Optimal: ${item.optimalStock}, Reorder: ${item.reorderQty} unit`, 50, y + 17);
+            y += 26;
+            
+            if (y > 680) {
+              doc.addPage();
+              y = 50;
+            }
+          });
+          
+          y += 8;
+        });
+
+        // Kategori Config Info
+        doc.addPage();
+        doc.fontSize(12).font('Helvetica-Bold').text('KONFIGURASI LEAD TIME PER JENIS OBAT');
+        doc.fontSize(9).font('Helvetica');
+        y = doc.y;
+
+        doc.fontSize(10).font('Helvetica-Bold').text('Kategori', 50, y);
+        doc.fontSize(10).font('Helvetica-Bold').text('Lead Time', 180, y);
+        doc.fontSize(10).font('Helvetica-Bold').text('Min Stock', 280, y);
+        doc.fontSize(10).font('Helvetica-Bold').text('Optimal', 360, y);
+        doc.fontSize(10).font('Helvetica-Bold').text('Reorder Qty', 430, y);
+        y += 15;
+
+        kategoriConfig.forEach(k => {
+          doc.fontSize(9).font('Helvetica').text(k.nama, 50, y);
+          doc.fontSize(9).text(`${k.lead_time_hari} hari`, 180, y);
+          doc.fontSize(9).text(`${k.min_stok} unit`, 280, y);
+          doc.fontSize(9).text(`${k.optimal_stok} unit`, 360, y);
+          doc.fontSize(9).text(`${k.reorder_qty} unit`, 430, y);
+          y += 12;
+          
+          if (k.keterangan) {
+            doc.fontSize(8).font('Helvetica').text(k.keterangan, 50, y, { width: 450 });
+            y += 15 + (k.keterangan.length / 50) * 5;
+          }
+          
+          if (y > 700) {
+            doc.addPage();
+            y = 50;
+          }
+        });
+
+        doc.moveDown();
+        doc.fontSize(9).font('Helvetica').text('Laporan ini dibuat otomatis oleh sistem ObatQU.id', { align: 'center' });
+        
+        doc.end();
+      });
+    });
+  });
+});
+
+/* ===============================
+   SEND VED-FEFO REPORT EMAIL (MANUAL TRIGGER)
+================================ */
+app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['APJ']), async (req, res) => {
+  try {
+    console.log('[EMAIL] 📧 Manual trigger: pengiriman laporan VED-FEFO...');
+    
+    const { getVedFefoData, generateVedFefoReport } = require('./utils/scheduler');
+    
+    // Ambil data VED-FEFO
+    const { vedAnalysis, fefoRecommendations } = await getVedFefoData(db);
+    
+    // Generate HTML
+    const htmlReport = generateVedFefoReport(vedAnalysis, fefoRecommendations);
+    
+    // Ambil email penerima (APJ dan Apoteker Pendamping)
+    db.all(
+      "SELECT email, username, role FROM users WHERE role IN ('APJ', 'APOTEKER_PENDAMPING') AND email IS NOT NULL AND email != ''",
+      async (err, rows) => {
+        if (err) {
+          return res.status(500).json({ message: 'Database error' });
+        }
+        
+        const recipients = (rows || []).map(r => r.email).filter(Boolean);
+        
+        if (!recipients || recipients.length === 0) {
+          return res.status(400).json({ 
+            message: 'Tidak ada email APJ/Apoteker untuk mengirim laporan. Pastikan semua user sudah memiliki email.' 
+          });
+        }
+        
+        // Kirim email ke setiap penerima
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (const email of recipients) {
+          const result = await sendMail({
+            to: email,
+            subject: `📋 Laporan VED-FEFO Manual - ${new Date().toLocaleDateString('id-ID')}`,
+            text: 'Laporan VED-FEFO Manual - Silakan lihat konten HTML',
+            html: htmlReport
+          });
+          
+          if (result) {
+            successCount += 1;
+            console.log(`✅ Email VED-FEFO dikirim ke ${email}`);
+          } else {
+            failCount += 1;
+            console.warn(`⚠️  Gagal mengirim email ke ${email}`);
+          }
+        }
+        
+        res.json({
+          message: `Email laporan VED-FEFO berhasil dikirim`,
+          successCount,
+          failCount,
+          totalRecipients: recipients.length,
+          recipients
+        });
+      }
+    );
+  } catch (err) {
+    console.error('[EMAIL] ❌ Error:', err);
+    res.status(500).json({ 
+      message: 'Gagal mengirim laporan VED-FEFO',
+      error: err && err.message ? err.message : String(err)
+    });
+  }
+});
+
+/* ===============================
+   KATEGORI CONFIG MANAGEMENT
+================================ */
+app.get('/api/kategori-config', authMiddleware, (req, res) => {
+  db.all("SELECT * FROM kategori_config ORDER BY nama ASC", (err, rows) => {
+    if (err) return res.status(500).json({ message: 'DB error' });
+    return res.json(rows);
+  });
+});
+
+app.put('/api/kategori-config/:id', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
+  const { lead_time_hari, min_stok, optimal_stok, reorder_qty, keterangan } = req.body;
+  
+  if (!lead_time_hari || !min_stok || !optimal_stok || !reorder_qty) {
+    return res.status(400).json({ message: 'Field lead_time_hari, min_stok, optimal_stok, reorder_qty diperlukan' });
+  }
+  
+  db.run(
+    "UPDATE kategori_config SET lead_time_hari=?, min_stok=?, optimal_stok=?, reorder_qty=?, keterangan=? WHERE id=?",
+    [lead_time_hari, min_stok, optimal_stok, reorder_qty, keterangan, req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ message: 'DB error' });
+      if (this.changes === 0) return res.status(404).json({ message: 'Kategori tidak ditemukan' });
+      addLog('audit', `Update kategori config ID ${req.params.id}`);
+      return res.json({ message: 'Updated' });
+    }
+  );
+});
+
+/* ===============================
+   SCHEDULER CONFIG MANAGEMENT
+================================ */
+app.get('/api/scheduler-config', authMiddleware, (req, res) => {
+  db.all("SELECT * FROM scheduler_config ORDER BY updated_at DESC", (err, rows) => {
+    if (err) return res.status(500).json({ message: 'DB error' });
+    return res.json(rows);
+  });
+});
+
+app.get('/api/scheduler-config/:config_type', authMiddleware, (req, res) => {
+  db.get("SELECT * FROM scheduler_config WHERE config_type = $1", [req.params.config_type], (err, row) => {
+    if (err) return res.status(500).json({ message: 'DB error' });
+    if (!row) return res.status(404).json({ message: 'Configuration tidak ditemukan' });
+    return res.json(row);
+  });
+});
+
+app.put('/api/scheduler-config/:id', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
+  const { interval_hari, enabled, email_jam } = req.body;
+  
+  if (interval_hari === undefined || enabled === undefined || !email_jam) {
+    return res.status(400).json({ message: 'Field interval_hari, enabled, email_jam diperlukan' });
+  }
+  
+  const now = new Date().toISOString();
+  db.run(
+    "UPDATE scheduler_config SET interval_hari=$1, enabled=$2, email_jam=$3, updated_at=$4 WHERE id=$5",
+    [interval_hari, enabled, email_jam, now, req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ message: 'DB error' });
+      if (this.changes === 0) return res.status(404).json({ message: 'Scheduler config tidak ditemukan' });
+      addLog('audit', `Update scheduler config ID ${req.params.id}: interval=${interval_hari}, enabled=${enabled}`);
+      return res.json({ message: 'Updated', updated_at: now });
+    }
+  );
+});
+
+/* ===============================
    KATEGORI
 ================================ */
 app.get('/api/kategori', authMiddleware, (req, res) => {
@@ -1791,9 +2605,9 @@ app.get('/api/kategori', authMiddleware, (req, res) => {
 });
 
 /* ===============================
-   LOGS (APJ ONLY)
+  LOGS
 ================================ */
-app.get('/api/logs', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
+app.get('/api/logs', authMiddleware, (req, res) => {
   db.all("SELECT * FROM logs ORDER BY time DESC LIMIT 200", (err, rows) => {
     if (err) return res.status(500).json({ message: 'DB error' });
     return res.json(rows);
@@ -1841,6 +2655,12 @@ app.use((req, res, next) => {
 
 const server = app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);
+  
+  // Setup scheduler untuk laporan VED-FEFO periodic - delay untuk memastikan db init selesai
+  setTimeout(() => {
+    console.log('[STARTUP] Memulai scheduler VED-FEFO...');
+    setupScheduler(db);
+  }, 1500);
 });
 
 process.on('SIGINT', () => {

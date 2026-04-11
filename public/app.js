@@ -40,7 +40,6 @@ function redirectToLogin() {
 function setupProfileDropdown() {
   const toggle = document.getElementById('userInfoDropdownToggle');
   const menu = document.getElementById('userDropdownMenu');
-  const logoutBtn = document.getElementById('logoutBtnDropdown');
   const profileBtn = menu ? menu.querySelector('a[data-section="profile"]') : null;
 
   if (!toggle || !menu) return;
@@ -59,14 +58,6 @@ function setupProfileDropdown() {
     }
   });
 
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const logoutButton = document.getElementById('logoutBtn');
-      if (logoutButton) logoutButton.click();
-    });
-  }
-
   if (profileBtn) {
     profileBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -78,28 +69,113 @@ function setupProfileDropdown() {
   }
 }
 
+function setupSidebarToggle() {
+  const body = document.body;
+  const sidebar = document.getElementById('dashboardSidebar');
+  if (!body || !sidebar) return;
+
+  const dotMenu = document.getElementById('dotMenu');
+  const toggleBtn = document.getElementById('toggleSidebar');
+  const nav = sidebar.querySelector('.sidebar-nav');
+
+  let overlay = document.querySelector('.sidebar-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  const openSidebar = () => {
+    body.classList.add('sidebar-visible');
+    sidebar.setAttribute('aria-hidden', 'false');
+  };
+  const closeSidebar = () => {
+    body.classList.remove('sidebar-visible');
+    sidebar.setAttribute('aria-hidden', 'true');
+  };
+  const toggleSidebar = () => {
+    body.classList.toggle('sidebar-visible');
+    const isOpen = body.classList.contains('sidebar-visible');
+    sidebar.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  };
+
+  const syncSidebarForViewport = () => {
+    if (window.matchMedia('(min-width: 1025px)').matches) {
+      openSidebar();
+      if (nav) nav.classList.remove('active');
+    } else {
+      closeSidebar();
+    }
+  };
+
+  if (dotMenu) {
+    dotMenu.addEventListener('click', (event) => {
+      event.preventDefault();
+      toggleSidebar();
+    });
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (nav) nav.classList.toggle('active');
+    });
+  }
+
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      closeSidebar();
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    syncSidebarForViewport();
+  });
+
+  syncSidebarForViewport();
+}
+
 function showDashboardEntryOverlay(title, message) {
+  console.log('[showDashboardEntryOverlay] Showing overlay:', title);
   const overlay = document.getElementById('dashboardEntryOverlay');
-  if (!overlay) return;
+  if (!overlay) {
+    console.warn('[showDashboardEntryOverlay] Overlay element not found!');
+    return;
+  }
   const titleEl = overlay.querySelector('strong');
   const messageEl = overlay.querySelector('span');
   if (titleEl && title) titleEl.textContent = title;
   if (messageEl && message) messageEl.textContent = message;
   overlay.classList.add('open');
   overlay.setAttribute('aria-hidden', 'false');
+  console.log('[showDashboardEntryOverlay] Overlay shown');
 }
 
 function hideDashboardEntryOverlay() {
+  console.log('[hideDashboardEntryOverlay] Hiding overlay');
   const overlay = document.getElementById('dashboardEntryOverlay');
-  if (!overlay) return;
+  if (!overlay) {
+    console.warn('[hideDashboardEntryOverlay] Overlay element not found!');
+    return;
+  }
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
+  console.log('[hideDashboardEntryOverlay] Overlay hidden');
 }
 
 function markDashboardReady() {
+  console.log('[markDashboardReady] Removing dashboard-booting, adding dashboard-ready');
+  console.log('[markDashboardReady] Before - classes:', document.body.className);
+  
   document.body.classList.remove('dashboard-booting');
   document.body.classList.add('dashboard-ready');
-  window.setTimeout(() => hideDashboardEntryOverlay(), 260);
+  
+  console.log('[markDashboardReady] After - classes:', document.body.className);
+  console.log('[markDashboardReady] Scheduling overlay hide in 260ms');
+  window.setTimeout(() => {
+    console.log('[markDashboardReady] Hiding overlay...');
+    hideDashboardEntryOverlay();
+  }, 260);
 }
 
 showDashboardEntryOverlay(
@@ -134,6 +210,92 @@ function goToSection(section) {
   if (sec) sec.classList.add('active');
 }
 
+function downloadReport(type) {
+  const urls = {
+    'full-pdf': (API_BASE || '') + '/api/reports/pdf',
+    'ved-summary-pdf': (API_BASE || '') + '/api/reports/ved-summary-pdf',
+    'full-csv': (API_BASE || '') + '/api/reports/csv',
+    'critical-pdf': (API_BASE || '') + '/api/reports/critical-pdf',
+    'daily-pdf': (API_BASE || '') + '/api/reports/daily-pdf',
+    'management-pdf': (API_BASE || '') + '/api/reports/management-pdf',
+    'restock-analysis-pdf': (API_BASE || '') + '/api/reports/restock-analysis-pdf'
+  };
+  
+  if (!urls[type]) {
+    console.error('Unknown report type:', type);
+    showToast('Tipe laporan tidak diketahui.', 'error');
+    return;
+  }
+  
+  const url = urls[type];
+  console.log('[DOWNLOAD] Starting:', { type, url });
+  showToast('Mengunduh laporan...', 'info');
+  
+  // Fetch first to check for errors
+  fetch(url, {
+    method: 'GET',
+    credentials: 'include'
+  })
+    .then(res => {
+      console.log('[DOWNLOAD] Response received:', {
+        status: res.status,
+        statusText: res.statusText,
+        contentType: res.headers.get('content-type'),
+        contentDisposition: res.headers.get('content-disposition'),
+        contentLength: res.headers.get('content-length')
+      });
+      
+      if (!res.ok) {
+        console.error('[DOWNLOAD] Response not ok');
+        return res.text().then(text => {
+          console.error('[DOWNLOAD] Error response text:', text);
+          try {
+            const data = JSON.parse(text);
+            throw new Error(data.message || 'Gagal membuat laporan');
+          } catch (e) {
+            throw new Error('Gagal membuat laporan: ' + res.statusText);
+          }
+        });
+      }
+      
+      return res.blob();
+    })
+    .then(blob => {
+      console.log('[DOWNLOAD] Blob received:', { size: blob.size, type: blob.type });
+      
+      if (blob.size === 0) {
+        console.error('[DOWNLOAD] Blob empty!');
+        throw new Error('File laporan kosong');
+      }
+      
+      // Create download link
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      const ext = type.includes('pdf') ? 'pdf' : 'csv';
+      link.download = `Laporan-${type}-${new Date().toISOString().split('T')[0]}.${ext}`;
+      
+      console.log('[DOWNLOAD] Creating download:', link.download);
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        console.log('[DOWNLOAD] Cleanup done');
+      }, 100);
+      
+      showToast('Laporan berhasil diunduh.', 'success');
+      console.log('[DOWNLOAD] Success');
+    })
+    .catch(err => {
+      console.error('[DOWNLOAD] Error:', err.message, err.stack);
+      showToast('Gagal mengunduh laporan: ' + err.message, 'error');
+    });
+}
+
 function updateProfileInfo() {
   if (!currentUser) return;
   const usernameEl = document.getElementById('profileUsername');
@@ -155,15 +317,15 @@ function getRoleUseCases(role) {
       badge: 'APJ',
       title: 'Akses APJ',
       description: 'APJ memiliki seluruh akses pada use case, termasuk manajemen user.',
-      notice: 'Mode APJ aktif. Use case yang tersedia: Mengelola Data User, Mengelola Data Obat, Monitoring Kadaluarsa, Monitoring Stok, Mengelola Data Kadaluarsa, dan Cetak Laporan.',
+      notice: 'Mode APJ aktif. Use case yang tersedia: Mengelola Data User, Mengelola Data Obat, Monitoring Kadaluarsa, Monitoring Stok, VED-FEFO, dan Laporan.',
       noticeType: 'info',
       items: [
         'Mengelola Data User',
         'Mengelola Data Obat',
         'Monitoring Kadaluarsa',
         'Monitoring Stok',
-        'Mengelola Data Kadaluarsa',
-        'Cetak Laporan'
+        'VED-FEFO',
+        'Laporan'
       ]
     };
   }
@@ -172,14 +334,14 @@ function getRoleUseCases(role) {
     badge: 'Apoteker Pendamping',
     title: 'Akses Apoteker Pendamping',
     description: 'Apoteker Pendamping menjalankan use case operasional obat tanpa manajemen user.',
-    notice: 'Mode Apoteker Pendamping aktif. Use case yang tersedia: Mengelola Data Obat, Monitoring Kadaluarsa, Monitoring Stok, Mengelola Data Kadaluarsa, dan Cetak Laporan.',
+    notice: 'Mode Apoteker Pendamping aktif. Use case yang tersedia: Mengelola Data Obat, Monitoring Kadaluarsa, Monitoring Stok, VED-FEFO, dan Laporan.',
     noticeType: 'warning',
     items: [
       'Mengelola Data Obat',
       'Monitoring Kadaluarsa',
       'Monitoring Stok',
-      'Mengelola Data Kadaluarsa',
-      'Cetak Laporan'
+      'VED-FEFO',
+      'Laporan'
     ]
   };
 }
@@ -244,20 +406,18 @@ function applyRolePermissions() {
   updateRoleUseCasePanel();
 
   const usersNav = document.getElementById('usersNav');
-  const reportsNav = document.getElementById('reportsNav');
   const usersSection = document.getElementById('section-users');
-  const laporanSection = document.getElementById('section-laporan');
   const exportBtn = document.getElementById('exportBtn');
 
   if (isApj()) {
-    [usersNav, reportsNav, usersSection, laporanSection, exportBtn].forEach((el) => {
+    [usersNav, usersSection, exportBtn].forEach((el) => {
       if (el) el.classList.remove('is-hidden');
     });
     showDashboardNotice(config.notice, config.noticeType);
     return;
   }
 
-  [reportsNav, laporanSection, exportBtn].forEach((el) => {
+  [exportBtn].forEach((el) => {
     if (el) el.classList.remove('is-hidden');
   });
   [usersNav, usersSection].forEach((el) => {
@@ -270,11 +430,11 @@ function renderUsersTable(users = allUsers) {
   const tbody = document.getElementById('usersTableBody');
   if (!tbody) return;
   if (!isApj()) {
-    tbody.innerHTML = '<tr><td colspan="4" style="color:#999;">Hanya APJ yang dapat mengelola user.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4">Hanya APJ yang dapat mengelola user.</td></tr>';
     return;
   }
   if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="color:#999;">Belum ada user yang cocok.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4">Belum ada user yang cocok.</td></tr>';
     return;
   }
 
@@ -334,7 +494,7 @@ function renderUsersTable(users = allUsers) {
 async function loadUsers() {
   const tbody = document.getElementById('usersTableBody');
   if (!tbody || !isApj()) return;
-  tbody.innerHTML = '<tr><td colspan="4" style="color:#999;">Memuat data user...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="4">Memuat data user...</td></tr>';
   try {
     const res = await fetch('/api/users');
     if (!res.ok) throw new Error('Gagal memuat user');
@@ -344,7 +504,7 @@ async function loadUsers() {
   } catch (err) {
     console.error('Error loading users:', err);
     allUsers = [];
-    tbody.innerHTML = '<tr><td colspan="4" style="color:#999;">Gagal memuat data user.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4">Gagal memuat data user.</td></tr>';
     showToast('Gagal memuat data user.', 'error');
   }
 }
@@ -401,6 +561,210 @@ function applyUserFilters() {
   renderUsersTable(filtered);
 }
 
+// ===== EMAIL SETTINGS FUNCTIONS =====
+let currentEmailConfigId = null;
+
+async function loadEmailSettings() {
+  const loadingEl = document.getElementById('emailSettingsLoading');
+  const formEl = document.getElementById('emailSettingsForm');
+  const errorEl = document.getElementById('emailSettingsError');
+
+  if (!loadingEl || !formEl) return;
+
+  loadingEl.style.display = 'block';
+  formEl.style.display = 'none';
+  if (errorEl) errorEl.style.display = 'none';
+
+  try {
+    const response = await fetch('/api/scheduler-config/ved_fefo_email', {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Gagal memuat konfigurasi email');
+    }
+
+    const config = await response.json();
+    currentEmailConfigId = config.id;
+
+    // Fill form with current values
+    const intervalInput = document.getElementById('emailIntervalInput');
+    const timeInput = document.getElementById('emailTimeInput');
+    const enabledCheckbox = document.getElementById('emailEnabledCheckbox');
+
+    if (intervalInput) intervalInput.value = config.interval_hari || 5;
+    if (timeInput) timeInput.value = config.email_jam || '08:00';
+    if (enabledCheckbox) enabledCheckbox.checked = config.enabled === true || config.enabled === 1;
+
+    updateEmailStatusDisplay(config);
+    loadingEl.style.display = 'none';
+    formEl.style.display = 'block';
+
+  } catch (error) {
+    console.error('Error loading email settings:', error);
+    loadingEl.style.display = 'none';
+    if (errorEl) {
+      errorEl.style.display = 'block';
+      errorEl.textContent = '❌ Gagal memuat pengaturan email: ' + error.message;
+    }
+  }
+}
+
+function updateEmailStatusDisplay(config) {
+  const statusDisplay = document.getElementById('emailStatusDisplay');
+  const currentStatus = document.getElementById('emailCurrentStatus');
+  const currentInterval = document.getElementById('emailCurrentInterval');
+  const currentTime = document.getElementById('emailCurrentTime');
+  const lastSent = document.getElementById('emailLastSent');
+
+  if (statusDisplay) {
+    statusDisplay.textContent = config.enabled ? '✅ Aktif' : '⏸️ Nonaktif';
+    statusDisplay.style.color = config.enabled ? '#27ae60' : '#e74c3c';
+  }
+
+  if (currentStatus) currentStatus.textContent = config.enabled ? '✅ Aktif' : '⏸️ Nonaktif';
+  if (currentInterval) currentInterval.textContent = `${config.interval_hari} hari`;
+  if (currentTime) currentTime.textContent = (config.email_jam || '08:00') + ' WIB';
+  if (lastSent) {
+    lastSent.textContent = config.last_sent_at 
+      ? new Date(config.last_sent_at).toLocaleString('id-ID') 
+      : 'Belum pernah dikirim';
+  }
+}
+
+async function saveEmailSettings() {
+  if (!currentEmailConfigId) {
+    showToast('ID konfigurasi tidak ditemukan', 'error');
+    return;
+  }
+
+  const intervalInput = document.getElementById('emailIntervalInput');
+  const timeInput = document.getElementById('emailTimeInput');
+  const enabledCheckbox = document.getElementById('emailEnabledCheckbox');
+  const saveBtn = document.querySelector('button[onclick="saveEmailSettings()"]');
+
+  if (!intervalInput || !timeInput || !enabledCheckbox) {
+    showToast('Form input tidak ditemukan', 'error');
+    return;
+  }
+
+  const intervalDays = parseInt(intervalInput.value);
+  const emailTime = timeInput.value;
+  const enabled = enabledCheckbox.checked;
+
+  // Validation
+  if (!intervalDays || intervalDays < 1 || intervalDays > 30) {
+    showToast('Interval harus antara 1-30 hari', 'error');
+    return;
+  }
+
+  if (!emailTime) {
+    showToast('Jam pengiriman harus diisi', 'error');
+    return;
+  }
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ Menyimpan...';
+  }
+
+  try {
+    const response = await fetch(`/api/scheduler-config/${currentEmailConfigId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        interval_hari: intervalDays,
+        enabled: enabled,
+        email_jam: emailTime
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Gagal menyimpan pengaturan');
+    }
+
+    showToast('✅ Pengaturan email berhasil disimpan!', 'success');
+    
+    // Reload settings to refresh display
+    setTimeout(loadEmailSettings, 1000);
+
+  } catch (error) {
+    console.error('Error saving email settings:', error);
+    showToast('❌ Gagal menyimpan pengaturan: ' + error.message, 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Simpan Pengaturan';
+    }
+  }
+}
+
+async function sendTestEmail() {
+  const testBtn = document.querySelector('button[onclick="sendTestEmail()"]');
+  const resultDiv = document.getElementById('emailActionResult');
+  const originalText = testBtn ? testBtn.textContent : '🚀 Kirim Test Email';
+
+  if (!testBtn) {
+    showToast('Tombol test email tidak ditemukan', 'error');
+    return;
+  }
+
+  if (testBtn) {
+    testBtn.disabled = true;
+    testBtn.textContent = '⏳ Mengirim...';
+  }
+
+  try {
+    const response = await fetch('/api/reports/send-ved-fefo-email', {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Gagal mengirim email test');
+    }
+
+    const result = await response.json();
+    
+    if (resultDiv) {
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = `
+        <div style="padding: 15px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px;">
+          <strong>✅ Email Test Berhasil!</strong><br>
+          Berhasil dikirim ke <strong>${result.successCount || 0}</strong> penerima<br>
+          <small>Penerima: ${(result.recipients && result.recipients.length > 0 ? result.recipients.join(', ') : 'Tidak ada penerima')}</small>
+        </div>
+      `;
+    }
+
+    showToast('✅ Email test berhasil dikirim!', 'success');
+
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    if (resultDiv) {
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML = `
+        <div style="padding: 15px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px;">
+          <strong>❌ Gagal Mengirim Email</strong><br>
+          ${error.message}
+        </div>
+      `;
+    }
+    showToast('❌ Gagal mengirim email: ' + error.message, 'error');
+  } finally {
+    if (testBtn) {
+      testBtn.disabled = false;
+      testBtn.textContent = originalText;
+    }
+  }
+}
+
 async function fetchOptionalJson(url, fallbackValue, normalize = (value) => value) {
   try {
     const res = await fetch(url);
@@ -429,19 +793,31 @@ async function fetchCurrentUser() {
 
 // Check auth and load user info
 async function init() {
+  console.log('[init] Starting dashboard initialization...');
   try {
     const data = await fetchCurrentUser();
     currentUser = data.user;
+    console.log('[init] Current user loaded:', currentUser.username, 'Role:', currentUser.role);
+    
     const userAvatar = document.getElementById('userAvatar');
     const userName = document.getElementById('userName');
     if (userAvatar) userAvatar.textContent = (currentUser.username || 'A')[0].toUpperCase();
     if (userName) userName.textContent = currentUser.username || 'User';
+    
     applyRolePermissions();
+    console.log('[init] Role permissions applied');
+    
     await loadCategories();
+    console.log('[init] Categories loaded');
+    
     await loadAllData();
+    console.log('[init] All data loaded, marking dashboard ready...');
+    
     markDashboardReady();
+    console.log('[init] Dashboard ready - initialization complete');
   } catch (err) {
-    console.error("Initialization failed:", err);
+    console.error("[init] Initialization failed:", err);
+    console.error('[init] Error details:', err.message, err.stack);
     hideDashboardEntryOverlay();
     redirectToLogin();
   }
@@ -472,19 +848,33 @@ async function loadCategories() {
 // ===== DATA LOADING & HELPERS =====
 async function loadAllData() {
   try {
+    console.log('[loadAllData] Starting data fetch...');
     const resObat = await fetch('/api/obat');
-    if (!resObat.ok) throw new Error('Gagal memuat /api/obat');
+    console.log('[loadAllData] /api/obat response:', resObat.status, resObat.ok);
+    
+    if (resObat.status === 401) {
+      console.error('[loadAllData] Auth failed - session expired');
+      showToast('Sesi login berakhir. Silakan login ulang.', 'warning');
+      redirectToLogin();
+      throw new Error('Session expired (401 from /api/obat)');
+    }
+    if (!resObat.ok) {
+      console.error('[loadAllData] /api/obat failed:', resObat.status, resObat.statusText);
+      throw new Error(`Gagal memuat /api/obat (HTTP ${resObat.status})`);
+    }
     const obatData = await resObat.json();
+    console.log('[loadAllData] Obat data loaded:', obatData.length || 0, 'items');
     allObat = Array.isArray(obatData) ? obatData : [];
 
     // Optional endpoints: dashboard remains functional even if one endpoint fails.
     const logs = await fetchOptionalJson('/api/logs', [], (value) => Array.isArray(value) ? value : []);
     const notif = await fetchOptionalJson(
-      '/api/notifications',
+      '/api/notifications?limit=200',
       { total: 0 },
       (value) => (value && typeof value === 'object') ? value : { total: 0 }
     );
     
+    console.log('[loadAllData] Rendering UI components...');
     updateDashboard();
     renderDataObatTable(allObat);
     updateCharts();
@@ -496,9 +886,13 @@ async function loadAllData() {
     renderStockMonitoringTable();
     renderExpiryDataTable();
     updateSelectObat();
-    if (isApj()) await loadUsers();
+    if (isApj()) {
+      console.log('[loadAllData] User is APJ, loading users...');
+      await loadUsers();
+    }
+    console.log('[loadAllData] Data loading complete');
   } catch (err) {
-    console.error('Error loading data:', err);
+    console.error('[loadAllData] Error loading data:', err);
     allObat = [];
     updateDashboard();
     renderDataObatTable([]);
@@ -530,44 +924,73 @@ function updateNotificationBadge(notifData) {
   badge.style.display = 'none';
 }
 
+function parseExpiryDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const d = new Date(`${raw}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // YYYY-MM (assume end of month)
+  if (/^\d{4}-\d{2}$/.test(raw)) {
+    const [y, m] = raw.split('-').map((n) => parseInt(n, 10));
+    if (!y || !m) return null;
+    const endOfMonth = new Date(y, m, 0);
+    return Number.isNaN(endOfMonth.getTime()) ? null : endOfMonth;
+  }
+
+  // MM-YYYY or MM/YYYY (assume end of month)
+  if (/^\d{2}[-/]\d{4}$/.test(raw)) {
+    const parts = raw.includes('/') ? raw.split('/') : raw.split('-');
+    const m = parseInt(parts[0], 10);
+    const y = parseInt(parts[1], 10);
+    if (!y || !m) return null;
+    const endOfMonth = new Date(y, m, 0);
+    return Number.isNaN(endOfMonth.getTime()) ? null : endOfMonth;
+  }
+
+  // Fallback to native Date parsing
+  const fallback = new Date(raw);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
 function getExpiryStatus(kadaluarsa) {
-  if (!kadaluarsa) return { key: 'baik', label: 'Baik', color: '#27ae60' };
-  const d = new Date(kadaluarsa + 'T00:00:00');
-  if (isNaN(d)) return { key: 'baik', label: 'Baik', color: '#27ae60' };
-  const diffDays = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
+  const d = parseExpiryDate(kadaluarsa);
+  if (!d) return { key: 'baik', label: 'Baik', color: '#27ae60' };
+  const now = new Date();
+  const diffDays = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return { key: 'kadaluarsa', label: 'Kadaluarsa', color: '#e74c3c' };
-  if (diffDays <= 30) return { key: 'hampir', label: 'Hampir Kadaluarsa', color: '#f39c12' };
+  
+  // Use days threshold for consistency with backend (60 days = 2 months)
+  if (diffDays <= 60) return { key: 'kadaluarsa', label: 'Kadaluarsa', color: '#e74c3c' };
+  if (diffDays <= 180) return { key: 'hampir', label: 'Hampir Kadaluarsa', color: '#f39c12' };
   return { key: 'baik', label: 'Baik', color: '#27ae60' };
 }
 
 function getObatPriority(obat) {
-  const expiryStatus = getExpiryStatus(obat && obat.kadaluarsa);
   const qty = Number(obat && obat.jumlah || 0);
-  const ved = String(obat && obat.ved || 'D').toUpperCase();
-
-  let score = 0;
-  if (expiryStatus.key === 'kadaluarsa') score += 3;
-  else if (expiryStatus.key === 'hampir') score += 2;
-
-  if (qty <= 0) score += 3;
-  else if (qty <= 5) score += 2;
-
-  if (ved === 'V') score += 2;
-  else if (ved === 'E') score += 1;
-
-  if (score >= 6) {
-    return { key: 'tinggi', label: 'Tinggi', level: 'P1' };
+  const ved = String(obat && obat.ved || '').toUpperCase();
+  
+  // Priority combines VED classification + stock level
+  if (qty <= 0) return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };  // Out of stock = critical
+  
+  // Low stock (1-5 units)
+  if (qty <= 5) {
+    if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };  // Vital with low stock = critical
+    if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };  // Essential with low stock = medium
+    // Desirable with low stock
+    return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };  // Desirable with low stock = low priority
   }
-  if (score >= 4) {
-    return { key: 'sedang', label: 'Sedang', level: 'P2' };
-  }
-  return { key: 'rendah', label: 'Rendah', level: 'P3' };
+  
+  return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };  // Adequate stock
 }
 
 function formatDaysLeft(kadaluarsa) {
-  if (!kadaluarsa) return '—';
-  const d = new Date(`${kadaluarsa}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return '—';
+  const d = parseExpiryDate(kadaluarsa);
+  if (!d) return '—';
   const diffDays = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return `${Math.abs(diffDays)} hari lalu`;
   return `${diffDays} hari`;
@@ -575,23 +998,22 @@ function formatDaysLeft(kadaluarsa) {
 
 function sortByExpiryAsc(rows) {
   return rows.slice().sort((a, b) => {
-    const da = new Date(`${a.kadaluarsa || '9999-12-31'}T00:00:00`);
-    const db = new Date(`${b.kadaluarsa || '9999-12-31'}T00:00:00`);
+    const da = parseExpiryDate(a.kadaluarsa) || new Date('9999-12-31T00:00:00');
+    const db = parseExpiryDate(b.kadaluarsa) || new Date('9999-12-31T00:00:00');
     return da - db;
   });
 }
 
+
 function getExpiryMonthKey(kadaluarsa) {
-  const value = String(kadaluarsa || '').trim();
-  if (!value) return '';
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return '';
+  const date = parseExpiryDate(kadaluarsa);
+  if (!date) return '';
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${date.getFullYear()}-${month}`;
 }
 
-function populateVedMonthFilter() {
-  const monthFilterEl = document.getElementById('vedMonthFilter');
+function populateMonitoringMonthFilter() {
+  const monthFilterEl = document.getElementById('monitoringMonthFilter');
   if (!monthFilterEl) return;
 
   const previousValue = monthFilterEl.value || '';
@@ -622,19 +1044,17 @@ function buildFefoRankMap(rows) {
 }
 
 function renderMonitoringKadaluarsa() {
+  populateMonitoringMonthFilter();
   const expired = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'kadaluarsa');
   const nearExpire = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'hampir');
   const good = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'baik');
   const filterEl = document.getElementById('monitoringExpiryFilter');
+  const monthFilterEl = document.getElementById('monitoringMonthFilter');
   const priorityListEl = document.getElementById('monitoringExpiryPriorityList');
   const priorityNoteEl = document.getElementById('monitoringExpiryPriorityNote');
   const filterValue = filterEl ? filterEl.value : '';
+  const monthFilterValue = monthFilterEl ? monthFilterEl.value : '';
   let rows = sortByExpiryAsc([...expired, ...nearExpire]);
-  if (filterValue === 'baik') {
-    rows = sortByExpiryAsc(good);
-  } else if (filterValue) {
-    rows = rows.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === filterValue);
-  }
 
   const expiredCount = document.getElementById('monitoringExpiredCount');
   const nearCount = document.getElementById('monitoringNearExpireCount');
@@ -696,7 +1116,7 @@ function renderMonitoringKadaluarsa() {
   if (!tbody) return;
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:#999;">Tidak ada obat yang perlu dipantau saat ini.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7">Tidak ada obat yang perlu dipantau saat ini.</td></tr>';
     return;
   }
 
@@ -725,7 +1145,6 @@ function renderMonitoringKadaluarsa() {
 
 function renderExpiryDataTable() {
   const timeFilterEl = document.getElementById('vedTimeFilter');
-  const monthFilterEl = document.getElementById('vedMonthFilter');
   const vitalList = document.getElementById('vedVitalList');
   const essentialList = document.getElementById('vedEssentialList');
   const desirableList = document.getElementById('vedDesirableList');
@@ -733,10 +1152,7 @@ function renderExpiryDataTable() {
   const vedPriorityRuleNote = document.getElementById('vedPriorityRuleNote');
   if (!vitalList || !essentialList || !desirableList) return;
 
-  populateVedMonthFilter();
-
   const timeFilterValue = timeFilterEl ? timeFilterEl.value : '';
-  const monthFilterValue = monthFilterEl ? monthFilterEl.value : '';
   let rows = sortByExpiryAsc(allObat);
 
   if (timeFilterValue) {
@@ -753,15 +1169,11 @@ function renderExpiryDataTable() {
 
       const diffDays = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
       if (timeFilterValue === 'expired') return diffDays < 0;
-      if (timeFilterValue === '0-30') return diffDays >= 0 && diffDays <= 30;
-      if (timeFilterValue === '31-90') return diffDays >= 31 && diffDays <= 90;
-      if (timeFilterValue === '>90') return diffDays > 90;
+      if (timeFilterValue === '0-60') return diffDays >= 0 && diffDays <= 60;
+      if (timeFilterValue === '61-180') return diffDays >= 61 && diffDays <= 180;
+      if (timeFilterValue === '>180') return diffDays > 180;
       return true;
     });
-  }
-
-  if (monthFilterValue) {
-    rows = rows.filter((obat) => getExpiryMonthKey(obat.kadaluarsa) === monthFilterValue);
   }
 
   const groups = { V: [], E: [], D: [] };
@@ -860,7 +1272,7 @@ function renderExpiryDataTable() {
             <span class="ved-priority-rank">#${index + 1}</span>
             <div class="ved-priority-main">
               <strong><button type="button" class="obat-name-trigger" data-id="${escapeHtml(obat.id)}">${escapeHtml(obat.nama || '—')}</button></strong>
-              <span>VED ${vedKey} • Batch ${escapeHtml(obat.batch || '—')} • ${escapeHtml(obat.kadaluarsa || '—')} (${formatDaysLeft(obat.kadaluarsa)})</span>
+              <span>VED ${vedKey} • Batch ${escapeHtml(obat.batch || '—')} • Stok ${obat.jumlah || 0} • ${escapeHtml(obat.kadaluarsa || '—')} (${formatDaysLeft(obat.kadaluarsa)})</span>
             </div>
             <span class="ved-priority-month">${escapeHtml(monthLabel)}</span>
           </li>
@@ -875,17 +1287,175 @@ function renderExpiryDataTable() {
 }
 
 const OBAT_EXPLANATION_OVERRIDES = {
-  allofar: 'Allofar (allopurinol) umumnya digunakan untuk membantu menurunkan kadar asam urat dalam darah dan mencegah kekambuhan gout. Penggunaan obat harus sesuai resep, dengan pemantauan gejala dan kondisi pasien.',
-  paracetamol: 'Paracetamol digunakan untuk membantu meredakan demam dan nyeri ringan sampai sedang.',
-  amoxicillin: 'Amoxicillin adalah antibiotik untuk infeksi bakteri dan harus digunakan sesuai resep dokter sampai tuntas.',
-  ibuprofen: 'Ibuprofen membantu meredakan nyeri, peradangan, dan demam; gunakan setelah makan untuk mengurangi iritasi lambung.',
-  omeprazole: 'Omeprazole digunakan untuk menurunkan produksi asam lambung pada keluhan maag, GERD, atau tukak lambung.',
-  cetirizine: 'Cetirizine adalah antihistamin untuk meredakan gejala alergi seperti gatal, bersin, dan hidung meler.',
-  salbutamol: 'Salbutamol membantu melegakan saluran napas pada asma atau bronkospasme sesuai anjuran tenaga medis.',
-  metformin: 'Metformin digunakan untuk membantu mengontrol gula darah pada diabetes tipe 2 bersama pola makan sehat.',
-  amlodipine: 'Amlodipine digunakan untuk membantu mengontrol tekanan darah tinggi dan menurunkan risiko komplikasi kardiovaskular.',
-  simvastatin: 'Simvastatin membantu menurunkan kadar kolesterol dan digunakan rutin sesuai resep dokter.',
-  ctm: 'CTM (chlorpheniramine maleate) adalah antihistamin untuk gejala alergi dan dapat menyebabkan kantuk.'
+  // Analgesik & Antipiretik - Penurun Demam & Pereda Nyeri
+  paracetamol: 'Paracetamol (Acetaminophen) - Analgesik dan antipiretik untuk menurunkan demam dan meredakan nyeri ringan hingga sedang. Aman untuk bayi, anak, dewasa, dan ibu hamil. Dosis anak sesuai usia, dewasa 500-1000mg tiap 4-6 jam, maksimal 4g/hari.',
+  beneuron: 'Beneuron (Paracetamol) - Formulasi paracetamol sirup untuk penurun demam anak. Rasa strawberry yang disukai anak-anak. Gunakan sesuai berat badan dan usia anak.',
+  betamol: 'Betamol (Paracetamol Sirup) - Paracetamol cair untuk meredakan demam dan nyeri pada anak. Diberikan setiap 4-6 jam sesuai kebutuhan. Tersedia dalam rasa cherry yang menarik untuk anak.',
+  sanmol: 'Sanmol (Paracetamol Tablet) - Tablet paracetamol untuk dewasa, pereda nyeri dan penurun demam efektif. Diminum dengan air putih, dapat dengan atau tanpa makanan.',
+  'bye bye fever': 'Bye Bye Fever - Paracetamol khusus formulasi untuk bayi dan anak. Turun panas dan nyeri cepat. Dosis aman sesuai usia bayi Anda.',
+  ibuprofen: 'Ibuprofen - Anti-inflamasi non-steroid (NSAID) untuk meredakan nyeri, peradangan, dan demam. Lebih kuat dari paracetamol. Minum setelah makan untuk mengurangi iritasi lambung. Dewasa 200-400mg tiap 4-6 jam.',
+  'ibuprofen syr': 'Ibuprofen Sirup - Ibuprofen cair untuk anak yang sulit menelan tablet. Efektif untuk demam tinggi dan nyeri. Dosis sesuai usia dan berat badan anak.',
+  bodrex: 'Bodrex (Ibuprofen) - Tablet ibuprofen untuk nyeri otot, kepala, dan demam. Aksi cepat, pereda nyeri efektif dalam 30 menit. Jangan minum bersamaan dengan aspirin.',
+  asammefenamat: 'Asam Mefenamat - NSAID untuk nyeri ringan hingga sedang, terutama nyeri menstruasi. Diminum tiap 6-8 jam. Jangan gunakan jika alergi aspirin atau NSAID lain.',
+  fargetik: 'Fargetik (Asam Mefenamat) - Pereda nyeri untuk migrain, nyeri sendi, nyeri haid. Mulai kerja 15-30 menit. Maksimal 3-4 hari penggunaan berturut-turut.',
+  meloxicam: 'Meloxicam - NSAID selectif untuk nyeri sendi dan tulang kronis (arthritis). Efek anti-inflamasi kuat. Diminum 1x sehari 7.5-15mg sesuai resep dokter.',
+  samcofenac: 'Samcofenac - Kombinasi diclofenac (anti-inflamasi) sendawa, untuk nyeri otot dan sendi. Aksi cepat untuk nyeri akut. Minum dengan makanan untuk proteksi lambung.',
+  
+  // Antibiotik - Pembunuh Bakteri
+  amoxicillin: 'Amoxicillin - Antibiotik beta-laktam untuk berbagai infeksi bakteri (telinga, hidung, kulit, saluran kencing). Harus diminum sampai habis (biasanya 7-10 hari) walaupun sudah merasa baik. Dewasa 500mg-1g tiap 8 jam.',
+  'amoxicillin hj': 'Amoxicillin HJ - Amoxicillin generik berkualitas untuk pengobatan infeksi bakteri. Harus dihabiskan sesuai durasi yang diberikan dokter untuk mencegah resistensi bakteri.',
+  brodamox: 'Brodamox (Amoxicillin) - Amoxicillin sirup untuk anak dengan infeksi bakteri. Rasa jeruk yang menarik. Dosis berdasarkan berat badan anak.',
+  yusimox: 'Yusimox (Amoxicillin) - Amoxicillin tablet untuk dewasa, efektif melawan streptococcus, stafiloccus, dan bakteri gram-negatif. Diminum tiap 8 jam.',
+  cefadroxil: 'Cefadroxil - Antibiotik sefalosporin generasi 1 untuk infeksi kulit, infeksi saluran kemih, infeksi saluran napas. Aman dan efektif. Diminum 2x sehari 500mg.',
+  lostacef: 'Lostacef (Cefadroxil Sirup) - Cefadroxil cair untuk anak dengan infeksi bakteri. Rasa strawberry dan jeruk. Dosis anak 25-50mg/kg/hari dibagi 2 dosis.',
+  cefixime: 'Cefixime - Antibiotik sefalosporin generasi 3 untuk infeksi saluran kemih, sinusitis, otitis media. Dapat diberikan sekali atau dua kali sehari. Efektif melawan bakteri resistant.',
+  floxigra: 'Floxigra (Ciprofloxacin) - Fluoroquinolone antibiotik spektrum luas untuk infeksi saluran kemih, saluran cerna, pernapasan. Dewasa 500-750mg dua kali sehari. Hindari paparan sinar matahari.',
+  'floxifar': 'Floxifar (Fluoroquinolone) - Antibiotik kuat untuk infeksi gram-negatif. Efektif untuk infeksi organ dalam. Gunakan sesuai resep dokter karena potensi efek samping.',
+  erlamycetine: 'Erlamycetine (Erythromycin) - Antibiotik makrolid untuk infeksi bakteri gram-positif. Alternatif bagi yang alergi penisilin. Diminum tiap 6 jam sebelum makan.',
+  clindamycin: 'Clindamycin - Antibiotik untuk infeksi bakteri serius termasuk anaerob. Efektif untuk infeksi gigi, kulit, saluran pernapasan. Minum dengan air putih banyak.',
+  metronidazole: 'Metronidazole - Antimikroba untuk infeksi bakteri anaerob dan protozoa (ameba, trikomonas). Jangan minum alkohol saat menggunakan. Efek samping rasa logam di mulut.',
+  helixime: 'Helixime - Kombinasi antibiotik untuk h. pylori penyebab tukak lambung. Biasanya diberikan dengan PPI. Efektivitas tinggi dalam eradikasi bakteri.',
+  
+  // Antifungal - Obat Jamur
+  ketokonazol: 'Ketokonazol - Antifungal untuk infeksi jamur sistemik dan lokal. Menghambat sintesis ergosterol sel jamur. Efektif untuk candida, dermatofita, pityriasis. Diminum dengan makanan untuk absorpsi optimal.',
+  'ketokonazole salf': 'Ketokonazole Salep - Aplikasi topikal untuk jamur kulit, panu, eksim jamur. Oleskan pada area yang terkena 2x sehari. Efek dalam 2-4 minggu penggunaan teratur.',
+  mycoral: 'Mycoral (Ketokonazol) - Tablet ketokonazol untuk infeksi jamur sistemik. Dosis 200-400mg sehari. Perlu pemantauan fungsi hati karena risiko hepatotoksisitas.',
+  'mycoral cream': 'Mycoral Cream (Ketokonazole) - Krim untuk jamur kulit, penyakit kulit jamur, seborrheic dermatitis. Oleskan tipis pada area yang terkena Pagi dan malam.',
+  flucadex: 'Flucadex (Fluconazole) - Antifungal untuk candidiasis orofaringeal, esofageal, vaginal, dan infeksi jamur sistemik. Efektif melawan candida albicans.',
+  
+  // Asma & Bronkodilator
+  salbutamol: 'Salbutamol (Albuterol) - Beta-2 agonis untuk melegakan saluran napas pada asma, bronkitis kronis, PPOK. Inhaler memberikan efek dalam 15 menit. Pemakaian rutin atau PRN sesuai kebutuhan dokter.',
+  brochifar: 'Brochifar - Kombinasi ekspektoran dan bronkodilator untuk batuk asma, bronkitis. Memudahkan pengeluaran dahak dan lega napas. Minum 3-4x sehari.',
+  
+  // Antihistamin & Alergi
+  cetirizine: 'Cetirizine - Antihistamin H1 selektif, non-sedating (tidak mengantuk) untuk rhinitis alergi, urtikaria, alergi musiman. Mulai kerja 20-40 menit. Dewasa 10mg sehari, anak 5-10mg.',
+  ctm: 'CTM (Chlorpheniramine Maleate) - Antihistamin obat untuk gejala alergi (gatal, bersin, pilek, bintik merah). DAPAT MENGANTUK, hindari mengemudi. Lebih sesuai untuk alergi berat.',
+  histigo: 'Histigo - Antihistamin untuk alergi akut dan kronis. Efektif meredakan gatal, ruam alergi, urticaria. Gunakan sesuai kebutuhan tapi jangan melebihi dosis.',
+  lerzin: 'Lerzin (Cetirizine) - Antihistamin non-sedating untuk alergi sepanjang hari. Cocok untuk yang butuh tetap waspada. Aman untuk pemakaian jangka panjang.',
+  'lerzin drop': 'Lerzin Drop (Cetirizine Tetes) - Cetirizine dalam bentuk tetes untuk bayi dan balita alergi. Dosis berdasarkan usia dan berat badan. Rasa strawberry yang aman untuk bayi.',
+  'lerzin sirup': 'Lerzin Sirup (Cetirizine) - Cetirizine cair untuk anak dengan alergi. Penyerapan cepat, non-sedating. Aman untuk alergi musiman atau perennial.',
+  caviplex: 'Caviplex - Kombinasi antihistamin dan dekongestan untuk flu alergi dan rhinitis alergi. Mengurangi hidung tersumbat + alergi. Minum 2-3x sehari.',
+  'caviplex syr': 'Caviplex Sirup - Antihistamin sirup anak untuk alergi dan flu pada anak. Efektif mengurangi gejala alergi dengan rasa yang enak.',
+  
+  // Antimaag & Anti-Asam Lambung
+  omeprazole: 'Omeprazole - Proton Pump Inhibitor (PPI) untuk mengurangi produksi asam lambung. Efektif untuk GERD, tukak lambung, esofagitis. Diminum 30 menit sebelum makan, dosis 20-40mg sehari.',
+  'omeprazol hj': 'Omeprazol HJ - Omeprazole generik berkualitas untuk penyakit asam lambung kronis. Penyembuhan lambung dalam 4-8 minggu penggunaan. Efek dalam 1 jam pertama.',
+  ranitidine: 'Ranitidine - H2 receptor antagonist untuk duodenal ulcer, GERD, gastritis. Mengurangi asam lambung 50%. Diminum 2x sehari 150mg atau 1x 300mg malam hari.',
+  gasela: 'Gasela (Ranitidine) - Ranitidine sirup untuk asam lambung kronis. Efektif 1-2 jam. Aman untuk jangka panjang, menurunkan keasaman lambung signifikan.',
+  antasida: 'Antasida - Menetralisir asam lambung langsung untuk pereda nyeri ulu hati akut. Kerja cepat 5-10 menit. Berisi Ca/Al hydroxide. Gunakan sesuai kebutuhan tapi maksimal 3 jam setelah makan.',
+  promaag: 'Promaag - Antasida kombinasi untuk maag, gastritis, perut kembung. Kandungan magnesium hidroksida dan simethicone untuk pereda gas. Kerja cepat untuk nyeri ulu hati akut.',
+  
+  // Batuk & Pilek & Ekspektoran
+  ambroxol: 'Ambroxol - Mucolytic ekspektoran untuk memecah dahak kental dan memudahkan batuk produktif. Efektif untuk batuk berdahak kronis. Diminum 3x sehari 30mg atau sirup. Mulai kerja 4-8 jam.',
+  itramol: 'Itramol Sirup - Itrakonazol + ambroxol? atau paracetamol + ambroxol. Ekspektoran untuk batuk berdahak pada anak. Rasa jeruk yang disukai anak.',
+  grantusif: 'Grantusif - Kombinasi ekspektoran dan dextromethorphan (pereda batuk) untuk batuk kering maupun berdahak. Malam hari hilangkan batuk, siang keluarkan dahak.',
+  scopma: 'Scopma - Kombinasi obat batuk, flu, dan ekspektoran. Efektif untuk batuk plus gejala flu. Kombinasi sempurna untuk ISPA (Infeksi Saluran Pernapasan Atas).',
+  'vicks formula': 'Vicks Formula - Ekspektoran tradisional dengan mentol dan kayu putih untuk batuk dan flu. Aroma kuat membantu pernapasan. Diminum hangat untuk efek maksimal.',
+  'hufagrip bp': 'Hufagrip BP - Kombinasi paracetamol, kafein, dan DM untuk flu dan batuk. BP = Bronkopneumonia. Efektif untuk demam + batuk + pilek sekaligus.',
+  fasidol: 'Fasidol - Paracetamol untuk demam dengan gejala flu. Dikombinasikan dengan deflt. Minum tiap 4-6 jam saat demam.',
+  'fasidol syr': 'Fasidol Sirup - Fasidol cair untuk anak demam dan flu. Rasa strawberry. Dosis sesuai usia, diminum tiap 4-6 jam.',
+  'pimtrakol syr': 'Pimtrakol Sirup Cherry - Batuk anak rasa cherry. Ekspektoran untuk memudahkan pengeluaran dahak. 3-4x sehari sesuai usia.',
+  'procurma syr': 'Procurma Sirup - Obat batuk pilek kombinasi. Pereda batuk + demam + pilek dalam satu produk. Ideal untuk ISPA ringan-sedang.',
+  guanistrep: 'Guanistrep Sirup - Guaifenesin ekspektoran sirup untuk anak. Memecah dahak kental. Diminum 3x sehari dengan banyak air putih.',
+  
+  // Diabetes
+  metformin: 'Metformin - Antidiabetes oral untuk diabetes tipe 2. Menurunkan gula darah dengan meningkatkan sensitivitas insulin dan mengurangi glukoneogenesis hepatik. Diminum 500-1000mg tiap 8 jam. Tidak menyebabkan hipoglikemia.',
+  'metformin 500mg': 'Metformin 500mg - Dosis standar metformin untuk kontrol gula darah sedang. Dikombinasikan dengan diet dan olahraga. Efek penuh dalam 2-3 minggu.',
+  
+  // Hipertensi & Jantung
+  amlodipine: 'Amlodipine - Calcium channel blocker untuk hipertensi dan angina. Melemaskan otot pembuluh darah untuk turunkan tekanan darah. Diminum 1x sehari 5-10mg. Tidak boleh tiba-tiba dihentikan.',
+  'amlodipine 5mg': 'Amlodipine 5mg - Dosis standar untuk hipertensi ringan-sedang. Diminum setiap hari pada waktu sama. Efektif dalam 6-14 hari. Efek samping minimal.',
+  'amlodipin 10mg': 'Amlodipin 10mg - Dosis lebih kuat untuk hipertensi berat atau maintenance setelah dosis 5mg tidak cukup. Sangat efektif, toleransi baik.',
+  simvastatin: 'Simvastatin - Statin untuk menurunkan kolesterol LDL berbahaya. Mencegah serangan jantung dan stroke. Diminum 1x malam 10-80mg. Jangan digabung beberapa statin.',
+  'simvastatin hj': 'Simvastatin HJ - Simvastatin generik untuk terapi kolesterol kronis. Penurunan kolesterol terlihat dalam 4-6 minggu. Efektivitas terjaga dengan gaya hidup sehat.',
+  
+  // Kortikosteroid
+  dexamethasone: 'Dexamethasone - Kortikosteroid sistemik untuk inflamasi berat, alergi anaphylaxis, edema serebral, syok septik, myxedema. Potensial tinggi. Penggunaan jangka pendek sebisa mungkin.',
+  'dexaharsen 0,5': 'Dexaharsen 0.5mg - Deksametason dosis rendah untuk penggunaan jangka panjang atau ringan. Untuk asma berat, alergi, inflamasi. Monitor fungsi adrenal.',
+  dexanta: 'Dexanta - Deksametason untuk anti-inflamasi dan potensial imunosupresif. Gunakan dengan resep dokter untuk durasi terbatas.',
+  'dexicorta': 'Dexicorta - Deksametason untuk kondisi inflamasi akut. Kerja cepat mengurangi peradangan. Taper down bertahap saat pulih untuk hindari adrenal insufficiency.',
+  'metil prednisolon': 'Metil Prednisolon - Kortikosteroid untuk rheumatoid arthritis, SLE, inflamasi berat. Dosis mengikuti derajat peradangan. Konsumsi dengan makanan untuk proteksi lambung.',
+  danasone: 'Danasone (Prednison) - Kortikosteroid untuk berbagai kondisi inflamasi dan imunitas. Harus taper down bertahap. Monitoring gula darah, tekanan darah, osteoporosis.',
+  
+  // Antikonvulsan & Neurologis
+  orphen: 'Orphen - Obat untuk kejang epilepsi dan neurologi. Stabilisasi membran sel saraf. Perlu pemeriksaan berkala dokter saraf.',
+  grafalin: 'Grafalin - Antikonvulsan dosis anak untuk pencegahan kejang. Profilaksis untuk anak berisiko kejang. Dosis disesuaikan berat badan anak.',
+  
+  // Antiemetic (Anti-Mual)
+  ondansetron: 'Ondansetron - 5-HT3 antagonis untuk mual dan muntah terutama pasca operasi dan kemoterapi. Dosis 4-8mg IV, IM, atau PO. Sangat efektif dengan efek samping minimal.',
+  
+  // Suplemen & Vitamin
+  lecozinc: 'Lecozinc - Zinc + vitamin C kombinasi untuk imunitas dan pemulihan luka. Penting saat sakit atau pasca operasi. Diminum 1x sehari preferably pagi.',
+  'leco zink': 'Leco Zinc Sirup - Zinc sirup untuk anak guna meningkatkan imunitas dan cepat sembuh dari sakit. Rasa jeruk. Berfungsi sebagai imunostimulan.',
+  'zinc sulfate': 'Zinc Sulfate - Suplemen zinc murni untuk imunitas dan penyembuhan luka. Direkomendasikan saat demam berdarah, sakit berat. Dosis 15-50mg/hari sesuai kondisi.',
+  curcuma: 'Curcuma Lysine 60 - Kurkumin + Lisin untuk anti-inflamasi alami dan imunitas. Dari tanaman kunyit. Supplement herbal Aman untuk jangka panjang.',
+  'vit c': 'Vitamin C - Asam askorbat untuk imunitas antioksidan pencegah flu. Asam + dapat meningkatkan penyerapan zat besi. Dewasa 50-200mg/hari, bayi 15-45mg.',
+  'white vit c': 'White Vitamin C - Vitamin C putih asli untuk keamanan pencernaan dan penyerapan optimal. Tidak ada pewarna. Untuk mereka dengan pencernaan sensitif.',
+  'vit c pot': 'Vitamin C Potassium - Vitamin C + Kalium kombinasi untuk imunitas dan keseimbangan elektrolit. Penting saat diare, muntah, atau dehidrasi.',
+  
+  // Topical - Salep & Lotion
+  'bufacort salep': 'Bufacort Salep - Kombinasi antifungal dan steroid untuk infeksi jamur dengan peradangan. Oleskan tipis pada area terkena 2x sehari. Perbaikan terlihat 3-5 hari.',
+  'salep 24': 'Salep 24 - Salep universal untuk luka, iritasi kulit ringan, dermatitis. Formula lembut tidak perih. Cocok untuk sensit skin. Oleskan tiap kali perlu.',
+  'genalten cream': 'Genalten Cream - Krim untuk berbagai masalah kulit (eksim, dermatitis, gatal). Formula lembut tidak menyakit. Aplikasi 2-3x sehari.',
+  'enbatic cream': 'Enbatic Cream - Krim menyembuhkan luka ringan, goresan, lecet. Kandungan antiseptik + nutrisi regenerasi. Perawatan luka modern aman anak.',
+  
+  // Pencernaan & Gangguan Lambung
+  microlax: 'Microlax - Pencahar lunak untuk sembelit ringan. Enema mikro, kerja lokal di usus besar. Efek dalam 5-20 menit. Non-sistemik, aman untuk anak dan ibu hamil.',
+  
+  // Obat Tetes & Lotion Mata
+  insto: 'Insto - Tetes mata regular untuk mata kering, lelah, iritasi ringan. Pelumas mata alami. Gunakan sesuai kebutuhan, biasanya 3-4x sehari saat mata terasa kering.',
+  rohto: 'Rohto - Tetes mata dengan menthol menyegarkan untuk mata lelah dan merah. Sensasi dingin meredakan kelelahan. Gunakan 1-2 tetes pada pagi atau malam.',
+  'rohto cool': 'Rohto Cool - Tetes mata segar dengan rasa dingin untuk mata lelah, alergi, dan iritasi. Memberikan kenyamanan instant. Ideal setelah layar lama.',
+  'rohto steril': 'Rohto Steril 7ml - Tetes mata steril untuk iritasi mata, alergi, mata merah. Formula steril aman. Gunakan 1-2 tetes sesuai kebutuhan.',
+  cazetin: 'Cazetin - Tetes mata untuk iritasi ringan, mata kering, conjunctivitis alergi. Formula mild tidak menyengat. Aman penggunaan berkala.',
+  seremig: 'Seremig - Tetes mata untuk gejala mata lelah, minus, silau layar. Nutrisi mata optimal. Gunakan 1-2 tetes sebelum tidur.',
+  
+  // Minyak Therapeutik
+  'minyak kayu putih': 'Minyak Kayu Putih - Minyak aromaterapi dengan eucalyptus untuk pusing, pereda nyeri otot, flu tradisional. Hangatkan di telapak tangan, oleskan di dada. Dapat dengan vaporisasi.',
+  'minyak telon': 'Minyak Telon - Minyak tradisional untuk bayi demam, kembung, masuk angin. Dari essensial oil jahe, lemongrass, dll. Oleskan dada, perut, lengan bayi sebelum tidur.',
+  
+  // Antikonvulsan Tambahan
+  vesperum: 'Vesperum - Suplemen untuk kesehatan dan kekuatan tulang, sendi. Kombinasi mineral dan vitamin. Penting untuk lansia dan osteoporosis.',
+  'vesperum syr': 'Vesperum Sirup - Vesperum cair untuk anak dengan masalah pertumbuhan tulang. Rasa jeruk yang menarik, nutrisi tulang lengkap.',
+  
+  // Obat Lain
+  allofar: 'Allofar (Allopurinol) - Obat untuk penyakit gout dan asam urat tinggi kronis. Mengurangi produksi asam urat. Diminum 1x sehari 100-300mg. Efek penuh 2-6 minggu. Perlu tes laboratorium berkala.',
+  alleron: 'Alleron - Antihistamin untuk alergi dan urtikaria. Alternatif CTM, umumnya sedating. Untuk alergi akut dan berat.',
+  alpara: 'Alpara - Obat untuk gangguan kecemasan, anxiety. Anxiolytic bermanfaat untuk OCD, GAD. Resep dokter anjuran.',
+  ambeven: 'Ambeven - Vaso-aktif agent untuk gangguan sirkulasi, edema varises. Meningkatkan tonus pembuluh darah. Diminum 2-3x sehari.',
+  anabion: 'Anabion - Vitamin dan mineral kombinasi lengkap. Suplemen nutrisi untuk defisiensi gizi, penyembuhan pasca sakit.',
+  anaton: 'Anaton - Analgesik untuk nyeri sendi ringan, pegal linu otot. Alternatif NSAID. Diminum sesuai kebutuhan rasa nyeri.',
+  anelat: 'Anelat - Analgesik untuk pereda nyeri umum, pegal linu. Non-NSAID alternatif untuk sensitive stomach.',
+  'antasida doen': 'Antasida Doen - Antasida tablet atau sirup untuk asam lambung. Kombinasi MgOH dan AlOH. Efektif 30 menit-2 jam.',
+  bufacaryl: 'Bufacaryl - Antibiotik lokal topikal untuk luka superfisial, cut, lecet. Antiseptik pencegah infeksi. Aplikasi berkala pada luka terbuka.',
+  carbidu: 'Carbidu - Obat untuk masalah pernapasan, sesak napas ringan. Inhalasi vapor atau diminum. Tradisional untuk TBC awal.',
+  'carbidu 0,5': 'Carbidu 0.5 - Formula ringan carbidu untuk anak. Dosis lebih kecil untuk keamanan. Sesak napas ringan anak.',
+  coparcetin: 'Coparcetin - Bioflavonoid untuk kesehatan pembuluh darah, varises, edema. Memperkuat kapiler. Diminum 2-3x sehari.',
+  curvit: 'Curvit - Suplemen kompleks untuk kesehatan umum, pemulihan pasca sakit. Vitamin dan mineral balance. Diminum 1x sehari.',
+  'curvit syr': 'Curvit Sirup - Curvit cair untuk anak nutrisi lengkap. Pertumbuhan dan imunitas anak. Rasa jeruk yang gurih.',
+  estalex: 'Estalex - Bronkodilator untuk masalah pernapasan, bronkitis. Lega napas dan membersihkan saluran udara blocked.',
+  elsiron: 'Elsiron - Obat untuk kesehatan pembuluh darah, sirkulasi. Mencegah trombosis. Konsultasi dokter untuk dosis.',
+  flasicox: 'Flasicox - Anti-inflamasi untuk sakit sendi, arthritis. Alternatif standard NSAID. Diminum dengan makanan.',
+  flutamol: 'Flutamol - Analgesik pereda nyeri umum. Non-NSAID gentle untuk lambung. Diminum 1-2 tablet tiap 6 jam.',
+  freshcare: 'Freshcare - Balsem aromaterapi untuk pegal linu, nyeri otot, strain. Hangatkan, oleskan, rasakan relaksasi otot.',
+  'gpu lang': 'GPU Lang - Obat demam tradisional herbal. Jamu untuk turun panas alami. Diminum 1 botol tiap 6-8 jam demam.',
+  'gpu lang 30ml': 'GPU Lang 30ml - GPU Lang petite ukuran untuk anak-anak. Dosis lebih kecil, rasa lebih toleran anak.',
+  'gpu lang 60ml': 'GPU Lang 60ml - GPU Lang ukuran standar untuk dewasa. Satu botol untuk satu dosis penurun panas herbal.',
+  'kondom sutra': 'Kondom Sutra Merah - Alat kontrasepsi barrier untuk hubungan intim responsibel. Perlindungan dual (kehamilan + PMS). Kualitas teruji dermatologis.',
+  liflamal: 'Liflamal - Anti-inflamasi untuk nyeri sendi, radang lutut, osteoarthritis. Khusus formula long-acting, diminum 1x sehari.',
+  lokev: 'Lokev - Lokal anestetik untuk luka superfisial, lecet ringan. Bius lokal non-sistemik. Aplikasi lokal kebutuhan, max 3x sehari.',
+  mexon: 'Mexon - Obat untuk gangguan pencernaan, kembung, dispepsia. Antiflatulen dan carminatif. Diminum 1-2 tablet setelah makan.',
+  mirasic: 'Mirasic - Parasetamol + kafein untuk nyeri kepala, migrain dengan kelemahan. Kafein meningkatkan efektivitas analgesik. Diminum tiap 4-6 jam.',
+  'mirasic forte': 'Mirasic Forte - Parasetamol + kafein dosis lebih tinggi untuk migrain berat, nyeri kepala cluster. Lebih kuat dari regular. Gunakan saat nyeri akut.',
+  voltadex: 'Voltadex - Diklofenak 50mg anti-inflamasi untuk nyeri endonesia dan radang. Tab dengan selaput untuk delayed release. 1-2 tablet tiap 8 jam.',
+  wiros: 'Wiros (Piroxicam) - NSAID untuk nyeri sendi kronis, arthritis, osteoporosis pain. Long-acting once daily 10-20mg. Proteksi lambung dengan antasida concurrent.',
+  zevask: 'Zevask - Montelukast untuk asma alergi, rhinitis alergi perennial. Coreceptor antagonist. Diminum 1x malam. Efek optimal 2 minggu pemakaian.',
+  'zevask 5mg': 'Zevask 5mg - Montelukast dosis anak untuk asma kontrol alergi anak 2-6 tahun. Chewable tablet fruity flavor.',
+  'zevask 10mg': 'Zevask 10mg - Montelukast dosis dewasa untuk asma persistent maintenance therapy. 1 tablet setiap malam. Tidak untuk acute attack (gunakan inhaler).',
+  ramolit: 'Ramolit - Suplemen untuk metabolisme tulang dan persendian (osteoporoth treatment). Kalsilot + vitamin D. Jangka panjang untuk pencegahan fraktur.',
+  
+  // Fallback
+  unknown: 'Obat ini memerlukan penjelasan lebih detail dari tenaga medis profesional.'
 };
 
 const KATEGORI_OBAT_DETAILS = {
@@ -964,7 +1534,6 @@ function openObatDetailPopup(obatId) {
   const title = document.getElementById('obatDetailTitle');
   const subtitle = document.getElementById('obatDetailSubtitle');
   const description = document.getElementById('obatDetailDescription');
-  const categoryDescription = document.getElementById('obatDetailCategoryDescription');
   const jumlah = document.getElementById('obatDetailJumlah');
   const kadaluarsa = document.getElementById('obatDetailKadaluarsa');
   const batch = document.getElementById('obatDetailBatch');
@@ -980,7 +1549,6 @@ function openObatDetailPopup(obatId) {
   if (title) title.textContent = obat.nama || 'Nama obat tidak tersedia';
   if (subtitle) subtitle.textContent = `${kategori || 'Kategori belum diisi'} • Batch ${batchValue}`;
   if (description) description.textContent = getObatExplanation(obat);
-  if (categoryDescription) categoryDescription.textContent = getKategoriObatDetail(kategori);
   if (idValue) idValue.textContent = obat.id || '-';
   if (kategoriValue) kategoriValue.textContent = kategori || '-';
   if (statusValue) statusValue.textContent = status.label;
@@ -1068,6 +1636,7 @@ function updateDashboard() {
   const dashNearExpireSummary = document.getElementById('dashNearExpireSummary');
   const dashOutOfStockSummary = document.getElementById('dashOutOfStockSummary');
   const dashLowStockSummary = document.getElementById('dashLowStockSummary');
+  const dashInventoryReview = document.getElementById('dashInventoryReview');
   const dashExpiryReview = document.getElementById('dashExpiryReview');
   const dashStockReview = document.getElementById('dashStockReview');
   const dashPrioritySummary = document.getElementById('dashPrioritySummary');
@@ -1201,7 +1770,6 @@ function renderDataObatTable(data) {
   if (!tbody) return;
   tbody.innerHTML = '';
   data.forEach(o => {
-    const deleteAction = isApj() ? `<button class="btn-delete" data-id="${o.id}">🗑️ Hapus</button>` : '';
     const st = getExpiryStatus(o.kadaluarsa);
     const priority = getObatPriority(o);
     const tr = document.createElement('tr');
@@ -1215,8 +1783,9 @@ function renderDataObatTable(data) {
       <td><span class="priority-badge priority-${priority.key}"><span class="priority-dot" aria-hidden="true"></span>${priority.level} ${priority.label}</span></td>
       <td><strong>${o.ved || '—'}</strong></td>
       <td>
-        <button class="btn-edit" data-id="${o.id}" style="margin-right:6px;">✏️ Edit</button>
-        ${deleteAction}
+        <button type="button" class="btn-secondary obat-detail-trigger" data-id="${o.id}">ℹ️ Detail</button>
+        <button class="btn-edit" data-id="${o.id}">✏️ Edit</button>
+        <button class="btn-delete" data-id="${o.id}" data-nama="${escapeHtml(o.nama || '')}">🗑️ Hapus</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -1226,7 +1795,8 @@ function renderDataObatTable(data) {
   document.querySelectorAll('.btn-delete').forEach(b => {
     b.addEventListener('click', (e) => {
       const id = e.target.closest('button').dataset.id;
-      if (confirm('Hapus obat ini?')) deleteObat(id);
+      const nama = e.target.closest('button').dataset.nama || 'obat ini';
+      if (confirm(`Hapus ${nama} secara permanen?`)) deleteObat(id);
     });
   });
 
@@ -1243,11 +1813,20 @@ function renderDataObatTable(data) {
       if (!kadaluarsa) return;
       const kategori = prompt('Kategori (TABLET BEBAS, TABLET KERAS, SIRUP, SALEP, ETALASE LUAR)', obat.kategori || 'TABLET BEBAS');
       if (kategori === null) return;
+      const ved = prompt('VED (V/E/D)', obat.ved || 'D');
+      if (ved === null) return;
       const batch = prompt('Batch / Lot (opsional)', obat.batch || '');
       if (batch === null) return;
       const deskripsi = prompt('Deskripsi obat (opsional)', obat.deskripsi || '');
       if (deskripsi === null) return;
-      updateObat(id, { nama, jumlah, kadaluarsa, kategori, batch, deskripsi });
+      updateObat(id, { nama, jumlah, kadaluarsa, kategori, ved, batch, deskripsi });
+    });
+  });
+
+  document.querySelectorAll('.obat-detail-trigger').forEach((button) => {
+    button.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      openObatDetailPopup(id);
     });
   });
 }
@@ -1257,7 +1836,7 @@ async function deleteObat(id) {
     const res = await fetch(`/api/obat/${id}`, { method: 'DELETE' });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      loadAllData();
+      await loadAllData();
       showToast(data.message || 'Obat dihapus.', 'success');
     } else {
       showToast(data.message || 'Gagal menghapus obat.', 'error');
@@ -1277,7 +1856,7 @@ async function updateObat(id, data) {
     });
     const result = await res.json().catch(() => ({}));
     if (res.ok) {
-      loadAllData();
+      await loadAllData();
       showToast(result.message || 'Obat diperbarui.', 'success');
     } else {
       showToast(result.message || 'Gagal memperbarui obat.', 'error');
@@ -1351,10 +1930,13 @@ function updateActivityLog(logs) {
   latestActivityCount = safeLogs.length;
   const activityCountStat = document.getElementById('activityCountStat');
   if (activityCountStat) activityCountStat.textContent = latestActivityCount;
+  const activityCountLabel = document.getElementById('activityCountLabel');
+  if (activityCountLabel) activityCountLabel.textContent = latestActivityCount;
 
   const getTypeLabel = (type) => {
     const t = String(type || '').toLowerCase();
     if (t.includes('obat')) return 'OBAT';
+    if (t.includes('audit')) return 'AUDIT';
     if (t.includes('auth') || t.includes('login')) return 'AUTH';
     if (t.includes('user')) return 'USER';
     return (type || 'LOG').toString().toUpperCase();
@@ -1378,13 +1960,13 @@ function updateActivityLog(logs) {
         </div>
       </li>
     `).join('')
-    : '<li style="color:#999;">Tidak ada aktivitas</li>';
+    : '<li>Tidak ada aktivitas</li>';
 
   const logList = document.getElementById('logList');
   if (!logList) return;
-  logList.innerHTML = safeLogs.slice(0, 15).length
-    ? safeLogs.slice(0, 15).map(l => `<li>[${formatTime(l.time)}] <strong>${getTypeLabel(l.type)}</strong>: ${l.message}</li>`).join('')
-    : '<li style="color:#999;">Tidak ada log</li>';
+  logList.innerHTML = safeLogs.slice(0, 10).length
+    ? safeLogs.slice(0, 10).map(l => `<li>[${formatTime(l.time)}] <strong>${getTypeLabel(l.type)}</strong>: ${l.message}</li>`).join('')
+    : '<li>Tidak ada log</li>';
 }
 
 // ===== REPORTS =====
@@ -1542,7 +2124,7 @@ function renderStockMonitoringTable() {
   rows.sort((left, right) => Number(left.jumlah || 0) - Number(right.jumlah || 0));
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:#999;">Tidak ada data stok untuk filter ini.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7">Tidak ada data stok untuk filter ini.</td></tr>';
     return;
   }
 
@@ -1573,22 +2155,54 @@ function renderStockMonitoringTable() {
 const formTambahObat = document.getElementById('formTambahObat');
 if (formTambahObat) formTambahObat.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const nama = document.getElementById('inputNama').value;
-  const jumlah = Number(document.getElementById('inputJumlah').value);
+  const nama = String(document.getElementById('inputNama').value || '').trim();
+  const jumlahRaw = document.getElementById('inputJumlah').value;
+  const jumlah = Number(jumlahRaw);
   const kadaluarsa = document.getElementById('inputKadaluarsa').value;
+  const ved = document.getElementById('inputVed') ? document.getElementById('inputVed').value : '';
   const kategori = document.getElementById('inputKategori') ? document.getElementById('inputKategori').value : '';
   const batch = document.getElementById('inputBatch') ? document.getElementById('inputBatch').value : '';
   const deskripsi = document.getElementById('inputDeskripsi') ? document.getElementById('inputDeskripsi').value : '';
+
+  if (!nama) {
+    showToast('Nama obat wajib diisi.', 'error');
+    return;
+  }
+  if (!Number.isFinite(jumlah)) {
+    showToast('Jumlah harus berupa angka (bilangan bulat positif).', 'error');
+    return;
+  }
+  if (jumlah <= 0) {
+    showToast('Jumlah harus lebih dari 0.', 'error');
+    return;
+  }
+  if (!Number.isInteger(jumlah)) {
+    showToast('Jumlah harus berupa bilangan bulat (tidak boleh desimal).', 'error');
+    return;
+  }
+  if (!kadaluarsa) {
+    showToast('Tanggal kadaluarsa wajib diisi.', 'error');
+    return;
+  }
+  if (!ved) {
+    showToast('VED wajib dipilih.', 'error');
+    return;
+  }
+  if (!kategori) {
+    showToast('Kategori/Jenis obat wajib dipilih.', 'error');
+    return;
+  }
 
   try {
     const res = await fetch('/api/obat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nama, jumlah, kadaluarsa, kategori, batch, deskripsi })
+      body: JSON.stringify({ nama, jumlah, kadaluarsa, kategori, batch, deskripsi, ved })
     });
     if (res.ok) {
       formTambahObat.reset();
-      loadAllData();
+      setTambahObatPanelOpen(false);
+      await loadAllData();
       showToast('Obat berhasil ditambahkan.', 'success');
     } else {
       const err = await res.json();
@@ -1601,7 +2215,38 @@ if (formTambahObat) formTambahObat.addEventListener('submit', async (e) => {
 });
 
 // Masuk Obat
-function updateSelectObat() {}
+function updateSelectObat() {
+  const releaseObatSelect = document.getElementById('releaseObatSelect');
+  if (!releaseObatSelect) return;
+  
+  const currentValue = releaseObatSelect.value;
+  releaseObatSelect.innerHTML = '<option value="">-- Pilih Obat --</option>';
+  allObat.forEach(obat => {
+    const option = document.createElement('option');
+    option.value = obat.id;
+    option.textContent = `${obat.nama} (Stok: ${obat.jumlah})`;
+    releaseObatSelect.appendChild(option);
+  });
+  if (currentValue && allObat.find(o => o.id === currentValue)) {
+    releaseObatSelect.value = currentValue;
+  }
+}
+
+async function handleLogout(event) {
+  if (event) event.preventDefault();
+  try {
+    const res = await fetch('/api/logout', { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(data.message || 'Gagal logout.', 'error');
+      return;
+    }
+  } catch (err) {
+    showToast('Gagal terhubung saat logout.', 'error');
+  } finally {
+    redirectToLogin();
+  }
+}
 
 // Export CSV
 const exportBtn = document.getElementById('exportBtn');
@@ -1617,6 +2262,290 @@ if (exportBtn) exportBtn.addEventListener('click', () => {
   a.click();
   URL.revokeObjectURL(url);
 });
+
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+
+function setupMonthlyPdfDownload() {
+  const monthInput = document.getElementById('reportMonth');
+  const downloadBtn = document.getElementById('downloadMonthlyPdf');
+  if (!monthInput || !downloadBtn) return;
+
+  if (!monthInput.value) {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    monthInput.value = `${now.getFullYear()}-${month}`;
+  }
+
+  downloadBtn.addEventListener('click', async () => {
+    const month = String(monthInput.value || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      showToast('Pilih bulan laporan terlebih dahulu.', 'warning');
+      return;
+    }
+
+    const originalText = downloadBtn.textContent;
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = 'Menyiapkan PDF...';
+
+    try {
+      const res = await fetch(`/api/reports/monthly-pdf?month=${encodeURIComponent(month)}`);
+      if (res.status === 401) {
+        showToast('Sesi login berakhir. Silakan login ulang.', 'warning');
+        redirectToLogin();
+        return;
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Gagal mengunduh laporan PDF.', 'error');
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Monthly-Report-${month}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Laporan PDF berhasil diunduh.', 'success');
+    } catch (err) {
+      console.error('Error downloading monthly PDF:', err);
+      showToast('Gagal terhubung saat mengunduh PDF.', 'error');
+    } finally {
+      downloadBtn.disabled = false;
+      downloadBtn.textContent = originalText || 'Unduh PDF Bulanan';
+    }
+  });
+}
+
+
+function setupReleaseTracking() {
+  const releaseObatSelect = document.getElementById('releaseObatSelect');
+  const releaseQty = document.getElementById('releaseQty');
+  const releaseKeterangan = document.getElementById('releaseKeterangan');
+  const submitReleaseBtn = document.getElementById('submitReleaseBtn');
+  const releaseStatus = document.getElementById('releaseStatus');
+
+  if (!submitReleaseBtn) return;
+
+  // Populate obat select
+  const populateReleaseSelect = () => {
+    if (!releaseObatSelect) return;
+    const currentValue = releaseObatSelect.value;
+    releaseObatSelect.innerHTML = '<option value="">-- Pilih Obat --</option>';
+    allObat.forEach(obat => {
+      const option = document.createElement('option');
+      option.value = obat.id;
+      option.textContent = `${obat.nama} (Stok: ${obat.jumlah})`;
+      releaseObatSelect.appendChild(option);
+    });
+    if (currentValue && allObat.find(o => o.id === currentValue)) {
+      releaseObatSelect.value = currentValue;
+    }
+  };
+
+  // Submit release
+  submitReleaseBtn.addEventListener('click', async () => {
+    const obatId = releaseObatSelect ? releaseObatSelect.value : '';
+    const qtyValue = releaseQty ? releaseQty.value : '';
+    const qty = parseInt(qtyValue);
+    const keterangan = releaseKeterangan ? releaseKeterangan.value : '';
+
+    // Validasi
+    if (!obatId || !obatId.trim()) {
+      showToast('Pilih obat terlebih dahulu.', 'warning');
+      return;
+    }
+    
+    if (!qtyValue || !qtyValue.trim() || isNaN(qty) || qty < 1) {
+      showToast('Masukkan jumlah obat yang valid (harus angka positif).', 'warning');
+      return;
+    }
+
+    // Cek stok cukup
+    const selectedObat = allObat.find(o => o.id === obatId);
+    if (!selectedObat) {
+      showToast('Obat tidak ditemukan. Silakan refresh halaman.', 'error');
+      return;
+    }
+    
+    if (qty > selectedObat.jumlah) {
+      showToast(`Stok tidak cukup! Stok tersedia: ${selectedObat.jumlah} unit.`, 'warning');
+      return;
+    }
+
+    submitReleaseBtn.disabled = true;
+    submitReleaseBtn.textContent = 'Memproses...';
+
+    const requestBody = { 
+      obat_id: obatId, 
+      jumlah: qty, 
+      keterangan: keterangan || '' 
+    };
+    
+    console.log('Sending release request:', {
+      obatId,
+      qty,
+      selectedObat: selectedObat ? { id: selectedObat.id, nama: selectedObat.nama, jumlah: selectedObat.jumlah } : null,
+      requestBody
+    });
+
+    try {
+      const res = await fetch('/api/release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('Response received:', {
+        status: res.status,
+        statusText: res.statusText,
+        ok: res.ok,
+        headers: {
+          contentType: res.headers.get('content-type')
+        }
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.error('JSON parse error:', parseErr);
+        console.error('Response status:', res.status);
+        console.log('Response text preview:', await res.text().catch(() => 'Could not read response'));
+        showToast('Error parsing server response. Check console.', 'error');
+        return;
+      }
+
+      console.log('Response data:', data);
+
+      if (!res.ok) {
+        console.error('API Error Response:', {
+          status: res.status,
+          statusText: res.statusText,
+          message: data && data.message ? data.message : 'Unknown error',
+          fullResponse: data
+        });
+        showToast(data && data.message ? data.message : 'Gagal mencatat pelepasan.', 'error');
+        return;
+      }
+
+      console.log('Release success:', data);
+
+      if (releaseStatus) {
+        releaseStatus.style.display = 'block';
+        releaseStatus.style.backgroundColor = '#d4edda';
+        releaseStatus.style.color = '#155724';
+        releaseStatus.style.border = '1px solid #c3e6cb';
+        releaseStatus.innerHTML = `✅ Pelepasan berhasil dicatat: ${qty} unit dikeluarkan, sisa stok ${data.remaining} unit`;
+      }
+
+      // Reset form
+      if (releaseQty) releaseQty.value = '';
+      if (releaseKeterangan) releaseKeterangan.value = '';
+
+      // Reload data
+      await fetchAllData();
+      populateReleaseSelect();
+
+      showToast('Pelepasan obat berhasil dicatat.', 'success');
+    } catch (err) {
+      console.error('Release error (catch):', err);
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      });
+      showToast('Gagal mencatat pelepasan obat.', 'error');
+      if (releaseStatus) {
+        releaseStatus.style.display = 'block';
+        releaseStatus.style.backgroundColor = '#f8d7da';
+        releaseStatus.style.color = '#721c24';
+        releaseStatus.style.border = '1px solid #f5c6cb';
+        releaseStatus.textContent = '❌ Gagal mencatat pelepasan.';
+      }
+    } finally {
+      submitReleaseBtn.disabled = false;
+      submitReleaseBtn.textContent = 'Catat Pelepasan';
+    }
+  });
+
+  // Show release section for reporting roles and populate on data change
+  if (releaseSection) {
+    releaseSection.style.display = 'block';
+  }
+  populateReleaseSelect();
+}
+
+function setupOperationalReportDownloads() {
+  const fullPdfBtn = document.getElementById('downloadFullPdf');
+  const csvBtn = document.getElementById('downloadCsvReport');
+  const criticalPdfBtn = document.getElementById('downloadCriticalPdf');
+
+  const triggerDownload = async (url, fallbackFileName, button) => {
+    const originalText = button ? button.textContent : '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Memproses...';
+    }
+    try {
+      const res = await fetch(url);
+      if (res.status === 401) {
+        showToast('Sesi login berakhir. Silakan login ulang.', 'warning');
+        redirectToLogin();
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Gagal mengunduh laporan.', 'error');
+        return;
+      }
+
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      const header = res.headers.get('Content-Disposition') || '';
+      const m = header.match(/filename="?([^";]+)"?/i);
+      const fileName = (m && m[1]) ? m[1] : fallbackFileName;
+      const blobUrl = URL.createObjectURL(blob);
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+      showToast('Laporan berhasil diunduh.', 'success');
+    } catch (err) {
+      console.error('Error downloading report:', err);
+      showToast('Gagal terhubung saat mengunduh laporan.', 'error');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+  };
+
+  if (fullPdfBtn) {
+    fullPdfBtn.addEventListener('click', () => {
+      triggerDownload('/api/reports/pdf', 'Laporan-Stok-Obat.pdf', fullPdfBtn);
+    });
+  }
+  if (csvBtn) {
+    csvBtn.addEventListener('click', () => {
+      triggerDownload('/api/reports/csv', 'Laporan-Stok-Obat.csv', csvBtn);
+    });
+  }
+  if (criticalPdfBtn) {
+    criticalPdfBtn.addEventListener('click', () => {
+      triggerDownload('/api/reports/critical-pdf', 'Critical-Report.pdf', criticalPdfBtn);
+    });
+  }
+}
 
 // ===== FILTERING & SEARCH =====
 function applyFilters() {
@@ -1648,12 +2577,39 @@ const refreshUsersBtn = document.getElementById('refreshUsersBtn');
 if (refreshUsersBtn) refreshUsersBtn.addEventListener('click', () => { if (isApj()) loadUsers(); });
 const vedTimeFilter = document.getElementById('vedTimeFilter');
 if (vedTimeFilter) vedTimeFilter.addEventListener('change', renderExpiryDataTable);
-const vedMonthFilter = document.getElementById('vedMonthFilter');
-if (vedMonthFilter) vedMonthFilter.addEventListener('change', renderExpiryDataTable);
 const monitoringExpiryFilter = document.getElementById('monitoringExpiryFilter');
 if (monitoringExpiryFilter) monitoringExpiryFilter.addEventListener('change', renderMonitoringKadaluarsa);
+const monitoringMonthFilter = document.getElementById('monitoringMonthFilter');
+if (monitoringMonthFilter) monitoringMonthFilter.addEventListener('change', renderMonitoringKadaluarsa);
 const stockMonitoringFilter = document.getElementById('stockMonitoringFilter');
 if (stockMonitoringFilter) stockMonitoringFilter.addEventListener('change', renderStockMonitoringTable);
+
+const openTambahBtn = document.getElementById('openTambahBtn');
+if (openTambahBtn) {
+  openTambahBtn.addEventListener('click', () => {
+    const card = document.getElementById('tambahObatCard');
+    const isOpen = !!(card && card.style.display !== 'none');
+    setTambahObatPanelOpen(!isOpen);
+  });
+}
+const closeTambahBtn = document.getElementById('closeTambahBtn');
+if (closeTambahBtn) closeTambahBtn.addEventListener('click', () => setTambahObatPanelOpen(false));
+
+// Obat Keluar button handlers
+const openObatKeluarBtn = document.getElementById('openObatKeluarBtn');
+if (openObatKeluarBtn) {
+  openObatKeluarBtn.addEventListener('click', () => {
+    const card = document.getElementById('obatKeluarCard');
+    if (card) card.style.display = card.style.display === 'none' ? 'block' : 'none';
+  });
+}
+const closeObatKeluarBtn = document.getElementById('closeObatKeluarBtn');
+if (closeObatKeluarBtn) {
+  closeObatKeluarBtn.addEventListener('click', () => {
+    const card = document.getElementById('obatKeluarCard');
+    if (card) card.style.display = 'none';
+  });
+}
 
 document.addEventListener('click', (event) => {
   const stockCard = event.target.closest('.stock-summary-card');
@@ -1711,12 +2667,16 @@ document.addEventListener('keydown', (event) => {
 
 // ===== SIDEBAR NAVIGATION =====
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', function(e) {
+  item.addEventListener('click', async function(e) {
     e.preventDefault();
     const section = this.dataset.section;
 
     if (section === 'profile') {
       updateProfileInfo();
+    }
+
+    if (section === 'users' && isApj()) {
+      await loadEmailSettings();
     }
 
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -1727,6 +2687,10 @@ document.querySelectorAll('.nav-item').forEach(item => {
       if (targetSection) {
         targetSection.classList.add('active');
       }
+    }
+
+    if (['monitoring-kadaluarsa', 'monitoring-stok', 'data-kadaluarsa', 'dashboard'].includes(section)) {
+      await loadAllData();
     }
     const sidebar = document.getElementById('dashboardSidebar');
     if (sidebar.classList.contains('is-open')) {
@@ -1786,3 +2750,19 @@ if (changePasswordForm) {
 // Initialize
 init();
 setupProfileDropdown();
+setupSidebarToggle();
+bindObatDetailPopup();
+setupReleaseTracking();
+
+// Setup email settings checkbox listener
+document.addEventListener('change', function(e) {
+  if (e.target && e.target.id === 'emailEnabledCheckbox') {
+    const enabled = e.target.checked;
+    const statusDisplay = document.getElementById('emailStatusDisplay');
+    if (statusDisplay) {
+      statusDisplay.textContent = enabled ? '✅ Aktif' : '⏸️ Nonaktif';
+      statusDisplay.style.color = enabled ? '#27ae60' : '#e74c3c';
+    }
+  }
+});
+
