@@ -1501,7 +1501,7 @@ const PANDUAN_PDF_SECTIONS = [
     title: '1. Pengantar Sistem',
     paragraphs: [
       'obatqu adalah sistem informasi manajemen apotek berbasis web untuk alur akun, pengelolaan data obat, monitoring stok dan kadaluarsa, penerapan VED-FEFO, serta laporan operasional.',
-      'Akses sistem melalui http://localhost:3000 selama server aktif berjalan. Jika file HTML dibuka langsung dari komputer, sistem akan diarahkan kembali ke alamat localhost tersebut.'
+      'Akses sistem melalui https://obatqu.online selama server aktif berjalan. Jika file HTML dibuka langsung dari komputer, sistem akan diarahkan kembali ke alamat obatqu.online tersebut.'
     ],
     bullets: [
       'Dashboard ringkasan kondisi stok, kadaluarsa, dan aktivitas.',
