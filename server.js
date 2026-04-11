@@ -828,7 +828,7 @@ app.post('/api/reset-password/request', (req, res) => {
               return res.status(500).json({ message: 'DB error' });
             }
 
-            const subject = 'Reset Password Obat.Qu';
+            const subject = 'Reset Password obatqu';
             const text = [
               `Halo ${user.username},`,
               '',
@@ -840,7 +840,7 @@ app.post('/api/reset-password/request', (req, res) => {
             ].join('\n');
             const html = `
               <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937;">
-                <h2 style="margin-bottom:12px;">Reset Password Obat.Qu</h2>
+                <h2 style="margin-bottom:12px;">Reset Password obatqu</h2>
                 <p>Halo <strong>${user.username}</strong>,</p>
                 <p>Kami menerima permintaan reset password untuk akun Anda.</p>
                 <p>
@@ -1027,11 +1027,11 @@ app.post('/api/request-password-reset', authMiddleware, (req, res) => {
             return res.status(500).json({ message: 'DB error' });
           }
 
-          const subject = 'Reset Password Obat.Qu';
+          const subject = 'Reset Password obatqu';
           const text = `Halo ${user.username},\n\nBuka link berikut untuk mengganti password Anda: ${resetLink}\n\nLink ini berlaku selama 30 menit. Abaikan email ini jika Anda tidak meminta reset password.`;
           const html = `
             <div style="font-family:Arial,sans-serif;line-height:1.5;">
-              <h3>Reset Password Obat.Qu</h3>
+              <h3>Reset Password obatqu</h3>
               <p>Halo <strong>${user.username}</strong>,</p>
               <p>Klik tombol di bawah untuk mengganti password Anda.</p>
               <p><a href="${resetLink}" style="display:inline-block;padding:10px 16px;background:#0fbf9b;color:#fff;text-decoration:none;border-radius:8px;">Ganti Password</a></p>
@@ -1500,7 +1500,7 @@ const PANDUAN_PDF_SECTIONS = [
   {
     title: '1. Pengantar Sistem',
     paragraphs: [
-      'Obat.Qu adalah sistem informasi manajemen apotek berbasis web untuk alur akun, pengelolaan data obat, monitoring stok dan kadaluarsa, penerapan VED-FEFO, serta laporan operasional.',
+      'obatqu adalah sistem informasi manajemen apotek berbasis web untuk alur akun, pengelolaan data obat, monitoring stok dan kadaluarsa, penerapan VED-FEFO, serta laporan operasional.',
       'Akses sistem melalui http://localhost:3000 selama server aktif berjalan. Jika file HTML dibuka langsung dari komputer, sistem akan diarahkan kembali ke alamat localhost tersebut.'
     ],
     bullets: [
@@ -1763,7 +1763,7 @@ function writePanduanPdf(doc) {
   ensureSpace(34);
   drawRoundedCard(left, doc.y, contentWidth, 26, 10, colors.primarySoft, null);
   doc.fillColor(colors.primary).font('Helvetica-Bold').fontSize(9)
-    .text('Dibuat otomatis oleh server Obat.Qu untuk kebutuhan dokumentasi operasional.', left + 12, doc.y + 8, { width: contentWidth - 24, align: 'center' });
+    .text('Dibuat otomatis oleh server obatqu untuk kebutuhan dokumentasi operasional.', left + 12, doc.y + 8, { width: contentWidth - 24, align: 'center' });
 }
 
 /* ===============================
@@ -1778,9 +1778,9 @@ app.get('/api/panduan/pdf', (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     
     doc.info.Title = 'obatqu.online - Panduan Penggunaan';
-    doc.info.Author = 'Obat.Qu';
-    doc.info.Subject = 'Panduan penggunaan sistem web Obat.Qu';
-    doc.info.Creator = 'Obat.Qu Server';
+    doc.info.Author = 'obatqu';
+    doc.info.Subject = 'Panduan penggunaan sistem obatqu';
+    doc.info.Creator = 'obatqu Server';
     
     doc.pipe(res);
     writePanduanPdf(doc);
