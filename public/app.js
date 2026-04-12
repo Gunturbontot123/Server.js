@@ -1010,8 +1010,33 @@ function buildFefoRankMap(rows) {
 
 function renderMonitoringKadaluarsa() {
   populateMonitoringMonthFilter();
-  const expired = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'kadaluarsa');
-  const nearExpire = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'hampir');
+  
+  // Get list of obat IDs that are already in disposal reports (pemusnahan)
+  const obatInPemusnahan = new Set();
+  
+  // Check BOTH pemusnahan tables (modal and full page)
+  const tableBodyPemusnahan = document.getElementById('tableBodyPemusnahan');
+  if (tableBodyPemusnahan) {
+    const rows = tableBodyPemusnahan.querySelectorAll('tr');
+    rows.forEach(row => {
+      const dataId = row.getAttribute('data-obat-id');
+      if (dataId) obatInPemusnahan.add(dataId);
+    });
+  }
+  
+  const tableBodyPemusnahanFull = document.getElementById('tableBodyPemusnahanFull');
+  if (tableBodyPemusnahanFull) {
+    const rows = tableBodyPemusnahanFull.querySelectorAll('tr');
+    rows.forEach(row => {
+      const dataId = row.getAttribute('data-obat-id');
+      if (dataId) obatInPemusnahan.add(dataId);
+    });
+  }
+  
+  console.log('[RENDER MONITORING] Obat in pemusnahan:', Array.from(obatInPemusnahan).slice(0, 5), '...');
+  
+  const expired = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'kadaluarsa' && !obatInPemusnahan.has(String(obat.id)));
+  const nearExpire = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'hampir' && !obatInPemusnahan.has(String(obat.id)));
   const good = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'baik');
   const filterEl = document.getElementById('monitoringExpiryFilter');
   const monthFilterEl = document.getElementById('monitoringMonthFilter');
@@ -1112,6 +1137,28 @@ function renderMonitoringKadaluarsa() {
 }
 
 function renderExpiryDataTable() {
+  // Get list of obat IDs that are already in disposal reports (pemusnahan)
+  const obatInPemusnahan = new Set();
+  
+  // Check BOTH pemusnahan tables (modal and full page)
+  const tableBodyPemusnahan = document.getElementById('tableBodyPemusnahan');
+  if (tableBodyPemusnahan) {
+    const rows = tableBodyPemusnahan.querySelectorAll('tr');
+    rows.forEach(row => {
+      const dataId = row.getAttribute('data-obat-id');
+      if (dataId) obatInPemusnahan.add(dataId);
+    });
+  }
+  
+  const tableBodyPemusnahanFull = document.getElementById('tableBodyPemusnahanFull');
+  if (tableBodyPemusnahanFull) {
+    const rows = tableBodyPemusnahanFull.querySelectorAll('tr');
+    rows.forEach(row => {
+      const dataId = row.getAttribute('data-obat-id');
+      if (dataId) obatInPemusnahan.add(dataId);
+    });
+  }
+  
   const timeFilterEl = document.getElementById('vedTimeFilter');
   const vitalList = document.getElementById('vedVitalList');
   const essentialList = document.getElementById('vedEssentialList');
@@ -1121,7 +1168,7 @@ function renderExpiryDataTable() {
   if (!vitalList || !essentialList || !desirableList) return;
 
   const timeFilterValue = timeFilterEl ? timeFilterEl.value : '';
-  let rows = sortByExpiryAsc(allObat);
+  let rows = sortByExpiryAsc(allObat).filter(obat => !obatInPemusnahan.has(String(obat.id)));
 
   if (timeFilterValue) {
     rows = rows.filter((obat) => {
@@ -3090,7 +3137,7 @@ async function loadLaporanPemusnahan() {
       const statusBadge = getStatusBadge(laporan.status);
       const canDownloadPDF = laporan.status === 'approved'; // Hanya bisa download saat approved
       return `
-        <tr>
+        <tr data-obat-id="${escapeHtml(String(laporan.obat_id))}">
           <td>${laporan.nama_obat || '-'}</td>
           <td>${laporan.unit_sisa || 0} unit</td>
           <td>Rp ${Number(laporan.biaya_pemusnahan || 0).toLocaleString('id-ID')}</td>
@@ -3152,7 +3199,7 @@ async function loadLaporanPemusnahanFull() {
       const statusBadge = getStatusBadge(laporan.status);
       const canDownloadPDF = laporan.status === 'approved';
       return `
-        <tr>
+        <tr data-obat-id="${escapeHtml(String(laporan.obat_id))}">
           <td>${laporan.nama_obat || '-'}</td>
           <td>${laporan.unit_sisa || 0} unit</td>
           <td>Rp ${Number(laporan.biaya_pemusnahan || 0).toLocaleString('id-ID')}</td>
@@ -3304,8 +3351,9 @@ async function approvePemusnahan(id) {
         const msg = `Laporan perlu approval kedua`;
         showToast(msg, 'success');
       }
-      loadLaporanPemusnahan();
-      renderMonitoringKadaluarsa(); // Refresh monitoring
+      await loadLaporanPemusnahan(); // AWAIT - load table FIRST
+      renderMonitoringKadaluarsa(); // Now render priority lists with loaded data
+      renderExpiryDataTable();
     } else {
       showToast(data.message || 'Gagal mengapprove laporan', 'error');
     }
@@ -3329,7 +3377,9 @@ async function rejectPemusnahan(id) {
     
     if (response.ok && data.message) {
       showToast('Laporan pemusnahan ditolak', 'success');
-      loadLaporanPemusnahan();
+      await loadLaporanPemusnahan(); // AWAIT - load table FIRST
+      renderMonitoringKadaluarsa(); // Now render priority lists
+      renderExpiryDataTable();
     } else {
       showToast(data.message || 'Gagal menolak laporan', 'error');
     }
@@ -3430,46 +3480,55 @@ let currentObatForPemusnahan = null;
 function openPemusnahanSection(obatId = null) {
   console.log('[OPEN PEMUSNAHAN] Called with obatId:', obatId, 'type:', typeof obatId);
   
-  // Show the pemusnahan section (simulating nav click)
-  const pemusnahanNav = document.querySelector('[data-section="pemusnahan"]');
-  if (pemusnahanNav) {
-    pemusnahanNav.click();
+  // Navigate to laporan section first
+  const laporanNav = document.querySelector('[data-section="laporan"]');
+  if (laporanNav) {
+    laporanNav.click();
   }
   
   // Store for use after dropdown loads
   currentObatForPemusnahan = obatId ? String(obatId) : null;
   
-  // Load the dropdown FIRST
-  loadPemusnahanObatDropdown().then(() => {
-    // THEN pre-select the obat if passed in
-    if (currentObatForPemusnahan) {
-      const select = document.getElementById('pemusnahanObatSelect');
-      if (select) {
-        // Ensure both are strings for comparison
-        const selectHasOption = Array.from(select.options).some(opt => String(opt.value) === String(currentObatForPemusnahan));
-        
-        console.log('[PEMUSNAHAN SECTION] Setting obat select:', {
-          obatId: currentObatForPemusnahan,
-          optionExists: selectHasOption,
-          availableOptions: Array.from(select.options).map(o => ({ value: o.value, text: o.text }))
-        });
-        
-        if (!selectHasOption) {
-          console.warn('[PEMUSNAHAN SECTION] WARNING: Selected obat not in dropdown! The obat might not be expired or might have been deleted.');
-        }
-        
-        select.value = currentObatForPemusnahan;
-        displayPemusnahanObatInfo();
-        // Scroll to form
-        const form = document.getElementById('formPemusnahanFull');
-        if (form) form.scrollIntoView({ behavior: 'smooth' });
-      }
+  // Give nav click time to process, then show pemusnahan tab
+  setTimeout(() => {
+    // Click on the pemusnahan tab
+    const pemusnahanTab = document.getElementById('tabPemusnahanObat');
+    if (pemusnahanTab) {
+      pemusnahanTab.click();
     }
-    loadLaporanPemusnahanFull();
-  }).catch(err => {
-    console.error('[PEMUSNAHAN SECTION] Error loading dropdown:', err);
-    loadLaporanPemusnahanFull();
-  });
+    
+    // Load the dropdown FIRST
+    loadPemusnahanObatDropdown().then(() => {
+      // THEN pre-select the obat if passed in
+      if (currentObatForPemusnahan) {
+        const select = document.getElementById('pemusnahanObatSelect');
+        if (select) {
+          // Ensure both are strings for comparison
+          const selectHasOption = Array.from(select.options).some(opt => String(opt.value) === String(currentObatForPemusnahan));
+          
+          console.log('[PEMUSNAHAN SECTION] Setting obat select:', {
+            obatId: currentObatForPemusnahan,
+            optionExists: selectHasOption,
+            availableOptions: Array.from(select.options).map(o => ({ value: o.value, text: o.text }))
+          });
+          
+          if (!selectHasOption) {
+            console.warn('[PEMUSNAHAN SECTION] WARNING: Selected obat not in dropdown! The obat might not be expired or might have been deleted.');
+          }
+          
+          select.value = currentObatForPemusnahan;
+          displayPemusnahanObatInfo();
+          // Scroll to form
+          const form = document.getElementById('formPemusnahanFull');
+          if (form) form.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+      loadLaporanPemusnahanFull();
+    }).catch(err => {
+      console.error('[PEMUSNAHAN SECTION] Error loading dropdown:', err);
+      loadLaporanPemusnahanFull();
+    });
+  }, 100);
 }
 
 async function loadPemusnahanObatDropdown() {
@@ -3669,9 +3728,10 @@ async function handlePemusnahanFormSubmit(e) {
     if (response.ok && data.message) {
       showToast('Laporan pemusnahan berhasil disimpan (status: Pending)', 'success');
       document.getElementById('formPemusnahanFull').reset();
-      loadPemusnahanObatDropdown();
-      loadLaporanPemusnahanFull();
-      renderMonitoringKadaluarsa(); // Refresh monitoring
+      await loadPemusnahanObatDropdown();
+      await loadLaporanPemusnahanFull(); // AWAIT - load table FIRST
+      renderMonitoringKadaluarsa(); // Now render priority lists with loaded data
+      renderExpiryDataTable();
     } else {
       console.error('[FORM ERROR] Response tidak OK:', { 
         status: response.status, 

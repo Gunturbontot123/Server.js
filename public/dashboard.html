@@ -762,18 +762,73 @@
         <!-- TAB 2: Laporan Pemusnahan Obat Kadaluarsa -->
         <div id="contentPemusnahanObat" class="tab-content" style="display: none;">
 
+          <!-- Form Pemusnahan Lengkap -->
+          <div class="form-card">
+            <h3>🗑️ Buat Laporan Pemusnahan Obat Kadaluarsa</h3>
+            <form id="formPemusnahanFull" style="display: block;">
+              <div style="margin-bottom: 15px;">
+                <label for="pemusnahanObatSelect">Pilih Obat Kadaluarsa *</label>
+                <select id="pemusnahanObatSelect" required style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px;">
+                  <option value="">-- Pilih Obat --</option>
+                </select>
+                <small id="pemusnahanObatInfo" style="display: block; margin-top: 8px; color: #7f8c8d;"></small>
+              </div>
+
+              <div id="pemusnahanInfoDisplay" style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                Pilih obat untuk menampilkan informasi
+              </div>
+
+              <div style="margin-bottom: 15px;">
+                <label for="pemusnahanUnitTerjual">Unit Terjual</label>
+                <input type="number" id="pemusnahanUnitTerjual" min="0" value="0" style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px;">
+              </div>
+
+              <div style="margin-bottom: 15px;">
+                <label for="pemusnahanUnitSisa">Unit Sisa (Kadaluarsa) *</label>
+                <input type="number" id="pemusnahanUnitSisa" min="1" required style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px;">
+              </div>
+
+              <div style="margin-bottom: 15px;">
+                <label for="pemusnahanPtPemusnahan">PT Pemusnahan *</label>
+                <input type="text" id="pemusnahanPtPemusnahan" placeholder="Nama perusahaan" required style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px;">
+              </div>
+
+              <div style="margin-bottom: 15px;">
+                <label for="pemusnahanBiaya">Biaya Pemusnahan (Rp) *</label>
+                <input type="number" id="pemusnahanBiaya" min="0" step="0.01" required style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px;">
+              </div>
+
+              <div style="margin-bottom: 15px;">
+                <label for="pemusnahanTanggal">Tanggal Pemusnahan *</label>
+                <input type="date" id="pemusnahanTanggal" required style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px;">
+              </div>
+
+              <div style="margin-bottom: 15px;">
+                <label for="pemusnahanCatatan">Catatan/Alasan</label>
+                <textarea id="pemusnahanCatatan" rows="3" placeholder="Tambahkan catatan jika diperlukan..." style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px;"></textarea>
+              </div>
+
+              <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button type="reset" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">Bersihkan</button>
+                <button type="submit" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer;">💾 Simpan Laporan</button>
+              </div>
+            </form>
+          </div>
+
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+
           <!-- Tabel Laporan Pemusnahan -->
           <div class="form-card">
             <h3>📋 Daftar Laporan Pemusnahan</h3>
             <div class="data-tools">
-              <select id="filterStatusPemusnahan" style="padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px; background: white;">
+              <select id="filterStatusPemusnahanFull" style="padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px; background: white;">
                 <option value="">Semua Status</option>
                 <option value="pending">Pending (Menunggu Approval)</option>
                 <option value="need_second_approval">Need 2nd Approval</option>
                 <option value="approved">Approved ✓</option>
                 <option value="rejected">Rejected ❌</option>
               </select>
-              <button id="refreshPemusnahanBtn" type="button" class="btn-secondary">🔄 Muat Ulang</button>
+              <button id="refreshPemusnahanBtnFull" type="button" class="btn-secondary">🔄 Muat Ulang</button>
             </div>
             <div class="table-card" style="margin-top: 15px;">
               <table class="data-table" style="width: 100%; border-collapse: collapse;">
@@ -784,13 +839,11 @@
                     <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">Biaya (Rp)</th>
                     <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">PT Pemusnahan</th>
                     <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">Status</th>
-                    <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">PIC</th>
-                    <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">📥 PDF</th>
                     <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">Aksi</th>
                   </tr>
                 </thead>
-                <tbody id="tableBodyPemusnahan">
-                  <tr><td colspan="8" style="text-align: center; padding: 20px; border: 1px solid #ddd;">Memuat data...</td></tr>
+                <tbody id="tableBodyPemusnahanFull">
+                  <tr><td colspan="6" style="text-align: center; padding: 20px; border: 1px solid #ddd;">Memuat data...</td></tr>
                 </tbody>
               </table>
             </div>
