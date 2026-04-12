@@ -66,26 +66,43 @@ function replaceQuestionPlaceholders(sql) {
 
 class PostgresCompatDb {
   constructor() {
-    const connectionString = process.env.DATABASE_URL || '';
-    this.client = new Client(
- {
-            host: process.env.PGHOST || 'localhost',
-            port: Number(process.env.PGPORT || 5432),
-            database: process.env.PGDATABASE || 'postgres',
-            user: process.env.PGUSER || 'postgres',
-            password: process.env.PGPASSWORD || '',
-            connectionString: connectionString || undefined,
-          },
-
-    );
+    // Build config untuk PostgreSQL client
+    const config = {
+      host: process.env.PGHOST || 'localhost',
+      port: parseInt(process.env.PGPORT || '5432', 10),
+      database: process.env.PGDATABASE || 'postgres',
+      user: process.env.PGUSER || 'postgres'
+    };
+    
+    // Add password hanya jika ada dan tidak empty
+    const password = (process.env.PGPASSWORD || '').trim();
+    if (password) {
+      config.password = password;
+    }
+    
+    // Add SSL jika dikonfigurasi
+    if (process.env.PG_SSL === 'true') {
+      config.ssl = { rejectUnauthorized: false };
+    }
+    
+    // Log config untuk debugging (tanpa password)
+    console.log('[DB] PostgreSQL config:', {
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.user,
+      hasPassword: !!config.password
+    });
+    
+    this.client = new Client(config);
 
     this.ready = this.client.connect()
       .then(() => {
         console.log('✅ PostgreSQL terhubung');
       })
       .catch((err) => {
-        console.error('Error koneksi PostgreSQL:', err);
-        throw err;
+        console.error('⚠️  PostgreSQL tidak terhubung:', err.message);
+        // Graceful error handling - jangan throw, biar server tetap jalan
       });
   }
 

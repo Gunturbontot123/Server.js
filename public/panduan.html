@@ -399,7 +399,7 @@
       <div class="panduan-sidebar-title">Dokumentasi</div>
     </div>
     <nav class="panduan-nav">
-      <a href="/dashboard.html" class="back-link">← Kembali ke Dashboard</a>
+      <a href="/login.html" class="back-link">← Kembali ke halaman login</a>
       <div class="nav-section-label">Memulai</div>
       <a href="#pengantar" onclick="setActive(this)">Pengantar Sistem</a>
       <a href="#akun" onclick="setActive(this)">Akun & Login</a>
@@ -433,7 +433,7 @@
       </div>
       <div class="panduan-hero-actions">
         <button type="button" class="panduan-hero-btn primary" id="downloadPanduanBtn">Download PDF</button>
-        <a href="/dashboard.html" class="panduan-hero-btn">Kembali ke Dashboard</a>
+        <a href="/login.html" class="panduan-hero-btn">Kembali ke halaman login</a>
       </div>
     </div>
 
@@ -893,59 +893,134 @@
       <section class="panduan-section" id="monitoring-stok">
         <div class="panduan-section-badge">Monitoring</div>
         <h2>Monitoring Stok</h2>
-        <p>Pantau ketersediaan stok obat, identifikasi item yang perlu reorder, dan baca prioritas tindakan dari satu menu — lengkap dengan peringatan otomatis serta ranking kontekstual stok.</p>
+        <p>Pantau ketersediaan stok obat secara menyeluruh per produk (agregasi semua batch), identifikasi item yang perlu reorder, dan baca prioritas tindakan dari satu menu — lengkap dengan peringatan otomatis, ranking kontekstual, serta transparansi penambahan stok dari batch lain.</p>
 
+        <h3 style="margin-top: 20px; font-size: 14px; color: #333; border-bottom: 2px solid #0fbf9b; padding-bottom: 8px;">Status Stok (Berdasarkan Total Produk)</h3>
         <table class="feature-table">
-          <thead><tr><th>Status Stok</th><th>Arti</th></tr></thead>
+          <thead><tr><th>Status Stok</th><th>Arti</th><th>Rumus</th></tr></thead>
           <tbody>
-            <tr><td><strong>Stok Habis</strong></td><td>Jumlah stok = 0. Prioritas tertinggi (P1), tindakan segera diperlukan.</td></tr>
-            <tr><td><strong>Stok Menipis</strong></td><td>Jumlah stok 1 sampai 5. Item perlu dipantau ketat dan masuk prioritas P2.</td></tr>
-            <tr><td><strong>Perlu Reorder</strong></td><td>Ringkasan kebutuhan restock untuk item dengan stok ≤ 5 agar pengadaan bisa disiapkan sebelum stok benar-benar aman.</td></tr>
+            <tr><td><strong>Stok Habis</strong></td><td>Total stok produk = 0 atau kurang dari minimum stok yang ditetapkan. Prioritas tertinggi (P1), tindakan segera diperlukan.</td><td>Total qty &lt; min_stok</td></tr>
+            <tr><td><strong>Stok Menipis</strong></td><td>Total stok produk di antara minimum dan optimal. Item perlu dipantau ketat dan masuk prioritas P2.</td><td>min_stok ≤ qty &lt; optimal_stok</td></tr>
+            <tr><td><strong>Stok Aman</strong></td><td>Total stok produk mencukupi ambang optimal. Tidak perlu reorder darurat, manajemen normal.</td><td>Total qty ≥ optimal_stok</td></tr>
           </tbody>
         </table>
 
-        <div class="step-list" style="margin-top:16px;">
+        <div class="info-box note" style="margin-top: 16px; background: #f0f9ff; border-left: 4px solid #0284c7;">
+          <strong style="color: #0284c7;">💡 Fitur Baru: Agregasi Stok per Produk</strong>
+          <p>Sistem sekarang menghitung prioritas dan status stok berdasarkan <strong>TOTAL qty dari semua batch</strong> dengan nama produk yang sama, bukan per batch individual. Contohnya:</p>
+          <ul style="margin: 8px 0 0 20px; line-height: 1.6; color: #555;">
+            <li><strong>Minyak Telon My Baby 30ml</strong>
+              <ul style="margin-top: 4px;">
+                <li>Batch O951225: 1 unit (semula P1 karena qty=1)</li>
+                <li>Batch O961225: 10 unit (P3 karena qty=10)</li>
+                <li><strong>TOTAL: 11 unit → Prioritas P3 untuk SEMUA batch produk ini ✓</strong></li>
+              </ul>
+            </li>
+          </ul>
+          <p style="margin-top: 12px; font-size: 12px; color: #666;">Batches masih ditampilkan terpisah di tabel untuk detail penjualan, tapi ranking prioritas tergantung total produk—ini membuat manajemen restock lebih akurat.</p>
+        </div>
+
+        <h3 style="margin-top: 20px; font-size: 14px; color: #333; border-bottom: 2px solid #0fbf9b; padding-bottom: 8px;">Menampilkan Perubahan Stok &amp; Ranking</h3>
+        <div class="step-list">
           <div class="step-item">
             <div class="step-num">1</div>
             <div class="step-body">
-              <strong>Buka menu "Monitoring Stok"</strong>
-              <p>Klik di sidebar. Ringkasan di atas menunjukkan jumlah item tiap status stok.</p>
+              <strong>Klik Detail Obat</strong>
+              <p>Di tabel Monitoring Stok, klik nama obat atau ikon info untuk membuka popup detail obat.</p>
             </div>
           </div>
           <div class="step-item">
             <div class="step-num">2</div>
             <div class="step-body">
-              <strong>Cek Prioritas Tindakan</strong>
-              <p>Daftar prioritas (P1/P2/P3) ditampilkan dalam kartu ringkasan stok. Jika nilai utama sama, urutan VED dipakai sebagai pembeda (V lebih dulu). Klik item prioritas atau nama obat pada tabel untuk membuka popup detail obat.</p>
+              <strong>Cek Ringkasan Stok (NEW!)</strong>
+              <p>Bagian <em>Ringkasan Stok Produk</em> menampilkan:</p>
+              <ul style="margin: 8px 0 0 20px;">
+                <li><strong>Batch Ini</strong> — Qty batch yang sedang dilihat</li>
+                <li><strong>Total Produk</strong> — Total qty dari SEMUA batch produk</li>
+                <li><strong>Status Perubahan</strong> — "<em>✓ Sudah Ditambah! X unit dari batch lain</em>"</li>
+                <li><strong>Ranking Saat Ini</strong> — Prioritas berdasarkan total qty</li>
+                <li><strong>Ambang Stok</strong> — Min dan optimal stok untuk kategori</li>
+                <li><strong>Unit Tambahan Diperlukan</strong> — Berapa unit lagi untuk capai optimal (jika masih kurang)</li>
+              </ul>
             </div>
           </div>
           <div class="step-item">
             <div class="step-num">3</div>
             <div class="step-body">
-              <strong>Cek tabel &amp; peringatan otomatis</strong>
-              <p>Tabel menampilkan detail semua obat dengan status stok kritis. Bagian <em>Peringatan Otomatis</em> di bawah tabel menampilkan notifikasi untuk stok menipis dan obat mendekati kadaluarsa.</p>
+              <strong>Lihat Batch Lain (NEW!)</strong>
+              <p>Jika produk punya batch lain, bagian <em>Batch Lain Produk Ini</em> menampilkan semua batch dengan qty dan tanggal kadaluarsa masing-masing.</p>
             </div>
           </div>
         </div>
 
-        <div class="info-box tip" style="margin-top:16px;">
-          <strong>Contoh: Kebutuhan Restock Berdasarkan Lead Time Kategori</strong>
-          <p>Sistem menyarankan restock jika estimasi hari stok <em>(daysOfStock)</em> ≤ <em>lead time</em> kategori obat:</p>
+        <h3 style="margin-top: 20px; font-size: 14px; color: #333; border-bottom: 2px solid #0fbf9b; padding-bottom: 8px;">Contoh: Cara Ranking Berubah</h3>
+        <div class="info-box example" style="margin-top: 16px;">
+          <strong>Skenario: Tambah Stok Paracetamol Batch Baru</strong>
+          <p><em>Kategori: TABLET BEBAS (min_stok=2, optimal_stok=5)</em></p>
+          <table class="feature-table" style="font-size: 12px;">
+            <thead>
+              <tr><th style="width: 30%;">Kondisi</th><th style="width: 35%;">Batch Awal</th><th style="width: 35%;">Setelah Tambah Batch Baru</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Stock</strong></td>
+                <td>Batch A: 1 unit<br/><strong>Total: 1 unit</strong></td>
+                <td>Batch A: 1 unit + Batch B: 8 unit<br/><strong>Total: 9 unit</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Status</strong></td>
+                <td>Habis (qty &lt; min=2)</td>
+                <td><strong>Aman (qty ≥ optimal=5)</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Ranking</strong></td>
+                <td>P1 — Tinggi (Kritis)</td>
+                <td><strong>P3 — Rendah ✓</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Popup Info</strong></td>
+                <td>-</td>
+                <td>✓ Sudah Ditambah! 8 unit dari batch lain</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 12px; color: #666; font-size: 12px;"><strong>Kesimpulan:</strong> Saat batch A dibuka (qty=1), popup menunjukkan ranking sekarang adalah P3 (berdasarkan total 9), plus informasi bahwa 8 unit sudah ditambah dari batch B. User langsung tahu restock sudah dicukupkan tanpa harus manual cek batch lain.</p>
+        </div>
+
+        <h3 style="margin-top: 20px; font-size: 14px; color: #333; border-bottom: 2px solid #0fbf9b; padding-bottom: 8px;">Fitur Tambahan</h3>
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Filter &amp; Urutkan Berdasarkan Total Qty</strong>
+              <p>Dropdown <em>Semua Status / Habis / Menipis / Perlu Reorder</em> menggunakan total qty produk untuk filtering dan sorting, bukan qty individual batch.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Tabel Monitoring Stok (Updated)</strong>
+              <p>Kolom jumlah menampilkan: <em><strong>X unit (Total: Y unit)</strong></em> — yang pertama adalah batch saat ini, yang kedua adalah total semua batch produk.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>Ringkasan di Dashboard</strong>
+              <p>Counter <em>Perlu Reorder</em> di dashboard menghitung jumlah <strong>PRODUK unik</strong> yang perlu restock, bukan jumlah batch.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-box tip" style="margin-top: 16px;">
+          <strong>Tip: Manfaatkan Kategori Config untuk Kontrol Ambang Stok</strong>
+          <p>APJ dapat menyesuaikan <em>min_stok</em> dan <em>optimal_stok</em> untuk setiap kategori obat di menu <strong>Kategori Config</strong>. Contoh:</p>
           <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
-            <li><strong>Paracetamol (TABLET BEBAS)</strong><br/>
-            <em>Stok: 20 unit, Penjualan: 3 unit/hari, Lead Time: 7 hari<br/>
-            Estimasi hari stok = 20 ÷ 3 = 6.67 hari<br/>
-            6.67 ≤ 7? YA → Status: <strong>URGENT REORDER</strong></em></li>
-            <li><strong>Injeksi (INJEKSI)</strong><br/>
-            <em>Stok: 15 unit, Penjualan: 1 unit/hari, Lead Time: 14 hari<br/>
-            Estimasi hari stok = 15 ÷ 1 = 15 hari<br/>
-            15 ≤ 14? TIDAK → Status: <strong>AMAN</strong> (stok masih cukup, belum perlu reorder)</em></li>
-            <li><strong>Sirup Obat Batuk (SIRUP)</strong><br/>
-            <em>Stok: 2 unit, Penjualan: 1 unit/hari, Lead Time: 14 hari<br/>
-            Estimasi hari stok = 2 ÷ 1 = 2 hari<br/>
-            2 ≤ 14? YA → Status: <strong>URGENT REORDER + P1</strong> (paling mendesak)</em></li>
+            <li><strong>Obat Darurat (Vital)</strong> → min=5, optimal=15</li>
+            <li><strong>Obat Reguler (Essential)</strong> → min=2, optimal=8</li>
+            <li><strong>Obat Jarang Dipakai (Desirable)</strong> → min=1, optimal=3</li>
           </ul>
-          <p style="margin-top:12px; font-style:italic; color:#555;"><strong>Lead time per kategori:</strong> SIRUP/INJEKSI (14 hari), TABLET KERAS (10 hari), TABLET BEBAS/SALEP/ETALASE LUAR (7 hari).</p>
+          <p style="margin-top: 12px; font-style: italic; color: #555;">Sistem akan otomatis hitung prioritas berdasarkan ambang yang sudah ditentukan — tidak perlu update kode.</p>
         </div>
       </section>
 
@@ -1283,7 +1358,7 @@
       <!-- Footer -->
       <div style="text-align:center; padding-top:40px; color:#7a9e99; font-size:13px; border-top:1px solid #d9eeea;">
         <p>obatqu.online · Platform Manajemen Apotek Digital · Versi 1.4 · April 2026</p>
-        <a href="/dashboard.html" style="color:#0fbf9b; text-decoration:none; font-size:14px;">← Kembali ke Dashboard</a>
+        <a href="/login.html" style="color:#0fbf9b; text-decoration:none; font-size:14px;">← Kembali ke halaman login</a>
       </div>
 
     </div><!-- end panduan-content -->

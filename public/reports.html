@@ -88,6 +88,7 @@
     const API_BASE = (location && location.protocol === 'file:') ? 'http://localhost:3000' : '';
 
     function downloadReport(type) {
+      console.log('[REPORTS] 📥 downloadReport called with type:', type);
       const urls = {
         'full-pdf': (API_BASE || '') + '/api/reports/pdf',
         'ved-summary-pdf': (API_BASE || '') + '/api/reports/ved-summary-pdf',
@@ -98,32 +99,51 @@
         'restock-analysis-pdf': (API_BASE || '') + '/api/reports/restock-analysis-pdf'
       };
       
+      const url = urls[type];
+      console.log('[REPORTS] 🔗 Download URL:', url);
+      
       if (urls[type]) {
+        console.log('[REPORTS] ✅ Starting download...');
         window.location = urls[type];
+      } else {
+        console.warn('[REPORTS] ⚠️ Unknown report type:', type);
       }
     }
 
     // Attach download button listeners
     document.addEventListener('DOMContentLoaded', () => {
+      console.log('[REPORTS] 📄 DOMContentLoaded - Initializing report buttons');
       const downloadBtns = document.querySelectorAll('.report-download-btn');
-      downloadBtns.forEach(btn => {
+      console.log('[REPORTS] 🔍 Found', downloadBtns.length, 'download buttons');
+      
+      downloadBtns.forEach((btn, index) => {
+        const reportType = btn.dataset.reportType;
+        console.log(`[REPORTS] 🔗 Button ${index + 1} - type: ${reportType}`);
+        
         btn.addEventListener('click', (e) => {
+          console.log('[REPORTS] 👆 Click detected on button - type:', reportType);
           e.preventDefault();
-          const reportType = btn.dataset.reportType;
           downloadReport(reportType);
         });
       });
+      
+      console.log('[REPORTS] ✅ Event listeners attached to all buttons');
     });
 
     // Silent auth check
     window.addEventListener('load', () => {
+      console.log('[REPORTS] 🔐 Auth check starting...');
       fetch((API_BASE || '') + '/api/me', { credentials: 'include' })
         .then(res => {
+          console.log('[REPORTS] Auth check response status:', res.status);
           if (!res.ok) {
+            console.warn('[REPORTS] ⚠️ Not authenticated, redirecting to login');
             setTimeout(() => window.location = (API_BASE || '') + '/login.html', 1000);
+          } else {
+            console.log('[REPORTS] ✅ User authenticated');
           }
         })
-        .catch(() => console.log('Auth check skipped'));
+        .catch(err => console.log('[REPORTS] Auth check error (expected for file:// protocol):', err.message));
     });
   </script>
 </body>

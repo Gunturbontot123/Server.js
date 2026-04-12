@@ -3546,44 +3546,6 @@ body.sidebar-visible .sidebar-overlay {
   100% { transform: rotate(360deg); }
 }
 
-/* Toggle slider styles */
-input[type="checkbox"] + .toggle-slider-email {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #bdc3c7;
-  transition: 0.4s;
-  border-radius: 24px;
-}
-
-input[type="checkbox"] + .toggle-slider-email:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 2px;
-  bottom: 2px;
-  background-color: white;
-  transition: 0.4s;
-  border-radius: 50%;
-}
-
-input[type="checkbox"]:checked + .toggle-slider-email {
-  background-color: #27ae60;
-}
-
-input[type="checkbox"]:checked + .toggle-slider-email:before {
-  transform: translateX(26px);
-}
-
-input[type="checkbox"]:focus + .toggle-slider-email {
-  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
-}
-}
-
 @keyframes criticalPulse {
   from {
     box-shadow: 0 0 0 rgba(231,76,60,0.3);
@@ -4166,4 +4128,317 @@ button:hover,
 
 ::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+/* ============================= */
+/* LAPORAN PEMUSNAHAN OBAT KADALUARSA */
+/* ============================= */
+
+/* Tab buttons styling */
+.tab-button-group {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid rgba(0,184,148,0.15);
+}
+
+#tabDownloadLaporan,
+#tabPemusnahanObat {
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.3s ease;
+}
+
+#tabDownloadLaporan:hover,
+#tabPemusnahanObat:hover {
+  color: var(--text-dark);
+  background: rgba(0,184,148,0.05);
+}
+
+#tabDownloadLaporan.active,
+#tabPemusnahanObat.active {
+  color: var(--primary-green);
+  border-bottom-color: var(--primary-green);
+  background: rgba(0,184,148,0.08);
+}
+
+/* Form styling */
+#formPemusnahanObat {
+  background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.6));
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(255,255,255,0.5);
+  margin-bottom: 20px;
+}
+
+#formPemusnahanObat label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--text-dark);
+  font-size: 14px;
+}
+
+#formPemusnahanObat input,
+#formPemusnahanObat select,
+#formPemusnahanObat textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+#formPemusnahanObat input:focus,
+#formPemusnahanObat select:focus,
+#formPemusnahanObat textarea:focus {
+  outline: none;
+  border-color: #0fbf9b;
+  box-shadow: 0 0 0 3px rgba(0,184,148,0.1);
+}
+
+#formPemusnahanObat textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+/* Status filter and refresh */
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#filterStatusPemusnahan {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#refreshPemusnahanBtn {
+  padding: 8px 16px;
+  background: #0fbf9b;
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+#refreshPemusnahanBtn:hover {
+  background: #0a9d7e;
+}
+
+/* Status badge styling */
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-pending {
+  background: rgba(243,156,18,0.2);
+  color: #f39c12;
+}
+
+.status-need-approval {
+  background: rgba(52,152,219,0.2);
+  color: #3498db;
+}
+
+.status-approved {
+  background: rgba(39,174,96,0.2);
+  color: #27ae60;
+}
+
+.status-rejected {
+  background: rgba(231,76,60,0.2);
+  color: #e74c3c;
+}
+
+/* ===== MODAL STYLES ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal-overlay.active,
+.modal-overlay[style*="display: flex"] {
+  display: flex !important;
+}
+
+/* Support for inert attribute */
+[inert] {
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.6;
+}
+
+.modal {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 30px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+  z-index: 10000;
+  position: relative;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal h2 {
+  color: var(--text-dark);
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.modal h4 {
+  color: var(--text-dark);
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.modal label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--text-dark);
+  font-size: 14px;
+}
+
+.modal input,
+.modal select,
+.modal textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modal input:focus,
+.modal select:focus,
+.modal textarea:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(15, 191, 155, 0.1);
+}
+
+.modal textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: var(--text-dark);
+}
+
+.modal button {
+  font-family: inherit;
+}
+
+.modal button[type="submit"] {
+  background: var(--success-green);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.modal button[type="submit"]:hover {
+  background: #229954;
+}
+
+.modal button[type="button"] {
+  background: var(--border-color);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.modal button[type="button"]:hover {
+  background: #95a5a6;
+}
+
+#formModalPemusnahan {
+  display: block;
 }

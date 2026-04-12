@@ -1,7 +1,10 @@
 /* ===== AUTH & INITIAL SETUP ===== */
+console.log('🔵 app.js LOADED - File is executing!');
+
 let currentUser = null;
 let allObat = [];
 let allUsers = [];
+let allKategoriConfig = [];
 let stokChart = null;
 let welcomePopupShown = false;
 let latestActivityCount = 0;
@@ -460,8 +463,9 @@ function renderUsersTable(users = allUsers) {
           </select>
           ${helperText}
         </td>
-        <td>
+        <td style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn-primary save-user-role-btn" data-id="${user.id}" disabled>Role Sudah Sesuai</button>
+          <button type="button" class="btn-danger delete-user-btn" data-id="${user.id}" data-username="${user.username}" ${isCurrentUser ? 'disabled' : ''} style="background-color: #e74c3c; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: ${isCurrentUser ? 'not-allowed' : 'pointer'}; font-weight: 600; opacity: ${isCurrentUser ? '0.5' : '1'};" title="${isCurrentUser ? 'Tidak bisa menghapus akun sendiri' : 'Hapus user ini'}">Hapus</button>
         </td>
       </tr>
     `;
@@ -489,6 +493,44 @@ function renderUsersTable(users = allUsers) {
       await updateUserRole(userId, select.value, { button: e.currentTarget, select });
     });
   });
+
+  // Add delete button listeners
+  document.querySelectorAll('.delete-user-btn').forEach((button) => {
+    button.addEventListener('click', async (e) => {
+      const userId = e.currentTarget.dataset.id;
+      const username = e.currentTarget.dataset.username;
+      if (!confirm(`Apakah Anda yakin ingin menghapus user "${username}"?\n\nTindakan ini tidak bisa dibatalkan!`)) {
+        return;
+      }
+      await deleteUser(userId, username);
+    });
+  });
+}
+
+async function deleteUser(userId, username) {
+  try {
+    const res = await fetch(`/api/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      showToast(`Gagal: ${data.message || 'Tidak dapat menghapus user'}`, 'error');
+      return;
+    }
+    
+    showToast(`✅ User "${username}" berhasil dihapus`, 'success');
+    
+    // Tunggu 1 detik kemudian reload users list
+    setTimeout(() => {
+      loadUsers();
+    }, 1000);
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    showToast('Gagal menghapus user: ' + (err.message || 'Error tidak diketahui'), 'error');
+  }
 }
 
 async function loadUsers() {
@@ -561,209 +603,7 @@ function applyUserFilters() {
   renderUsersTable(filtered);
 }
 
-// ===== EMAIL SETTINGS FUNCTIONS =====
-let currentEmailConfigId = null;
 
-async function loadEmailSettings() {
-  const loadingEl = document.getElementById('emailSettingsLoading');
-  const formEl = document.getElementById('emailSettingsForm');
-  const errorEl = document.getElementById('emailSettingsError');
-
-  if (!loadingEl || !formEl) return;
-
-  loadingEl.style.display = 'block';
-  formEl.style.display = 'none';
-  if (errorEl) errorEl.style.display = 'none';
-
-  try {
-    const response = await fetch('/api/scheduler-config/ved_fefo_email', {
-      method: 'GET',
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      throw new Error('Gagal memuat konfigurasi email');
-    }
-
-    const config = await response.json();
-    currentEmailConfigId = config.id;
-
-    // Fill form with current values
-    const intervalInput = document.getElementById('emailIntervalInput');
-    const timeInput = document.getElementById('emailTimeInput');
-    const enabledCheckbox = document.getElementById('emailEnabledCheckbox');
-
-    if (intervalInput) intervalInput.value = config.interval_hari || 5;
-    if (timeInput) timeInput.value = config.email_jam || '08:00';
-    if (enabledCheckbox) enabledCheckbox.checked = config.enabled === true || config.enabled === 1;
-
-    updateEmailStatusDisplay(config);
-    loadingEl.style.display = 'none';
-    formEl.style.display = 'block';
-
-  } catch (error) {
-    console.error('Error loading email settings:', error);
-    loadingEl.style.display = 'none';
-    if (errorEl) {
-      errorEl.style.display = 'block';
-      errorEl.textContent = '❌ Gagal memuat pengaturan email: ' + error.message;
-    }
-  }
-}
-
-function updateEmailStatusDisplay(config) {
-  const statusDisplay = document.getElementById('emailStatusDisplay');
-  const currentStatus = document.getElementById('emailCurrentStatus');
-  const currentInterval = document.getElementById('emailCurrentInterval');
-  const currentTime = document.getElementById('emailCurrentTime');
-  const lastSent = document.getElementById('emailLastSent');
-
-  if (statusDisplay) {
-    statusDisplay.textContent = config.enabled ? '✅ Aktif' : '⏸️ Nonaktif';
-    statusDisplay.style.color = config.enabled ? '#27ae60' : '#e74c3c';
-  }
-
-  if (currentStatus) currentStatus.textContent = config.enabled ? '✅ Aktif' : '⏸️ Nonaktif';
-  if (currentInterval) currentInterval.textContent = `${config.interval_hari} hari`;
-  if (currentTime) currentTime.textContent = (config.email_jam || '08:00') + ' WIB';
-  if (lastSent) {
-    lastSent.textContent = config.last_sent_at 
-      ? new Date(config.last_sent_at).toLocaleString('id-ID') 
-      : 'Belum pernah dikirim';
-  }
-}
-
-async function saveEmailSettings() {
-  if (!currentEmailConfigId) {
-    showToast('ID konfigurasi tidak ditemukan', 'error');
-    return;
-  }
-
-  const intervalInput = document.getElementById('emailIntervalInput');
-  const timeInput = document.getElementById('emailTimeInput');
-  const enabledCheckbox = document.getElementById('emailEnabledCheckbox');
-  const saveBtn = document.querySelector('button[onclick="saveEmailSettings()"]');
-
-  if (!intervalInput || !timeInput || !enabledCheckbox) {
-    showToast('Form input tidak ditemukan', 'error');
-    return;
-  }
-
-  const intervalDays = parseInt(intervalInput.value);
-  const emailTime = timeInput.value;
-  const enabled = enabledCheckbox.checked;
-
-  // Validation
-  if (!intervalDays || intervalDays < 1 || intervalDays > 30) {
-    showToast('Interval harus antara 1-30 hari', 'error');
-    return;
-  }
-
-  if (!emailTime) {
-    showToast('Jam pengiriman harus diisi', 'error');
-    return;
-  }
-
-  if (saveBtn) {
-    saveBtn.disabled = true;
-    saveBtn.textContent = '⏳ Menyimpan...';
-  }
-
-  try {
-    const response = await fetch(`/api/scheduler-config/${currentEmailConfigId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        interval_hari: intervalDays,
-        enabled: enabled,
-        email_jam: emailTime
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Gagal menyimpan pengaturan');
-    }
-
-    showToast('✅ Pengaturan email berhasil disimpan!', 'success');
-    
-    // Reload settings to refresh display
-    setTimeout(loadEmailSettings, 1000);
-
-  } catch (error) {
-    console.error('Error saving email settings:', error);
-    showToast('❌ Gagal menyimpan pengaturan: ' + error.message, 'error');
-  } finally {
-    if (saveBtn) {
-      saveBtn.disabled = false;
-      saveBtn.textContent = '💾 Simpan Pengaturan';
-    }
-  }
-}
-
-async function sendTestEmail() {
-  const testBtn = document.querySelector('button[onclick="sendTestEmail()"]');
-  const resultDiv = document.getElementById('emailActionResult');
-  const originalText = testBtn ? testBtn.textContent : '🚀 Kirim Test Email';
-
-  if (!testBtn) {
-    showToast('Tombol test email tidak ditemukan', 'error');
-    return;
-  }
-
-  if (testBtn) {
-    testBtn.disabled = true;
-    testBtn.textContent = '⏳ Mengirim...';
-  }
-
-  try {
-    const response = await fetch('/api/reports/send-ved-fefo-email', {
-      method: 'POST',
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Gagal mengirim email test');
-    }
-
-    const result = await response.json();
-    
-    if (resultDiv) {
-      resultDiv.style.display = 'block';
-      resultDiv.innerHTML = `
-        <div style="padding: 15px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px;">
-          <strong>✅ Email Test Berhasil!</strong><br>
-          Berhasil dikirim ke <strong>${result.successCount || 0}</strong> penerima<br>
-          <small>Penerima: ${(result.recipients && result.recipients.length > 0 ? result.recipients.join(', ') : 'Tidak ada penerima')}</small>
-        </div>
-      `;
-    }
-
-    showToast('✅ Email test berhasil dikirim!', 'success');
-
-  } catch (error) {
-    console.error('Error sending test email:', error);
-    if (resultDiv) {
-      resultDiv.style.display = 'block';
-      resultDiv.innerHTML = `
-        <div style="padding: 15px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px;">
-          <strong>❌ Gagal Mengirim Email</strong><br>
-          ${error.message}
-        </div>
-      `;
-    }
-    showToast('❌ Gagal mengirim email: ' + error.message, 'error');
-  } finally {
-    if (testBtn) {
-      testBtn.disabled = false;
-      testBtn.textContent = originalText;
-    }
-  }
-}
 
 async function fetchOptionalJson(url, fallbackValue, normalize = (value) => value) {
   try {
@@ -874,6 +714,14 @@ async function loadAllData() {
       (value) => (value && typeof value === 'object') ? value : { total: 0 }
     );
     
+    // Fetch kategori config for lead time calculations
+    const kategoriConfig = await fetchOptionalJson('/api/kategori-config', [], (value) => Array.isArray(value) ? value : []);
+    allKategoriConfig = kategoriConfig;
+    console.log('[loadAllData] Kategori config loaded:', allKategoriConfig.length, 'categories');
+    if (allKategoriConfig.length > 0) {
+      console.log('[loadAllData] Config details:', allKategoriConfig.map(k => ({ nama: k.nama, min: k.min_stok, optimal: k.optimal_stok })));
+    }
+    
     console.log('[loadAllData] Rendering UI components...');
     updateDashboard();
     renderDataObatTable(allObat);
@@ -973,19 +821,115 @@ function getExpiryStatus(kadaluarsa) {
 function getObatPriority(obat) {
   const qty = Number(obat && obat.jumlah || 0);
   const ved = String(obat && obat.ved || '').toUpperCase();
+  const kategori = String(obat && obat.kategori || '');
+  const obatNama = String(obat && obat.nama || '');
+  
+  // Get category config for this obat
+  const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
+  
+  // Debug log for telon product
+  if (obatNama.toLowerCase().includes('telon')) {
+    console.log('[PRIORITY] Telon product:', {
+      nama: obatNama,
+      qty,
+      ved,
+      kategori,
+      kategoriCfg: kategoriCfg ? { nama: kategoriCfg.nama, min: kategoriCfg.min_stok, optimal: kategoriCfg.optimal_stok } : 'NOT FOUND'
+    });
+  }
   
   // Priority combines VED classification + stock level
   if (qty <= 0) return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };  // Out of stock = critical
   
-  // Low stock (1-5 units)
-  if (qty <= 5) {
-    if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };  // Vital with low stock = critical
-    if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };  // Essential with low stock = medium
-    // Desirable with low stock
-    return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };  // Desirable with low stock = low priority
+  // Use optimal/min stock thresholds from kategori config if available
+  if (kategoriCfg) {
+    const optimalStok = Number(kategoriCfg.optimal_stok || 5);
+    const minStok = Number(kategoriCfg.min_stok || 2);
+    
+    // Critical: below minimum stock
+    if (qty < minStok) {
+      if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+      if (ved === 'E') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+      return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
+    }
+    
+    // Medium: between min and optimal stock
+    if (qty < optimalStok) {
+      if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+      if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
+      return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
+    }
+    
+    // All good: above optimal stock
+    return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
   }
   
-  return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };  // Adequate stock
+  // Fallback to simple logic (qty <= 5)
+  if (qty <= 5) {
+    if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+    if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
+    return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
+  }
+  
+  return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
+}
+
+// Get priority based on TOTAL product qty (aggregated across all batches)
+function getObatPriorityByProduct(obat) {
+  const totalQty = getTotalProductQty(obat.nama);
+  const ved = String(obat && obat.ved || '').toUpperCase();
+  const kategori = String(obat && obat.kategori || '');
+  const obatNama = String(obat && obat.nama || '');
+  
+  // Get category config for this obat
+  const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
+  
+  // Debug log for telon product
+  if (obatNama.toLowerCase().includes('telon')) {
+    console.log('[PRIORITY BY PRODUCT] Telon product:', {
+      nama: obatNama,
+      thisBatchQty: Number(obat.jumlah || 0),
+      totalProductQty: totalQty,
+      ved,
+      kategori,
+      kategoriCfg: kategoriCfg ? { nama: kategoriCfg.nama, min: kategoriCfg.min_stok, optimal: kategoriCfg.optimal_stok } : 'NOT FOUND'
+    });
+  }
+  
+  // Priority combines VED classification + stock level
+  if (totalQty <= 0) return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };  // Out of stock = critical
+  
+  // Use optimal/min stock thresholds from kategori config if available
+  if (kategoriCfg) {
+    const optimalStok = Number(kategoriCfg.optimal_stok || 5);
+    const minStok = Number(kategoriCfg.min_stok || 2);
+    
+    // Critical: below minimum total stock
+    if (totalQty < minStok) {
+      if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+      if (ved === 'E') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+      return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
+    }
+    
+    // Medium: between min and optimal TOTAL stock
+    if (totalQty < optimalStok) {
+      if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+      if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
+      return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
+    }
+    
+    // All good: above optimal TOTAL stock
+    return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
+  }
+  
+  // Fallback to simple logic (totalQty <= 5)
+  if (totalQty <= 5) {
+    if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
+    if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
+    return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
+  }
+  
+  return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
 }
 
 function formatDaysLeft(kadaluarsa) {
@@ -1037,8 +981,29 @@ function populateMonitoringMonthFilter() {
 
 function buildFefoRankMap(rows) {
   const rankMap = new Map();
-  sortByExpiryAsc(rows).forEach((obat, index) => {
-    rankMap.set(String(obat.id), index + 1);
+  // Sort by FEFO (expiry date) FIRST, then VED priority as tie-breaker
+  const vedOrderMap = { V: 0, E: 1, D: 2 };
+  const sorted = rows.slice().map((obat) => {
+    const vedKey = ['V', 'E', 'D'].includes(String(obat.ved || '').toUpperCase())
+      ? String(obat.ved || '').toUpperCase()
+      : 'D';
+    const expiryDate = new Date(`${obat.kadaluarsa || '9999-12-31'}T00:00:00`);
+    const expiryMs = Number.isNaN(expiryDate.getTime()) ? Number.MAX_SAFE_INTEGER : expiryDate.getTime();
+    return {
+      id: obat.id,
+      vedKey,
+      vedOrder: vedOrderMap[vedKey],
+      expiryMs
+    };
+  }).sort((a, b) => {
+    // FEFO (expiry date) FIRST - closest expiry first
+    if (a.expiryMs !== b.expiryMs) return a.expiryMs - b.expiryMs;
+    // VED priority SECOND (only if same expiry date)
+    return a.vedOrder - b.vedOrder;
+  });
+  
+  sorted.forEach((item, index) => {
+    rankMap.set(String(item.id), index + 1);
   });
   return rankMap;
 }
@@ -1081,8 +1046,11 @@ function renderMonitoringKadaluarsa() {
         qty: Number(obat.jumlah || 0)
       };
     }).sort((a, b) => {
+      // FEFO (expiry date) FIRST - closest expiry first
       if (a.expiryMs !== b.expiryMs) return a.expiryMs - b.expiryMs;
+      // VED priority SECOND (only if same expiry date)
       if (a.vedOrder !== b.vedOrder) return a.vedOrder - b.vedOrder;
+      // Quantity last
       return a.qty - b.qty;
     });
 
@@ -1545,6 +1513,7 @@ function openObatDetailPopup(obatId) {
   const note = document.getElementById('obatDetailNote');
   const vedBadge = document.getElementById('obatDetailVed');
   const statusPill = document.getElementById('obatDetailStatusPill');
+  const pemusnahanBtn = document.getElementById('pemusnahanDetailBtn');
 
   if (title) title.textContent = obat.nama || 'Nama obat tidak tersedia';
   if (subtitle) subtitle.textContent = `${kategori || 'Kategori belum diisi'} • Batch ${batchValue}`;
@@ -1561,8 +1530,126 @@ function openObatDetailPopup(obatId) {
   if (vedBadge) vedBadge.textContent = `VED ${ved}`;
   if (statusPill) statusPill.textContent = status.label;
 
+  // Populate Stock Summary Section
+  const totalProductQty = getTotalProductQty(obat.nama);
+  const currentBatchQty = Number(obat.jumlah || 0);
+  const otherBatches = allObat.filter(o => 
+    String(o.nama || '').trim().toLowerCase() === String(obat.nama || '').trim().toLowerCase() &&
+    String(o.id) !== String(obat.id)
+  );
+  
+  // Get aggregated status and priority
+  const aggregatedStatus = getStockMonitoringStatusByProduct(obat);
+  const aggregatedPriority = getObatPriorityByProduct(obat);
+  
+  // Get category config for threshold info
+  const kategoriCfg = allKategoriConfig.find(k => 
+    String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase()
+  );
+  
+  const optimalStok = kategoriCfg ? Number(kategoriCfg.optimal_stok || 5) : 5;
+  const minStok = kategoriCfg ? Number(kategoriCfg.min_stok || 2) : 2;
+  
+  // Update current batch qty
+  const currentBatchEl = document.getElementById('obatDetailCurrentBatchQty');
+  if (currentBatchEl) currentBatchEl.textContent = `${currentBatchQty} unit`;
+  
+  // Update total product qty
+  const totalProductEl = document.getElementById('obatDetailTotalProductQty');
+  if (totalProductEl) totalProductEl.textContent = `${totalProductQty} unit`;
+  
+  // Build stock note explanation
+  let stockNoteHtml = '';
+  if (otherBatches.length > 0) {
+    const addedQty = totalProductQty - currentBatchQty;
+    stockNoteHtml = `
+      <div style="margin-bottom: 8px;">
+        <strong style="color: #059669;">✓ Sudah Ditambah!</strong> ${addedQty} unit dari batch lain.
+      </div>
+    `;
+  }
+  
+  // Add ranking explanation based on aggregated qty
+  stockNoteHtml += `
+    <div style="margin-bottom: 8px;">
+      <strong>Ranking:</strong> ${aggregatedPriority.label} (berdasarkan total ${totalProductQty} unit)
+    </div>
+  `;
+  
+  // Add threshold info
+  if (kategoriCfg) {
+    stockNoteHtml += `
+      <div style="font-size: 11px; color: #999;">
+        📋 Ambang: Min ${minStok} | Optimal ${optimalStok} unit
+      </div>
+    `;
+    
+    // Calculate units needed to reach next threshold
+    if (totalProductQty < optimalStok) {
+      const unitsNeeded = optimalStok - totalProductQty;
+      stockNoteHtml += `
+        <div style="margin-top: 8px; padding: 8px; background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 4px;">
+          <strong style="color: #d97706;">📌 Perlu tambah ${unitsNeeded} unit</strong> lagi untuk mencapai stok optimal dan menurunkan prioritas ke P3.
+        </div>
+      `;
+    }
+  }
+  
+  const stockNoteEl = document.getElementById('obatDetailStockNote');
+  if (stockNoteEl) stockNoteEl.innerHTML = stockNoteHtml;
+  
+  // Show other batches section if exists
+  const otherBatchesSection = document.getElementById('obatDetailOtherBatches');
+  const otherBatchesList = document.getElementById('obatDetailOtherBatchesList');
+  if (otherBatches.length > 0 && otherBatchesSection && otherBatchesList) {
+    let batchesHtml = '';
+    otherBatches.forEach(b => {
+      batchesHtml += `
+        <div style="padding: 8px; background: white; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid #d1d5db;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>${b.batch || 'Batch -'}</strong>
+            <span style="background: #e5f4ff; color: #0284c7; padding: 2px 8px; border-radius: 3px; font-weight: 500;">${Number(b.jumlah || 0)} unit</span>
+          </div>
+          <div style="font-size: 11px; color: #999; margin-top: 4px;">Exp: ${b.kadaluarsa || '-'}</div>
+        </div>
+      `;
+    });
+    otherBatchesList.innerHTML = batchesHtml;
+    otherBatchesSection.style.display = 'block';
+  } else if (otherBatchesSection) {
+    otherBatchesSection.style.display = 'none';
+  }
+
+  // Show tombol pemusnahan hanya jika obat SUDAH kadaluarsa
+  if (pemusnahanBtn) {
+    const isExpired = status.key === 'kadaluarsa';
+    pemusnahanBtn.style.display = isExpired ? 'inline-block' : 'none';
+    pemusnahanBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // CRITICAL: Blur the button FIRST before closing overlay (prevents aria-hidden focus warning)
+      pemusnahanBtn.blur();
+      
+      // Minimal delay to ensure blur completes
+      requestAnimationFrame(() => {
+        // Close detail popup
+        closeObatDetailPopup();
+        
+        // Then open pemusnahan section
+        setTimeout(() => {
+          openPemusnahanSection(obatId);
+          // Focus on the form
+          const focusableElement = document.getElementById('pemusnahanUnitSisa');
+          if (focusableElement) focusableElement.focus();
+        }, 50);
+      });
+    };
+  }
+
   overlay.classList.add('open');
   overlay.setAttribute('aria-hidden', 'false');
+  overlay.removeAttribute('inert'); // Remove inert when opening
   modalEl.classList.remove('opening');
   void modalEl.offsetWidth;
   modalEl.classList.add('opening');
@@ -1570,10 +1657,20 @@ function openObatDetailPopup(obatId) {
 }
 
 function closeObatDetailPopup() {
-  const overlay = document.getElementById('obatDetailOverlay');
-  if (!overlay) return;
-  overlay.classList.remove('open');
-  overlay.setAttribute('aria-hidden', 'true');
+  // Blur any focused element first to prevent aria-hidden focus warning
+  const focused = document.activeElement;
+  if (focused && typeof focused.blur === 'function') {
+    focused.blur();
+  }
+  
+  // Use requestAnimationFrame to ensure blur completes before hiding
+  requestAnimationFrame(() => {
+    const overlay = document.getElementById('obatDetailOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('inert', '');
+  });
 }
 
 function bindObatDetailPopup() {
@@ -1581,22 +1678,61 @@ function bindObatDetailPopup() {
   const closeFooterBtn = document.getElementById('closeObatDetailFooter');
   const overlay = document.getElementById('obatDetailOverlay');
 
-  if (closeBtn) closeBtn.addEventListener('click', closeObatDetailPopup);
-  if (closeFooterBtn) closeFooterBtn.addEventListener('click', closeObatDetailPopup);
-  if (overlay) {
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) closeObatDetailPopup();
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeBtn.blur();
+      closeObatDetailPopup();
     });
   }
-
+  if (closeFooterBtn) {
+    closeFooterBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeFooterBtn.blur();
+      closeObatDetailPopup();
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) {
+        // Don't need to blur here as click is on overlay, not a button
+        closeObatDetailPopup();
+      }
+    });
+  }
+  
+  // Global document click listener untuk detail popup (jangan tambah ke modalPemusnahan)
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeObatDetailPopup();
+    if (event.key === 'Escape') {
+      const obatDetailOverlay = document.getElementById('obatDetailOverlay');
+      if (obatDetailOverlay && obatDetailOverlay.classList.contains('open')) {
+        closeObatDetailPopup();
+      }
+    }
   });
 
+  // Bind obat name triggers
   document.addEventListener('click', (event) => {
     const trigger = event.target.closest('.obat-name-trigger');
     if (!trigger) return;
-    openObatDetailPopup(trigger.dataset.id);
+    
+    const obatId = trigger.dataset.id;
+    const obat = allObat.find(o => o.id === obatId);
+    
+    // Jika dari monitoring kadaluarsa (table atau priority list), buka form pemusnahan dengan dropdown terisi otomatis
+    const monitoringTable = document.getElementById('monitoringExpiryTable');
+    const monitoringPriorityList = document.getElementById('monitoringExpiryPriorityList');
+    
+    const isFromMonitoring = (monitoringTable && monitoringTable.contains(trigger)) ||
+                             (monitoringPriorityList && monitoringPriorityList.contains(trigger));
+    
+    if (isFromMonitoring && obat) {
+      openPemusnahanSection(obatId);
+      return;
+    }
+    
+    // Default: buka detail popup
+    openObatDetailPopup(obatId);
   });
 }
 
@@ -1607,6 +1743,10 @@ function updateDashboard() {
   let expired = 0, nearExpire = 0, safe = 0;
   let outOfStock = 0, lowStock = 0, reorder = 0;
 
+  // Get unique product names to count products (not batches)
+  const uniqueProducts = new Set(allObat.map(o => String(o.nama || '').trim().toLowerCase()));
+  const productsNeedingRestock = new Set();
+  
   allObat.forEach(o => {
     const qty = Number(o.jumlah || 0);
     totalStockQty += Math.max(qty, 0);
@@ -1619,8 +1759,15 @@ function updateDashboard() {
     if (qty > 0 && qty <= 5) {
       lowStock++;
     }
-    if (qty <= 5) reorder++;
+    
+    // Check if PRODUCT (total qty) needs restock, not individual batch
+    const totalProductQty = getTotalProductQty(o.nama);
+    if (totalProductQty <= 5) {
+      productsNeedingRestock.add(String(o.nama || '').trim().toLowerCase());
+    }
   });
+  
+  reorder = productsNeedingRestock.size;  // Count unique products needing restock
 
   const totalStockQtyEl = document.getElementById('totalStockQty');
   const totalStockQtyNote = document.getElementById('totalStockQtyNote');
@@ -2097,8 +2244,94 @@ function updateAutoWarnings(notifData) {
 
 function getStockMonitoringStatus(obat) {
   const qty = Number(obat && obat.jumlah || 0);
+  const kategori = String(obat && obat.kategori || '');
+  const obatNama = String(obat && obat.nama || '');
+  
+  // Get category config for this obat
+  const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
+  
+  // Debug log for telon product
+  if (obatNama.toLowerCase().includes('telon')) {
+    console.log('[STOCK STATUS] Telon product:', {
+      nama: obatNama,
+      qty,
+      kategori,
+      kategoriCfg: kategoriCfg ? { nama: kategoriCfg.nama, min: kategoriCfg.min_stok, optimal: kategoriCfg.optimal_stok } : 'NOT FOUND',
+      allKonfigCount: allKategoriConfig.length,
+      configNames: allKategoriConfig.map(k => k.nama)
+    });
+  }
+  
+  // Base status on quantity vs min/optimal stock thresholds
   if (qty <= 0) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
+  
+  // If we have kategori config, use optimal and min stock levels
+  if (kategoriCfg) {
+    const optimalStok = Number(kategoriCfg.optimal_stok || 5);
+    const minStok = Number(kategoriCfg.min_stok || 2);
+    
+    // If stock is below minimum, it's critical
+    if (qty < minStok) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
+    
+    // If stock is below optimal but above minimum, it's low
+    if (qty < optimalStok) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
+    
+    // Above optimal is safe
+    return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
+  }
+  
+  // Fallback to simple quantity-based logic if no config
   if (qty <= 5) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
+  return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
+}
+
+// Calculate total qty for a product by aggregating ALL batches with the same name
+function getTotalProductQty(obatName) {
+  return allObat
+    .filter(o => String(o.nama || '').trim().toLowerCase() === String(obatName || '').trim().toLowerCase())
+    .reduce((sum, o) => sum + Number(o.jumlah || 0), 0);
+}
+
+// Get status and priority based on TOTAL product qty (not individual batch qty)
+function getStockMonitoringStatusByProduct(obat) {
+  const totalQty = getTotalProductQty(obat.nama);
+  const kategori = String(obat && obat.kategori || '');
+  const obatNama = String(obat && obat.nama || '');
+  
+  // Get category config for this obat
+  const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
+  
+  // Debug log for telon product
+  if (obatNama.toLowerCase().includes('telon')) {
+    console.log('[STOCK STATUS BY PRODUCT] Telon product:', {
+      nama: obatNama,
+      thisBatchQty: Number(obat.jumlah || 0),
+      totalProductQty: totalQty,
+      kategori,
+      kategoriCfg: kategoriCfg ? { nama: kategoriCfg.nama, min: kategoriCfg.min_stok, optimal: kategoriCfg.optimal_stok } : 'NOT FOUND'
+    });
+  }
+  
+  // Base status on quantity vs min/optimal stock thresholds
+  if (totalQty <= 0) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
+  
+  // If we have kategori config, use optimal and min stock levels
+  if (kategoriCfg) {
+    const optimalStok = Number(kategoriCfg.optimal_stok || 5);
+    const minStok = Number(kategoriCfg.min_stok || 2);
+    
+    // If total stock is below minimum, it's critical
+    if (totalQty < minStok) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
+    
+    // If total stock is below optimal but above minimum, it's low
+    if (totalQty < optimalStok) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
+    
+    // Above optimal is safe
+    return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
+  }
+  
+  // Fallback to simple quantity-based logic if no config
+  if (totalQty <= 5) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
   return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
 }
 
@@ -2110,18 +2343,20 @@ function renderStockMonitoringTable() {
   const filterValue = filterEl ? filterEl.value : '';
   let rows = allObat.slice();
 
+  // Filter based on TOTAL product qty (aggregated across all batches)
   if (filterValue === 'habis') {
-    rows = rows.filter((obat) => Number(obat.jumlah || 0) <= 0);
+    rows = rows.filter((obat) => getTotalProductQty(obat.nama) <= 0);
   } else if (filterValue === 'menipis') {
     rows = rows.filter((obat) => {
-      const qty = Number(obat.jumlah || 0);
-      return qty > 0 && qty <= 5;
+      const totalQty = getTotalProductQty(obat.nama);
+      return totalQty > 0 && totalQty <= 5;
     });
   } else if (filterValue === 'reorder') {
-    rows = rows.filter((obat) => Number(obat.jumlah || 0) <= 5);
+    rows = rows.filter((obat) => getTotalProductQty(obat.nama) <= 5);
   }
 
-  rows.sort((left, right) => Number(left.jumlah || 0) - Number(right.jumlah || 0));
+  // Sort by total product qty
+  rows.sort((left, right) => getTotalProductQty(left.nama) - getTotalProductQty(right.nama));
 
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="7">Tidak ada data stok untuk filter ini.</td></tr>';
@@ -2131,8 +2366,10 @@ function renderStockMonitoringTable() {
   const fefoRankMap = buildFefoRankMap(rows);
 
   tbody.innerHTML = rows.map((obat) => {
-    const stockStatus = getStockMonitoringStatus(obat);
-    const priority = getObatPriority(obat);
+    // Use PRODUCT-LEVEL status and priority (aggregated qty)
+    const stockStatus = getStockMonitoringStatusByProduct(obat);
+    const priority = getObatPriorityByProduct(obat);
+    const totalQty = getTotalProductQty(obat.nama);
     const vedKey = ['V', 'E', 'D'].includes(String(obat.ved || '').toUpperCase())
       ? String(obat.ved || '').toUpperCase()
       : 'D';
@@ -2141,7 +2378,7 @@ function renderStockMonitoringTable() {
       <tr>
         <td><button type="button" class="obat-name-trigger" data-id="${escapeHtml(obat.id)}">${escapeHtml(obat.nama || '—')}</button></td>
         <td>${obat.batch || '—'}</td>
-        <td>${Number(obat.jumlah || 0)} unit</td>
+        <td><strong>${Number(obat.jumlah || 0)} unit</strong> (Total: ${totalQty} unit)</td>
         <td>${obat.kadaluarsa || '—'}</td>
         <td><span class="status-badge status-${stockStatus.badgeKey}">${stockStatus.label}</span></td>
         <td><span class="priority-badge priority-${priority.key}"><span class="priority-dot" aria-hidden="true"></span>${priority.level} ${priority.label}</span></td>
@@ -2324,6 +2561,7 @@ function setupMonthlyPdfDownload() {
 
 
 function setupReleaseTracking() {
+  const releaseSection = document.getElementById('obatKeluarCard');
   const releaseObatSelect = document.getElementById('releaseObatSelect');
   const releaseQty = document.getElementById('releaseQty');
   const releaseKeterangan = document.getElementById('releaseKeterangan');
@@ -2450,7 +2688,7 @@ function setupReleaseTracking() {
       if (releaseKeterangan) releaseKeterangan.value = '';
 
       // Reload data
-      await fetchAllData();
+      await loadAllData();
       populateReleaseSelect();
 
       showToast('Pelepasan obat berhasil dicatat.', 'success');
@@ -2675,10 +2913,6 @@ document.querySelectorAll('.nav-item').forEach(item => {
       updateProfileInfo();
     }
 
-    if (section === 'users' && isApj()) {
-      await loadEmailSettings();
-    }
-
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     this.classList.add('active');
     document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
@@ -2747,12 +2981,820 @@ if (changePasswordForm) {
   });
 }
 
+/* ===== LAPORAN PEMUSNAHAN OBAT ===== */
+
+// Tab switching for destruction reports
+function initPemusnahanTabs() {
+  const tabDownloadBtn = document.getElementById('tabDownloadLaporan');
+  const tabPemusnahanBtn = document.getElementById('tabPemusnahanObat');
+  const contentDownload = document.getElementById('contentDownloadLaporan');
+  const contentPemusnahan = document.getElementById('contentPemusnahanObat');
+
+  if (!tabDownloadBtn || !tabPemusnahanBtn) return;
+
+  // Set initial active state
+  tabDownloadBtn.classList.add('active');
+  tabPemusnahanBtn.classList.remove('active');
+
+  tabDownloadBtn.addEventListener('click', () => {
+    contentDownload.style.display = 'block';
+    contentPemusnahan.style.display = 'none';
+    tabDownloadBtn.classList.add('active');
+    tabPemusnahanBtn.classList.remove('active');
+  });
+
+  tabPemusnahanBtn.addEventListener('click', () => {
+    contentDownload.style.display = 'none';
+    contentPemusnahan.style.display = 'block';
+    tabDownloadBtn.classList.remove('active');
+    tabPemusnahanBtn.classList.add('active');
+    loadLaporanPemusnahan();
+  });
+}
+
+// Load obat kadaluarsa untuk select
+async function loadPemusnahanObatSelect() {
+  try {
+    const response = await fetch('/api/obat');
+    if (!response.ok) throw new Error('Failed to fetch obat');
+    
+    const obatList = await response.json();
+    const select = document.getElementById('pemusnahanObatId');
+    if (!select || !Array.isArray(obatList)) return;
+
+    // Filter only expired obat by comparing tglKadaluarsa with today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiredObat = obatList.filter(o => {
+      if (!o.tglKadaluarsa) return false;
+      const expDate = new Date(o.tglKadaluarsa);
+      expDate.setHours(0, 0, 0, 0);
+      return expDate < today; // Only past dates = expired
+    });
+    
+    select.innerHTML = '<option value="">-- Pilih Obat Kadaluarsa --</option>';
+    if (expiredObat.length === 0) {
+      select.innerHTML += '<option disabled>Tidak ada obat kadaluarsa</option>';
+      return;
+    }
+
+    expiredObat.forEach(obat => {
+      const option = document.createElement('option');
+      option.value = obat.id;
+      const batchText = obat.batch ? ` (${obat.batch})` : '';
+      const expText = obat.tglKadaluarsa ? ` - Exp: ${obat.tglKadaluarsa}` : '';
+      option.textContent = `${obat.nama}${batchText}${expText}`;
+      select.appendChild(option);
+    });
+  } catch (err) {
+    console.error('Failed to load obat for destruction:', err);
+    const select = document.getElementById('pemusnahanObatId');
+    if (select) {
+      select.innerHTML = '<option disabled>Error loading obat</option>';
+    }
+  }
+}
+
+// Load dan display destruction reports
+async function loadLaporanPemusnahan() {
+  try {
+    console.log('[LOAD LAPORAN] Starting to load laporan pemusnahan...');
+    const filterStatus = document.getElementById('filterStatusPemusnahan')?.value || '';
+    const url = filterStatus ? `/api/laporan-pemusnahan?status=${filterStatus}` : '/api/laporan-pemusnahan';
+    console.log('[LOAD LAPORAN] Fetching from:', url);
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const data = await response.json();
+    console.log('[LOAD LAPORAN] Response received:', { success: data.success, dataCount: Array.isArray(data.data) ? data.data.length : 'N/A' });
+    
+    const tableBody = document.getElementById('tableBodyPemusnahan');
+    if (!tableBody) {
+      console.error('[LOAD LAPORAN] ERROR: tableBodyPemusnahan element not found!');
+      return;
+    }
+
+    // Handle different response structures
+    const reports = data.success ? data.data : (Array.isArray(data) ? data : []);
+    console.log('[LOAD LAPORAN] Total reports to display:', reports.length);
+
+    if (!reports || reports.length === 0) {
+      console.log('[LOAD LAPORAN] No reports found');
+      tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">Tidak ada laporan pemusnahan</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = reports.map(laporan => {
+      const statusBadge = getStatusBadge(laporan.status);
+      const canDownloadPDF = laporan.status === 'approved'; // Hanya bisa download saat approved
+      return `
+        <tr>
+          <td>${laporan.nama_obat || '-'}</td>
+          <td>${laporan.unit_sisa || 0} unit</td>
+          <td>Rp ${Number(laporan.biaya_pemusnahan || 0).toLocaleString('id-ID')}</td>
+          <td>${laporan.pt_pemusnahan || '-'}</td>
+          <td>${statusBadge}</td>
+          <td>${laporan.created_by || '-'}</td>
+          <td>
+            ${canDownloadPDF ? `<button class="btn-sm btn-primary" data-action="download-pdf" data-id="${laporan.id}">📥 PDF</button>` : '<span style="color:#ccc;">-</span>'}
+          </td>
+          <td>
+            <button class="btn-sm btn-primary" data-action="view-detail" data-id="${laporan.id}">View</button>
+            ${(laporan.status === 'pending' || laporan.status === 'need_second_approval') ? `<button class="btn-sm btn-success" data-action="approve" data-id="${laporan.id}">Approve</button>` : ''}
+            ${laporan.status !== 'approved' ? `<button class="btn-sm btn-danger" data-action="reject" data-id="${laporan.id}">Reject</button>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+    console.log('[LOAD LAPORAN] Table rendered successfully ✓');
+  } catch (err) {
+    console.error('[LOAD LAPORAN] ERROR:', err);
+    const tableBody = document.getElementById('tableBodyPemusnahan');
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#e74c3c; padding:20px;">Error loading reports</td></tr>';
+    }
+  }
+}
+
+// Full-page version: loadLaporanPemusnahanFull
+async function loadLaporanPemusnahanFull() {
+  try {
+    console.log('[LOAD LAPORAN FULL] Starting to load laporan pemusnahan (full page)...');
+    const filterStatus = document.getElementById('filterStatusPemusnahanFull')?.value || '';
+    const url = filterStatus ? `/api/laporan-pemusnahan?status=${filterStatus}` : '/api/laporan-pemusnahan';
+    console.log('[LOAD LAPORAN FULL] Fetching from:', url);
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const data = await response.json();
+    console.log('[LOAD LAPORAN FULL] Response received:', { success: data.success, dataCount: Array.isArray(data.data) ? data.data.length : 'N/A' });
+    
+    const tableBody = document.getElementById('tableBodyPemusnahanFull');
+    if (!tableBody) {
+      console.error('[LOAD LAPORAN FULL] ERROR: tableBodyPemusnahanFull element not found!');
+      return;
+    }
+
+    // Handle different response structures
+    const reports = data.success ? data.data : (Array.isArray(data) ? data : []);
+    console.log('[LOAD LAPORAN FULL] Total reports to display:', reports.length);
+
+    if (!reports || reports.length === 0) {
+      console.log('[LOAD LAPORAN FULL] No reports found');
+      tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999; padding:20px;">Tidak ada laporan pemusnahan</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = reports.map(laporan => {
+      const statusBadge = getStatusBadge(laporan.status);
+      const canDownloadPDF = laporan.status === 'approved';
+      return `
+        <tr>
+          <td>${laporan.nama_obat || '-'}</td>
+          <td>${laporan.unit_sisa || 0} unit</td>
+          <td>Rp ${Number(laporan.biaya_pemusnahan || 0).toLocaleString('id-ID')}</td>
+          <td>${laporan.pt_pemusnahan || '-'}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <button class="btn-sm btn-primary" data-action="view-detail" data-id="${laporan.id}">View</button>
+            ${(laporan.status === 'pending' || laporan.status === 'need_second_approval') ? `<button class="btn-sm btn-success" data-action="approve" data-id="${laporan.id}">Approve</button>` : ''}
+            ${laporan.status !== 'approved' ? `<button class="btn-sm btn-danger" data-action="reject" data-id="${laporan.id}">Reject</button>` : ''}
+            ${canDownloadPDF ? `<button class="btn-sm btn-primary" data-action="download-pdf" data-id="${laporan.id}">📥 PDF</button>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+    console.log('[LOAD LAPORAN FULL] Table rendered successfully ✓');
+  } catch (err) {
+    console.error('[LOAD LAPORAN FULL] ERROR:', err);
+    const tableBody = document.getElementById('tableBodyPemusnahanFull');
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#e74c3c; padding:20px;">Error loading reports</td></tr>';
+    }
+  }
+}
+
+// Get status badge
+function getStatusBadge(status) {
+  const badges = {
+    'pending': '<span style="background:#f39c12; color:white; padding:4px 8px; border-radius:4px;">Pending</span>',
+    'need_second_approval': '<span style="background:#3498db; color:white; padding:4px 8px; border-radius:4px;">Need 2nd Approval</span>',
+    'approved': '<span style="background:#27ae60; color:white; padding:4px 8px; border-radius:4px;">✓ Approved</span>',
+    'rejected': '<span style="background:#e74c3c; color:white; padding:4px 8px; border-radius:4px;">✗ Rejected</span>'
+  };
+  return badges[status] || `<span>${status}</span>`;
+}
+
+// Delete obat from database (triggered when laporan approved)
+async function deleteObatFromDatabase(obatId) {
+  try {
+    const response = await fetch(`/api/obat/${obatId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (response.ok) {
+      // Remove dari allObat array
+      allObat = allObat.filter(o => o.id !== obatId);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Error deleting obat:', err);
+    return false;
+  }
+}
+
+// Handle form submission for destruction report
+// View destruction report detail
+async function viewPemusnahanDetail(id) {
+  try {
+    const response = await fetch(`/api/laporan-pemusnahan/${id}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const laporan = await response.json();
+    if (!laporan || !laporan.id) {
+      showToast('Laporan tidak ditemukan', 'error');
+      return;
+    }
+
+    const detail = `
+ID: ${laporan.id}
+Nama Obat: ${laporan.nama_obat || '-'}
+Batch: ${laporan.batch || '-'}
+Unit Terjual: ${laporan.unit_terjual || 0}
+Unit Sisa: ${laporan.unit_sisa || 0}
+PT Pemusnahan: ${laporan.pt_pemusnahan || '-'}
+Biaya: Rp ${Number(laporan.biaya_pemusnahan || 0).toLocaleString('id-ID')}
+Tanggal: ${laporan.tanggal_pemusnahan || '-'}
+Status: ${laporan.status || '-'}
+Catatan: ${laporan.catatan || '-'}
+Created By: ${laporan.created_by || '-'}
+Created At: ${laporan.created_at || '-'}
+    `;
+    
+    alert(`Detail Laporan Pemusnahan:\n\n${detail}`);
+  } catch (err) {
+    console.error('Error viewing detail:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// ============================================
+// LAPORAN PEMUSNAHAN APPROVAL WORKFLOW
+// ============================================
+// ALUR APPROVAL:
+// 1. APK (Apoteker Pendamping) = Membuat laporan dengan form
+//    Status: PENDING (menunggu approval)
+// 2. APJ (Apoteker Jaga) = Review dan approve laporan
+//    - First Approval: Laporan di-review, status → NEED_SECOND_APPROVAL
+//    - Second Approval: Laporan final approved, status → APPROVED
+//    - Rejected: Laporan ditolak, kembali untuk diperbaiki
+// 3. Setelah APPROVED: APJ bisa download laporan sebagai PDF
+// 4. Obat yang di-pemusnahan di-delete dari database otomatis
+// ============================================
+
+// Approve destruction report
+async function approvePemusnahan(id) {
+  try {
+    // Get current laporan to check status
+    const fetchResponse = await fetch(`/api/laporan-pemusnahan/${id}`);
+    if (!fetchResponse.ok) throw new Error('Failed to fetch laporan');
+    
+    const laporan = await fetchResponse.json();
+    if (!laporan || !laporan.id) {
+      showToast('Laporan tidak ditemukan', 'error');
+      return;
+    }
+
+    const currentStatus = laporan.status;
+    let approvalType = 'first';
+    let confirmMsg = 'Setujui laporan pemusnahan ini? Ini adalah approval PERTAMA.';
+
+    if (currentStatus === 'need_second_approval') {
+      approvalType = 'second';
+      confirmMsg = 'Ini adalah approval KEDUA. Setelah ini, obat akan DIHAPUS dari database. Lanjutkan?';
+    } else if (currentStatus !== 'pending') {
+      showToast(`Laporan tidak bisa diapprove (status: ${currentStatus})`, 'error');
+      return;
+    }
+
+    if (!window.confirm(confirmMsg)) return;
+
+    const response = await fetch(`/api/laporan-pemusnahan/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approval_type: approvalType })
+    });
+
+    const data = await response.json();
+    
+    if (response.ok && data.message) {
+      // Jika approval ke-2 (final), delete obat dari database
+      if (approvalType === 'second' && laporan.obat_id) {
+        const deleted = await deleteObatFromDatabase(laporan.obat_id);
+        const msg = deleted 
+          ? 'Laporan sudah diapprove! Obat berhasil dihapus dari database.' 
+          : 'Laporan sudah diapprove! (Catatan: gagal menghapus obat dari database)';
+        showToast(msg, 'success');
+      } else {
+        const msg = `Laporan perlu approval kedua`;
+        showToast(msg, 'success');
+      }
+      loadLaporanPemusnahan();
+      renderMonitoringKadaluarsa(); // Refresh monitoring
+    } else {
+      showToast(data.message || 'Gagal mengapprove laporan', 'error');
+    }
+  } catch (err) {
+    console.error('Error approving report:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// Reject destruction report
+async function rejectPemusnahan(id) {
+  if (!window.confirm('Tolak laporan pemusnahan ini?')) return;
+
+  try {
+    const response = await fetch(`/api/laporan-pemusnahan/${id}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+    
+    if (response.ok && data.message) {
+      showToast('Laporan pemusnahan ditolak', 'success');
+      loadLaporanPemusnahan();
+    } else {
+      showToast(data.message || 'Gagal menolak laporan', 'error');
+    }
+  } catch (err) {
+    console.error('Error rejecting report:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// ===== RECOMMENDATION ENGINE =====
+
+// Calculate minimum order quantity berdasarkan VED dan usage pattern
+function calculateMinimumOrderQty(obat) {
+  const ved = String(obat.ved || 'D').toUpperCase();
+  const currentQty = Number(obat.jumlah || 0);
+  
+  // Base minimum order quantity per kategori VED
+  const baseQty = {
+    'V': 100,  // Vital: jaga stok lebih tinggi
+    'E': 50,   // Essential: moderate
+    'D': 20    // Desirable: minimal
+  };
+  
+  const baseMin = baseQty[ved] || 20;
+  
+  // Adjusted berdasarkan status kadaluarsa
+  const status = getExpiryStatus(obat.kadaluarsa);
+  let safetyFactor = 1.0;
+  
+  if (status.key === 'baik') {
+    safetyFactor = 1.2;  // Good stock: dapat order lebih banyak
+  } else if (status.key === 'hampir') {
+    safetyFactor = 0.8;  // Near expiry: caution
+  } else if (status.key === 'kadaluarsa') {
+    safetyFactor = 0.5;  // Already expired: jangan order
+  }
+  
+  return Math.ceil(baseMin * safetyFactor);
+}
+
+// Generate analysis & recommendation for destruction report
+function generatePemusnahanAnalysis(laporan) {
+  const ved = String(laporan.ved || 'D').toUpperCase();
+  const minOrder = calculateMinimumOrderQty(laporan);
+  const wasteCost = Number(laporan.biaya_pemusnahan || 0);
+  
+  let analysis = '';
+  let recommendation = '';
+  
+  // Analysis
+  if (ved === 'V') {
+    analysis = `Obat ini termasuk kategori VITAL (penting). Pemusnahan ${laporan.unit_sisa} unit menyebabkan gap pada stok kritis dan meningkatkan risiko kehabisan stok.`;
+    recommendation = `REKOMENDASI: Pesan ulang minimal ${minOrder} unit ke supplier untuk merestorasi stok kategori Vital. Pertimbangkan faster supplier untuk kategori Vital guna menghindari stockout.`;
+  } else if (ved === 'E') {
+    analysis = `Obat ini termasuk kategori ESSENTIAL (penting namun tidak kritis). Pemusnahan harus diikuti dengan monitoring lebih ketat pada pola penggunaan.`;
+    recommendation = `REKOMENDASI: Pesan ulang minimal ${minOrder} unit. Monitor usage rate bulan depan untuk menentukan forecasting yang lebih akurat.`;
+  } else {
+    analysis = `Obat ini termasuk kategori DESIRABLE (dapat diisi ulang dengan fleksibel). Pemusnahan tidak berdampak langsung pada operasional.`;
+    recommendation = `REKOMENDASI: Pesan ulang minimal ${minOrder} unit saat ada kesempatan. Prioritaskan pemesanan kategori V dan E terlebih dahulu.`;
+  }
+  
+  return {
+    minOrder: minOrder,
+    analysis: analysis,
+    recommendation: recommendation,
+    wasteCost: wasteCost
+  };
+}
+
+// Download laporan pemusnahan PDF
+async function downloadPemusnahanPDF(laporanId) {
+  try {
+    const response = await fetch(`/api/laporan-pemusnahan/${laporanId}/pdf`);
+    if (!response.ok) throw new Error('Failed to generate PDF');
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Laporan-Pemusnahan-${laporanId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    showToast('PDF berhasil diunduh', 'success');
+  } catch (err) {
+    console.error('Error downloading PDF:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// ===== MODAL PEMUSNAHAN (untuk dipicu dari monitoring kadaluarsa) =====
+
+let currentObatForPemusnahan = null;
+
+// Full-page section handlers for Pemusnahan Obat
+function openPemusnahanSection(obatId = null) {
+  console.log('[OPEN PEMUSNAHAN] Called with obatId:', obatId, 'type:', typeof obatId);
+  
+  // Show the pemusnahan section (simulating nav click)
+  const pemusnahanNav = document.querySelector('[data-section="pemusnahan"]');
+  if (pemusnahanNav) {
+    pemusnahanNav.click();
+  }
+  
+  // Store for use after dropdown loads
+  currentObatForPemusnahan = obatId ? String(obatId) : null;
+  
+  // Load the dropdown FIRST
+  loadPemusnahanObatDropdown().then(() => {
+    // THEN pre-select the obat if passed in
+    if (currentObatForPemusnahan) {
+      const select = document.getElementById('pemusnahanObatSelect');
+      if (select) {
+        // Ensure both are strings for comparison
+        const selectHasOption = Array.from(select.options).some(opt => String(opt.value) === String(currentObatForPemusnahan));
+        
+        console.log('[PEMUSNAHAN SECTION] Setting obat select:', {
+          obatId: currentObatForPemusnahan,
+          optionExists: selectHasOption,
+          availableOptions: Array.from(select.options).map(o => ({ value: o.value, text: o.text }))
+        });
+        
+        if (!selectHasOption) {
+          console.warn('[PEMUSNAHAN SECTION] WARNING: Selected obat not in dropdown! The obat might not be expired or might have been deleted.');
+        }
+        
+        select.value = currentObatForPemusnahan;
+        displayPemusnahanObatInfo();
+        // Scroll to form
+        const form = document.getElementById('formPemusnahanFull');
+        if (form) form.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+    loadLaporanPemusnahanFull();
+  }).catch(err => {
+    console.error('[PEMUSNAHAN SECTION] Error loading dropdown:', err);
+    loadLaporanPemusnahanFull();
+  });
+}
+
+async function loadPemusnahanObatDropdown() {
+  try {
+    const select = document.getElementById('pemusnahanObatSelect');
+    if (!select) {
+      console.error('[LOAD DROPDOWN] Select element not found');
+      return;
+    }
+
+    console.log('[LOAD DROPDOWN] Fetching obat kadaluarsa...');
+    // Get only expired medicines
+    const response = await fetch('/api/obat?status=kadaluarsa');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const data = await response.json();
+    const obatList = data.success ? data.data : (Array.isArray(data) ? data : []);
+
+    console.log('[LOAD DROPDOWN] Received obatList:', obatList.length, 'items');
+
+    // Clear existing options except default
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+
+    if (!obatList || obatList.length === 0) {
+      console.warn('[LOAD DROPDOWN] No obat found');
+      select.innerHTML = '<option value="">-- Tidak ada obat kadaluarsa --</option>';
+      return;
+    }
+
+    obatList.forEach(obat => {
+      const option = document.createElement('option');
+      option.value = obat.id;
+      option.text = `${obat.nama} (${obat.jumlah} unit, ${obat.kadaluarsa})`;
+      console.log('[LOAD DROPDOWN] Added option:', { id: obat.id, name: obat.nama });
+      select.appendChild(option);
+    });
+    
+    console.log('[LOAD DROPDOWN] Dropdown loaded successfully, total options:', select.options.length);
+  } catch (err) {
+    console.error('[LOAD DROPDOWN] Error:', err);
+    throw err;
+  }
+}
+
+function displayPemusnahanObatInfo() {
+  const select = document.getElementById('pemusnahanObatSelect');
+  const infoDiv = document.getElementById('pemusnahanInfoDisplay');
+  
+  console.log('[DISPLAY OBAT INFO] Called:', { selectValue: select?.value, hasInfoDiv: !!infoDiv });
+  
+  if (!select || !infoDiv) {
+    console.error('[DISPLAY OBAT INFO] Missing elements:', { select: !!select, infoDiv: !!infoDiv });
+    return;
+  }
+  
+  if (!select.value) {
+    console.log('[DISPLAY OBAT INFO] No value selected yet');
+    infoDiv.textContent = 'Pilih obat untuk menampilkan informasi';
+    return;
+  }
+
+  console.log('[DISPLAY OBAT INFO] Searching for obat with ID:', select.value, 'in allObat array with', allObat.length, 'items');
+  
+  const obat = allObat.find(o => {
+    const match = o.id == select.value;
+    if (match) {
+      console.log('[DISPLAY OBAT INFO] Found match:', { id: o.id, name: o.nama });
+    }
+    return match;
+  });
+  
+  if (!obat) {
+    console.warn('[DISPLAY OBAT INFO] Obat not found in allObat, searched for ID:', select.value);
+    infoDiv.textContent = 'Obat tidak ditemukan';
+    return;
+  }
+
+  console.log('[DISPLAY OBAT INFO] Displaying info for:', obat.nama);
+  infoDiv.innerHTML = `
+    <p><strong>Nama:</strong> ${escapeHtml(obat.nama || '-')}</p>
+    <p><strong>Batch:</strong> ${escapeHtml(obat.batch || '-')}</p>
+    <p><strong>Jumlah Unit:</strong> ${obat.jumlah || 0}</p>
+    <p><strong>VED:</strong> ${escapeHtml(obat.ved || '-')}</p>
+    <p><strong>Kadaluarsa:</strong> ${escapeHtml(obat.kadaluarsa || '-')}</p>
+    <p><strong>Kategori:</strong> ${escapeHtml(obat.kategori || '-')}</p>
+  `;
+
+  // Auto-fill unit sisa
+  document.getElementById('pemusnahanUnitSisa').value = obat.jumlah || 0;
+  
+  // Set today's date
+  document.getElementById('pemusnahanTanggal').value = new Date().toISOString().split('T')[0];
+}
+
+async function handlePemusnahanFormSubmit(e) {
+  e.preventDefault();
+
+  const select = document.getElementById('pemusnahanObatSelect');
+  
+  // Strict validation: select harus ada dan value harus ada dan valid
+  if (!select) {
+    showToast('Error: Element dropdown tidak ditemukan', 'error');
+    console.error('[FORM ERROR] Dropdown element not found');
+    return;
+  }
+
+  const selectValue = select.value ? select.value.trim() : '';
+  
+  if (!selectValue || selectValue === '') {
+    showToast('Mohon pilih obat terlebih dahulu', 'error');
+    console.warn('[FORM SUBMIT] No obat selected, select.value:', select.value);
+    return;
+  }
+
+  // obat ID bisa berupa UUID string atau integer - gunakan langsung without parsing
+  // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const obatId = selectValue;
+  
+  console.log('[FORM SUBMIT] Using obatId directly (without parseInt):', { 
+    selectValue, 
+    obatId,
+    type: typeof obatId,
+    length: obatId.length
+  });
+
+  // Get raw values dari form
+  const unitTerjual = document.getElementById('pemusnahanUnitTerjual').value;
+  const unitSisa = document.getElementById('pemusnahanUnitSisa').value;
+  const ptPemusnahan = document.getElementById('pemusnahanPtPemusnahan').value;
+  const biaya = document.getElementById('pemusnahanBiaya').value;
+  const tanggal = document.getElementById('pemusnahanTanggal').value;
+  const catatan = document.getElementById('pemusnahanCatatan').value;
+
+  // Log raw values untuk debugging SEBELUM validation
+  console.log('[FORM SUBMIT] Raw form values:', {
+    select_value: selectValue,
+    obatId: `${obatId} (type: ${typeof obatId}, no parseInt applied)`,
+    unitTerjual: `"${unitTerjual}"`,
+    unitSisa: `"${unitSisa}"`,
+    ptPemusnahan: `"${ptPemusnahan}"`,
+    biaya: `"${biaya}"`,
+    tanggal: `"${tanggal}"`,
+    catatan: `"${catatan}"`
+  });
+
+  // Validate: semua required field harus tidak kosong
+  if (!unitSisa || unitSisa.trim() === '' || 
+      !ptPemusnahan || ptPemusnahan.trim() === '' || 
+      !biaya || biaya.trim() === '' || 
+      !tanggal || tanggal.trim() === '') {
+    console.error('[FORM SUBMIT] Validation FAILED - ada field yang kosong');
+    showToast('Mohon isi semua field yang diperlukan', 'error');
+    return;
+  }
+
+  // Parse values (obatId tetap string, yang lain di-parse)
+  const unitTerjualInt = parseInt(unitTerjual) || 0;
+  const unitSisaInt = parseInt(unitSisa);
+  const biayaFloat = parseFloat(biaya);
+  
+  // Validate parsed values
+  if (isNaN(unitSisaInt) || isNaN(biayaFloat)) {
+    console.error('[FORM SUBMIT] Validation FAILED - invalid number format');
+    showToast('Unit Sisa dan Biaya harus berupa angka', 'error');
+    return;
+  }
+
+  // Construct payload
+  const payload = {
+    obat_id: obatId,
+    unit_terjual: unitTerjualInt,
+    unit_sisa: unitSisaInt,
+    pt_pemusnahan: ptPemusnahan.trim(),
+    biaya_pemusnahan: biayaFloat,
+    tanggal_pemusnahan: tanggal.trim(),
+    catatan: catatan.trim()
+  };
+  
+  console.log('[FORM SUBMIT] Validation PASSED');
+  console.log('[FORM SUBMIT] Parsed values:', {
+    unitTerjualInt, unitSisaInt, biayaFloat
+  });
+  console.log('[FORM SUBMIT] Final payload:', payload);
+  console.log('[FORM SUBMIT] Payload JSON:', JSON.stringify(payload));
+
+  try {
+    const response = await fetch('/api/laporan-pemusnahan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    
+    if (response.ok && data.message) {
+      showToast('Laporan pemusnahan berhasil disimpan (status: Pending)', 'success');
+      document.getElementById('formPemusnahanFull').reset();
+      loadPemusnahanObatDropdown();
+      loadLaporanPemusnahanFull();
+      renderMonitoringKadaluarsa(); // Refresh monitoring
+    } else {
+      console.error('[FORM ERROR] Response tidak OK:', { 
+        status: response.status, 
+        statusText: response.statusText,
+        data: data,
+        fullResponse: JSON.stringify(data)
+      });
+      showToast(data.message || `Gagal menyimpan laporan (${response.status})`, 'error');
+    }
+  } catch (err) {
+    console.error('[FORM ERROR] Network error:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+// Setup pemusnahan obat event listeners
+function setupPemusnahanListeners() {
+  console.log('[SETUP PEMUSNAHAN] Called - setupPemusnahanListeners()');
+  
+  // Form submit
+  const form = document.getElementById('formPemusnahanFull');
+  console.log('[SETUP PEMUSNAHAN] Form element found:', !!form, form?.id);
+  
+  if (form) {
+    console.log('[SETUP PEMUSNAHAN] Attaching submit listener to form');
+    form.addEventListener('submit', handlePemusnahanFormSubmit);
+    console.log('[SETUP PEMUSNAHAN] Submit listener attached ✓');
+  } else {
+    console.error('[SETUP PEMUSNAHAN] ERROR: formPemusnahanFull not found in DOM!');
+  }
+
+  // Obat select change
+  const select = document.getElementById('pemusnahanObatSelect');
+  console.log('[SETUP PEMUSNAHAN] Select element found:', !!select, select?.id);
+  
+  if (select) {
+    console.log('[SETUP PEMUSNAHAN] Attaching change listener to select');
+    select.addEventListener('change', displayPemusnahanObatInfo);
+    console.log('[SETUP PEMUSNAHAN] Change listener attached ✓');
+  } else {
+    console.error('[SETUP PEMUSNAHAN] ERROR: pemusnahanObatSelect not found in DOM!');
+  }
+
+  // Filter status dropdown
+  const filterBtn = document.getElementById('filterStatusPemusnahanFull');
+  console.log('[SETUP PEMUSNAHAN] Filter element found:', !!filterBtn, filterBtn?.id);
+  
+  if (filterBtn) {
+    console.log('[SETUP PEMUSNAHAN] Attaching change listener to filter');
+    filterBtn.addEventListener('change', loadLaporanPemusnahanFull);
+  }
+
+  // Refresh button
+  const refreshBtn = document.getElementById('refreshPemusnahanBtnFull');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      loadLaporanPemusnahanFull();
+      showToast('Data refreshed', 'success');
+    });
+  }
+
+  // Event delegation for laporan action buttons (CSP-compliant, no inline onclick)
+  // Handles: approve, reject, view-detail, download-pdf
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+
+    const action = button.getAttribute('data-action');
+    const laporanId = button.getAttribute('data-id');
+
+    if (!laporanId) {
+      console.error('[LAPORAN ACTION] No data-id found on button');
+      return;
+    }
+
+    console.log('[LAPORAN ACTION] Button clicked:', { action, laporanId });
+
+    switch (action) {
+      case 'approve':
+        approvePemusnahan(laporanId);
+        break;
+      case 'reject':
+        rejectPemusnahan(laporanId);
+        break;
+      case 'view-detail':
+        viewPemusnahanDetail(laporanId);
+        break;
+      case 'download-pdf':
+        downloadPemusnahanPDF(laporanId);
+        break;
+      default:
+        console.warn('[LAPORAN ACTION] Unknown action:', action);
+    }
+  });
+
+  console.log('[SETUP PEMUSNAHAN] Event delegation for laporan actions attached ✓');
+}
+
 // Initialize
+console.log('[MAIN] Starting global initialization sequence...');
 init();
+console.log('[MAIN] init() called');
+
 setupProfileDropdown();
+console.log('[MAIN] setupProfileDropdown() called');
+
 setupSidebarToggle();
+console.log('[MAIN] setupSidebarToggle() called');
+
 bindObatDetailPopup();
+console.log('[MAIN] bindObatDetailPopup() called');
+
 setupReleaseTracking();
+console.log('[MAIN] setupReleaseTracking() called');
+
+initPemusnahanTabs();
+console.log('[MAIN] initPemusnahanTabs() called - Tab switching initialized ✓');
+
+loadPemusnahanObatDropdown();
+console.log('[MAIN] loadPemusnahanObatDropdown() called');
+
+setupPemusnahanListeners();
+console.log('[MAIN] setupPemusnahanListeners() called ✓');
 
 // Setup email settings checkbox listener
 document.addEventListener('change', function(e) {
@@ -2778,21 +3820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Email settings buttons
-  const saveEmailBtn = document.querySelector('.email-save-btn');
-  if (saveEmailBtn) {
-    saveEmailBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      saveEmailSettings();
-    });
-  }
 
-  const testEmailBtn = document.querySelector('.email-test-btn');
-  if (testEmailBtn) {
-    testEmailBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      sendTestEmail();
-    });
-  }
 });
+
 

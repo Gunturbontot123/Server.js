@@ -82,7 +82,7 @@ function generateVedFefoReport(vedAnalysis, fefoRecommendations) {
       <div class="container">
         <div class="header">
           <h1>📋 Laporan VED-FEFO Periodic</h1>
-          <p>Obat.Qu - Sistem Manajemen Apotek | ${formatDate(new Date())}</p>
+          <p>ObatQu - Sistem Manajemen Apotek | ${formatDate(new Date())}</p>
         </div>
 
         <div class="action-needed">
@@ -186,7 +186,7 @@ function generateVedFefoReport(vedAnalysis, fefoRecommendations) {
         </div>
 
         <div class="footer">
-          <p>Laporan ini dikirim otomatis setiap 5 hari pada jam 08:00 WIB oleh sistem Obat.Qu</p>
+          <p>Laporan ini dikirim otomatis setiap 5 hari pada jam 08:00 WIB oleh sistem ObatQu</p>
           <p>Untuk pertanyaan atau feedback, hubungi APJ atau administrator sistem</p>
         </div>
       </div>
@@ -403,7 +403,7 @@ function setupScheduler(db) {
         }
 
         currentConfig = row;
-        console.log('[SCHEDULER] ✅ Config loaded:', { type: currentConfig.config_type, interval: currentConfig.interval_hari, time: currentConfig.email_jam, enabled: currentConfig.enabled });
+        // Config loaded - removed verbose logging
         
         // Skip jika disabled
         if (!currentConfig.enabled) {
@@ -418,15 +418,12 @@ function setupScheduler(db) {
         const utcHour = ((emailHour - 7 + 24) % 24);
         const cronPattern = `${emailMin} ${utcHour} * * *`;
 
-        console.log(`[SCHEDULER] Mengatur cron pattern: "${cronPattern}" (WIB ${currentConfig.email_jam})`);
-        console.log(`[SCHEDULER] Interval: ${currentConfig.interval_hari} hari, Enabled: ${currentConfig.enabled}`);
-
         // Create new job
         job = cron.schedule(cronPattern, async () => {
           await sendVedFefoEmail(db, currentConfig);
         });
 
-        console.log(`✅ Scheduler VED-FEFO aktif - Email akan dikirim setiap ${currentConfig.interval_hari} hari pada jam ${currentConfig.email_jam} WIB`);
+        // Scheduler setup complete
       }
     );
   }
@@ -475,7 +472,7 @@ function setupScheduler(db) {
           subject: `📋 Laporan VED-FEFO Periodic - ${new Date().toLocaleDateString('id-ID')}`,
           text: 'Laporan VED-FEFO Periodic - Silakan lihat konten HTML',
           html: htmlReport
-        });
+        }, db);
         console.log(`✅ Email VED-FEFO dikirim ke ${email}`);
       }
 
