@@ -730,6 +730,9 @@ async function loadAllData() {
     updateReports();
     updateNotificationBadge(notif);
     updateAutoWarnings(notif);
+    // Load pemusnahan tables FIRST so renderMonitoringKadaluarsa can filter them out
+    await loadLaporanPemusnahan();
+    await loadLaporanPemusnahanFull();
     renderMonitoringKadaluarsa();
     renderStockMonitoringTable();
     renderExpiryDataTable();
@@ -749,6 +752,9 @@ async function loadAllData() {
     updateReports();
     updateNotificationBadge({ total: 0 });
     updateAutoWarnings({ total: 0, notifications: [] });
+    // Load pemusnahan tables even in error case
+    await loadLaporanPemusnahan();
+    await loadLaporanPemusnahanFull();
     renderMonitoringKadaluarsa();
     renderStockMonitoringTable();
     renderExpiryDataTable();
@@ -816,6 +822,16 @@ function getExpiryStatus(kadaluarsa) {
   if (diffDays <= 60) return { key: 'kadaluarsa', label: 'Kadaluarsa', color: '#e74c3c' };
   if (diffDays <= 180) return { key: 'hampir', label: 'Hampir Kadaluarsa', color: '#f39c12' };
   return { key: 'baik', label: 'Baik', color: '#27ae60' };
+}
+
+// Helper: Check if obat is ACTUALLY expired (past expiry date, not just flagged as expiring soon)
+function isObatActuallyExpired(kadaluarsa) {
+  const d = parseExpiryDate(kadaluarsa);
+  if (!d) return false;
+  const now = new Date();
+  const diffDays = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+  // Return true only if past the expiry date (diffDays < 0)
+  return diffDays < 0;
 }
 
 function getObatPriority(obat) {
@@ -1963,7 +1979,36 @@ function renderDataObatTable(data) {
   const tbody = document.querySelector('#tableObat');
   if (!tbody) return;
   tbody.innerHTML = '';
-  data.forEach(o => {
+  
+  // Get list of obat IDs that are already in disposal reports (pemusnahan)
+  // Obat that are BOTH expired AND in pemusnahan will be removed from display
+  const obatInPemusnahan = new Set();
+  const tableBodyPemusnahan = document.getElementById('tableBodyPemusnahan');
+  if (tableBodyPemusnahan) {
+    const rows = tableBodyPemusnahan.querySelectorAll('tr');
+    rows.forEach(row => {
+      const dataId = row.getAttribute('data-obat-id');
+      if (dataId) obatInPemusnahan.add(dataId);
+    });
+  }
+  const tableBodyPemusnahanFull = document.getElementById('tableBodyPemusnahanFull');
+  if (tableBodyPemusnahanFull) {
+    const rows = tableBodyPemusnahanFull.querySelectorAll('tr');
+    rows.forEach(row => {
+      const dataId = row.getAttribute('data-obat-id');
+      if (dataId) obatInPemusnahan.add(dataId);
+    });
+  }
+  
+  // Filter data: remove obat that are BOTH expired AND already in disposal list
+  const filteredData = data.filter(o => {
+    // Keep obat if it's NOT in pemusnahan, OR if it is in pemusnahan but NOT actually expired
+    const isInPemusnahan = obatInPemusnahan.has(String(o.id));
+    const isExpired = isObatActuallyExpired(o.kadaluarsa);
+    return !(isInPemusnahan && isExpired);
+  });
+  
+  filteredData.forEach(o => {
     const st = getExpiryStatus(o.kadaluarsa);
     const priority = getObatPriority(o);
     const tr = document.createElement('tr');
