@@ -13,6 +13,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'obatqu-secret-demo';
 const SESSION_COOKIE_NAME = 'obatqu.sid';
 const BCRYPT_ROUNDS = 10;
@@ -26,11 +27,14 @@ const OBAT_BOOTSTRAP_PATHS = [
 const ADMIN_USERNAME = 'bontot';
 const ADMIN_EMAIL = 'useoppo507@gmail.com';
 const ADMIN_DEFAULT_PASSWORD = 'Abgbontot';
+const SESSION_COOKIE_SECURE = process.env.SESSION_COOKIE_SECURE
+  ? process.env.SESSION_COOKIE_SECURE === 'true'
+  : IS_PRODUCTION;
 const SESSION_COOKIE_OPTIONS = {
   maxAge: 24 * 3600 * 1000,
   httpOnly: true,
   sameSite: 'lax',
-  secure: false,
+  secure: SESSION_COOKIE_SECURE,
   path: '/'
 };
 
@@ -553,6 +557,9 @@ app.use(helmet({
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
+// Trust reverse proxy headers (required for secure cookies behind Azure ingress)
+app.set('trust proxy', 1);
+
 // Force no-caching on all API and HTML responses
 app.use((req, res, next) => {
   const isApi = req.path.startsWith('/api/');
@@ -574,6 +581,19 @@ app.use(session({
   rolling: true,
   cookie: SESSION_COOKIE_OPTIONS
 }));
+
+app.get('/healthz', (req, res) => {
+  return res.status(200).json({ status: 'ok', service: 'backend-apotek', timestamp: new Date().toISOString() });
+});
+
+app.get('/readyz', (req, res) => {
+  db.get('SELECT 1 AS ok', (err) => {
+    if (err) {
+      return res.status(503).json({ status: 'error', ready: false, message: 'Database not ready' });
+    }
+    return res.status(200).json({ status: 'ok', ready: true });
+  });
+});
 
 const authMiddleware = (req, res, next) => {
   if (req.session && req.session.user) return next();
@@ -3792,10 +3812,20 @@ const server = app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);
 });
 
-process.on('SIGINT', () => {
-  console.log('Shutting down...');
+function gracefulShutdown(signal) {
+  console.log(`${signal} diterima. Menutup server...`);
   server.close(() => {
-    db.close();
+    if (db && typeof db.close === 'function') {
+      db.close();
+    }
     process.exit(0);
   });
+}
+
+process.on('SIGINT', () => {
+  gracefulShutdown('SIGINT');
+});
+
+process.on('SIGTERM', () => {
+  gracefulShutdown('SIGTERM');
 });

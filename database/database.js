@@ -67,31 +67,39 @@ function replaceQuestionPlaceholders(sql) {
 class PostgresCompatDb {
   constructor() {
     // Build config untuk PostgreSQL client
-    const config = {
-      host: process.env.PGHOST || 'localhost',
-      port: parseInt(process.env.PGPORT || '5432', 10),
-      database: process.env.PGDATABASE || 'postgres',
-      user: process.env.PGUSER || 'postgres'
-    };
-    
-    // Add password hanya jika ada dan tidak empty
-    const password = (process.env.PGPASSWORD || '').trim();
-    if (password) {
-      config.password = password;
+    const databaseUrl = (process.env.DATABASE_URL || '').trim();
+    const config = databaseUrl
+      ? { connectionString: databaseUrl }
+      : {
+          host: process.env.PGHOST || 'localhost',
+          port: parseInt(process.env.PGPORT || '5432', 10),
+          database: process.env.PGDATABASE || 'postgres',
+          user: process.env.PGUSER || 'postgres'
+        };
+
+    // Add password hanya jika tidak pakai DATABASE_URL
+    if (!databaseUrl) {
+      const password = (process.env.PGPASSWORD || '').trim();
+      if (password) {
+        config.password = password;
+      }
     }
-    
-    // Add SSL jika dikonfigurasi
-    if (process.env.PG_SSL === 'true') {
-      config.ssl = { rejectUnauthorized: false };
+
+    const pgSsl = String(process.env.PG_SSL || '').toLowerCase() === 'true';
+    const sslRequiredByUrl = /sslmode=require/i.test(databaseUrl);
+    if (pgSsl || sslRequiredByUrl) {
+      const rejectUnauthorized = String(process.env.PG_SSL_REJECT_UNAUTHORIZED || '').toLowerCase() === 'true';
+      config.ssl = { rejectUnauthorized };
     }
-    
+
     // Log config untuk debugging (tanpa password)
     console.log('[DB] PostgreSQL config:', {
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      user: config.user,
-      hasPassword: !!config.password
+      host: config.host || '(from DATABASE_URL)',
+      port: config.port || '(from DATABASE_URL)',
+      database: config.database || '(from DATABASE_URL)',
+      user: config.user || '(from DATABASE_URL)',
+      hasPassword: Boolean(config.password || databaseUrl),
+      hasSsl: Boolean(config.ssl)
     });
     
     this.client = new Client(config);
@@ -171,6 +179,16 @@ class PostgresCompatDb {
         if (typeof callback === 'function') callback(null);
       }
     };
+  }
+
+  close(callback) {
+    return this.client.end()
+      .then(() => {
+        if (typeof callback === 'function') callback(null);
+      })
+      .catch((err) => {
+        if (typeof callback === 'function') callback(err);
+      });
   }
 }
 
