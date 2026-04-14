@@ -6,7 +6,6 @@ set -euo pipefail
 # - 1 ACI for PostgreSQL (public endpoint)
 # - 1 ACI for App (public endpoint)
 # - 1 ACR for app image
-# - 1 Storage Account + Azure File Share for PostgreSQL data persistence
 
 # ===== Required variables =====
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-}"
@@ -34,19 +33,9 @@ SMTP_USER="${SMTP_USER:-}"
 SMTP_PASS="${SMTP_PASS:-}"
 NOTIFY_TO="${NOTIFY_TO:-}"
 
-# Persistent storage for postgres data
-STORAGE_ACCOUNT_NAME="${STORAGE_ACCOUNT_NAME:-stapotek$RANDOM}"
-PG_FILE_SHARE_NAME="${PG_FILE_SHARE_NAME:-pgdata}"
-
 if [[ -z "$SUBSCRIPTION_ID" || -z "$POSTGRES_PASSWORD" || -z "$SESSION_SECRET" ]]; then
   echo "ERROR: SUBSCRIPTION_ID, POSTGRES_PASSWORD, and SESSION_SECRET are required."
   exit 1
-fi
-
-# Storage account naming constraints: lowercase, 3-24 chars, letters+numbers only
-STORAGE_ACCOUNT_NAME="$(echo "$STORAGE_ACCOUNT_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9' | cut -c1-24)"
-if [[ ${#STORAGE_ACCOUNT_NAME} -lt 3 ]]; then
-  STORAGE_ACCOUNT_NAME="stapotek$(date +%s | tail -c 6)"
 fi
 
 # DNS label constraints for ACI
@@ -55,10 +44,10 @@ POSTGRES_DNS_LABEL="$(echo "$POSTGRES_DNS_LABEL" | tr '[:upper:]' '[:lower:]' | 
 
 az account set --subscription "$SUBSCRIPTION_ID"
 
-echo "[1/11] Creating resource group..."
+echo "[1/7] Creating resource group..."
 az group create --name "$RESOURCE_GROUP" --location "$LOCATION" >/dev/null
 
-echo "[2/11] Creating ACR..."
+echo "[2/7] Creating ACR..."
 az acr create \
   --resource-group "$RESOURCE_GROUP" \
   --name "$ACR_NAME" \
@@ -71,26 +60,10 @@ ACR_USERNAME="$(az acr credential show -g "$RESOURCE_GROUP" -n "$ACR_NAME" --que
 ACR_PASSWORD="$(az acr credential show -g "$RESOURCE_GROUP" -n "$ACR_NAME" --query passwords[0].value -o tsv)"
 IMAGE="$ACR_LOGIN_SERVER/backend-apotek:$IMAGE_TAG"
 
-echo "[3/11] Building and pushing app image to ACR..."
+echo "[3/7] Building and pushing app image to ACR..."
 az acr build --registry "$ACR_NAME" --image "backend-apotek:$IMAGE_TAG" . >/dev/null
 
-echo "[4/11] Creating Storage Account for PostgreSQL data..."
-az storage account create \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "$STORAGE_ACCOUNT_NAME" \
-  --location "$LOCATION" \
-  --sku Standard_LRS \
-  --kind StorageV2 >/dev/null
-
-STORAGE_KEY="$(az storage account keys list -g "$RESOURCE_GROUP" -n "$STORAGE_ACCOUNT_NAME" --query "[0].value" -o tsv)"
-
-echo "[5/11] Creating Azure File Share..."
-az storage share create \
-  --name "$PG_FILE_SHARE_NAME" \
-  --account-name "$STORAGE_ACCOUNT_NAME" \
-  --account-key "$STORAGE_KEY" >/dev/null
-
-echo "[6/11] Deploying PostgreSQL container (public endpoint + Azure File Share)..."
+echo "[4/7] Deploying PostgreSQL container (non-persistent)..."
 az container create \
   --resource-group "$RESOURCE_GROUP" \
   --name "$POSTGRES_CONTAINER_NAME" \
@@ -105,14 +78,9 @@ az container create \
   --environment-variables \
     POSTGRES_DB="$POSTGRES_DB" \
     POSTGRES_USER="$POSTGRES_USER" \
-    POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-    PGDATA="/var/lib/postgresql/data/pgdata" \
-  --azure-file-volume-account-name "$STORAGE_ACCOUNT_NAME" \
-  --azure-file-volume-account-key "$STORAGE_KEY" \
-  --azure-file-volume-share-name "$PG_FILE_SHARE_NAME" \
-  --azure-file-volume-mount-path "/var/lib/postgresql/data"
+    POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
 
-echo "[7/11] Waiting for PostgreSQL endpoint..."
+echo "[5/7] Waiting for PostgreSQL endpoint..."
 for _ in {1..30}; do
   PG_FQDN="$(az container show -g "$RESOURCE_GROUP" -n "$POSTGRES_CONTAINER_NAME" --query ipAddress.fqdn -o tsv 2>/dev/null || true)"
   if [[ -n "$PG_FQDN" && "$PG_FQDN" != "None" ]]; then
@@ -129,7 +97,7 @@ fi
 DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${PG_FQDN}:5432/${POSTGRES_DB}?sslmode=disable"
 APP_BASE_URL="http://${APP_DNS_LABEL}.${LOCATION}.azurecontainer.io:${APP_PORT}"
 
-echo "[8/11] Deploying App container (public endpoint)..."
+echo "[6/7] Deploying App container (public endpoint)..."
 az container create \
   --resource-group "$RESOURCE_GROUP" \
   --name "$APP_CONTAINER_NAME" \
@@ -161,7 +129,7 @@ az container create \
     NOTIFY_TO="$NOTIFY_TO" >/dev/null
     
 
-echo "[9/11] Fetching app endpoint..."
+  echo "[7/7] Fetching app endpoint..."
 APP_FQDN="$(az container show -g "$RESOURCE_GROUP" -n "$APP_CONTAINER_NAME" --query ipAddress.fqdn -o tsv)"
 APP_PUBLIC_IP="$(az container show -g "$RESOURCE_GROUP" -n "$APP_CONTAINER_NAME" --query ipAddress.ip -o tsv)"
 PG_PUBLIC_IP="$(az container show -g "$RESOURCE_GROUP" -n "$POSTGRES_CONTAINER_NAME" --query ipAddress.ip -o tsv)"
@@ -171,6 +139,5 @@ echo "App ACI (public): http://$APP_FQDN:$APP_PORT"
 echo "App Public IP: $APP_PUBLIC_IP"
 echo "PostgreSQL ACI (public): $PG_FQDN:5432"
 echo "PostgreSQL Public IP: $PG_PUBLIC_IP"
-echo "PostgreSQL data is persisted on Azure File Share: $PG_FILE_SHARE_NAME"
 echo ""
 echo "Note: PostgreSQL is publicly reachable in this mode. Apply strong password and NSG/firewall controls where possible."
