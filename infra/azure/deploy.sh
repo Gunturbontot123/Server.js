@@ -18,7 +18,7 @@ ACR_LOCATION="${ACR_LOCATION:-$LOCATION}"
 IMAGE_TAG="${IMAGE_TAG:-$(date +%Y%m%d%H%M%S)}"
 APP_CONTAINER_NAME="${APP_CONTAINER_NAME:-backend-apotek-app-aci}"
 POSTGRES_CONTAINER_NAME="${POSTGRES_CONTAINER_NAME:-backend-apotek-pg-aci}"
-APP_PORT="${APP_PORT:-3000}"
+APP_PORT="${APP_PORT:-80}"
 APP_DNS_LABEL="${APP_DNS_LABEL:-backend-apotek-app-$RANDOM}"
 POSTGRES_DNS_LABEL="${POSTGRES_DNS_LABEL:-backend-apotek-pg-$RANDOM}"
 
@@ -47,13 +47,17 @@ az account set --subscription "$SUBSCRIPTION_ID"
 echo "[1/7] Creating resource group..."
 az group create --name "$RESOURCE_GROUP" --location "$LOCATION" >/dev/null
 
-echo "[2/7] Creating ACR..."
-az acr create \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "$ACR_NAME" \
-  --location "$ACR_LOCATION" \
-  --sku Basic \
-  --admin-enabled true >/dev/null
+echo "[2/7] Ensuring ACR exists..."
+if az acr show -g "$RESOURCE_GROUP" -n "$ACR_NAME" >/dev/null 2>&1; then
+  echo "ACR already exists: $ACR_NAME (reuse)"
+else
+  az acr create \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$ACR_NAME" \
+    --location "$ACR_LOCATION" \
+    --sku Basic \
+    --admin-enabled true >/dev/null
+fi
 
 ACR_LOGIN_SERVER="$(az acr show -g "$RESOURCE_GROUP" -n "$ACR_NAME" --query loginServer -o tsv)"
 ACR_USERNAME="$(az acr credential show -g "$RESOURCE_GROUP" -n "$ACR_NAME" --query username -o tsv)"
@@ -64,6 +68,17 @@ echo "[3/7] Building and pushing app image to ACR..."
 az acr build --registry "$ACR_NAME" --image "backend-apotek:$IMAGE_TAG" . >/dev/null
 
 echo "[4/7] Deploying PostgreSQL container (non-persistent)..."
+if az container show -g "$RESOURCE_GROUP" -n "$POSTGRES_CONTAINER_NAME" >/dev/null 2>&1; then
+  echo "PostgreSQL container exists, replacing: $POSTGRES_CONTAINER_NAME"
+  az container delete -g "$RESOURCE_GROUP" -n "$POSTGRES_CONTAINER_NAME" --yes >/dev/null
+  for _ in {1..60}; do
+    if ! az container show -g "$RESOURCE_GROUP" -n "$POSTGRES_CONTAINER_NAME" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 5
+  done
+fi
+
 az container create \
   --resource-group "$RESOURCE_GROUP" \
   --name "$POSTGRES_CONTAINER_NAME" \
@@ -95,9 +110,24 @@ if [[ -z "${PG_FQDN:-}" || "$PG_FQDN" == "None" ]]; then
 fi
 
 DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${PG_FQDN}:5432/${POSTGRES_DB}?sslmode=disable"
-APP_BASE_URL="http://${APP_DNS_LABEL}.${LOCATION}.azurecontainer.io:${APP_PORT}"
+if [[ "$APP_PORT" == "80" ]]; then
+  APP_BASE_URL="http://${APP_DNS_LABEL}.${LOCATION}.azurecontainer.io"
+else
+  APP_BASE_URL="http://${APP_DNS_LABEL}.${LOCATION}.azurecontainer.io:${APP_PORT}"
+fi
 
 echo "[6/7] Deploying App container (public endpoint)..."
+if az container show -g "$RESOURCE_GROUP" -n "$APP_CONTAINER_NAME" >/dev/null 2>&1; then
+  echo "App container exists, replacing: $APP_CONTAINER_NAME"
+  az container delete -g "$RESOURCE_GROUP" -n "$APP_CONTAINER_NAME" --yes >/dev/null
+  for _ in {1..60}; do
+    if ! az container show -g "$RESOURCE_GROUP" -n "$APP_CONTAINER_NAME" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 5
+  done
+fi
+
 az container create \
   --resource-group "$RESOURCE_GROUP" \
   --name "$APP_CONTAINER_NAME" \
@@ -127,15 +157,18 @@ az container create \
     SMTP_PASS="$SMTP_PASS" \
     NOTIFY_FROM="$SMTP_USER" \
     NOTIFY_TO="$NOTIFY_TO" >/dev/null
-    
 
-  echo "[7/7] Fetching app endpoint..."
+echo "[7/7] Fetching app endpoint..."
 APP_FQDN="$(az container show -g "$RESOURCE_GROUP" -n "$APP_CONTAINER_NAME" --query ipAddress.fqdn -o tsv)"
 APP_PUBLIC_IP="$(az container show -g "$RESOURCE_GROUP" -n "$APP_CONTAINER_NAME" --query ipAddress.ip -o tsv)"
 PG_PUBLIC_IP="$(az container show -g "$RESOURCE_GROUP" -n "$POSTGRES_CONTAINER_NAME" --query ipAddress.ip -o tsv)"
 
 echo "Deployment selesai"
-echo "App ACI (public): http://$APP_FQDN:$APP_PORT"
+if [[ "$APP_PORT" == "80" ]]; then
+  echo "App ACI (public): http://$APP_FQDN"
+else
+  echo "App ACI (public): http://$APP_FQDN:$APP_PORT"
+fi
 echo "App Public IP: $APP_PUBLIC_IP"
 echo "PostgreSQL ACI (public): $PG_FQDN:5432"
 echo "PostgreSQL Public IP: $PG_PUBLIC_IP"

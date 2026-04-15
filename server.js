@@ -3773,6 +3773,13 @@ app.get('/api/laporan-pemusnahan/:id/pdf', authMiddleware, roleMiddleware(ALLOWE
    STATIC
 ================================ */
 // Serve static public folder
+app.get('/runtime-config.js', (req, res) => {
+  const runtimeBase = String(process.env.APP_BASE_URL || '').replace(/\/$/, '');
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.send(`window.__APP_BASE_URL = ${JSON.stringify(runtimeBase)};`);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     const ext = path.extname(filePath).toLowerCase();

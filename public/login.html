@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login - ObatQu</title>
+  <script src="/runtime-config.js"></script>
   <script>
     if (window.location.protocol === 'file:') {
-      window.location.replace('http://localhost:3000/login.html');
+      const runtimeBase = (window.__APP_BASE_URL || '').replace(/\/$/, '');
+      window.location.replace(runtimeBase ? (runtimeBase + '/login.html') : 'http://localhost:3000/login.html');
     }
   </script>
   <link rel="stylesheet" href="/style.css?v=20260313-login-welcome-centered"/>
@@ -163,8 +165,9 @@
   </div>
 
 <script>
-// when opened from file://, use localhost API
-const API_BASE = (location && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+// Use runtime base when provided, otherwise same-origin; keep localhost fallback only for file:// preview
+const RUNTIME_BASE = (window.__APP_BASE_URL || '').replace(/\/$/, '');
+const API_BASE = RUNTIME_BASE || ((location && location.protocol === 'file:') ? 'http://localhost:3000' : '');
 const DASHBOARD_URL = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html');
 
 function wait(ms) {

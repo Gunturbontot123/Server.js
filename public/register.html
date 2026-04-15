@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Daftar - ObatQu</title>
+  <script src="/runtime-config.js"></script>
   <script>
     if (window.location.protocol === 'file:') {
-      window.location.replace('http://localhost:3000/register.html');
+      const runtimeBase = (window.__APP_BASE_URL || '').replace(/\/$/, '');
+      window.location.replace(runtimeBase ? (runtimeBase + '/register.html') : 'http://localhost:3000/register.html');
     }
   </script>
   <link rel="stylesheet" href="/style.css"/>
@@ -131,7 +133,8 @@
   </div>
 
 <script>
-  const API_BASE = (location && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+  const RUNTIME_BASE = (window.__APP_BASE_URL || '').replace(/\/$/, '');
+  const API_BASE = RUNTIME_BASE || ((location && location.protocol === 'file:') ? 'http://localhost:3000' : '');
   const DASHBOARD_URL = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html');
 
   function wait(ms) {

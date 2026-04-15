@@ -9,7 +9,10 @@ let stokChart = null;
 let welcomePopupShown = false;
 let latestActivityCount = 0;
 // When the page is opened from the file system (file://) we need an absolute API base
-const API_BASE = (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') ? 'http://localhost:3000' : '';
+const RUNTIME_BASE = (typeof window !== 'undefined' && window.__APP_BASE_URL)
+  ? String(window.__APP_BASE_URL).replace(/\/$/, '')
+  : '';
+const API_BASE = RUNTIME_BASE || ((typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') ? 'http://localhost:3000' : '');
 const LOGIN_URL = API_BASE ? `${API_BASE}/login.html` : '/login.html';
 
 // Ensure fetch sends credentials by default (so session cookies are included)

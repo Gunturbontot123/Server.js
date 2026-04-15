@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Laporan - ObatQu</title>
+  <script src="/runtime-config.js"></script>
   <link rel="stylesheet" href="/style.css">
   <style>
     .reports-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
@@ -85,7 +86,8 @@
   </div>
 
   <script>
-    const API_BASE = (location && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+    const RUNTIME_BASE = (window.__APP_BASE_URL || '').replace(/\/$/, '');
+    const API_BASE = RUNTIME_BASE || ((location && location.protocol === 'file:') ? 'http://localhost:3000' : '');
 
     function downloadReport(type) {
       console.log('[REPORTS] 📥 downloadReport called with type:', type);
