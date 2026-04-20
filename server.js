@@ -3830,9 +3830,63 @@ app.use((req, res, next) => {
   next();
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server berjalan di http://localhost:${PORT}`);
-});
+// Auto-seed database if enabled
+async function autoSeedIfNeeded() {
+  const AUTO_SEED = String(process.env.AUTO_SEED || 'false').toLowerCase();
+  if (AUTO_SEED !== 'true') {
+    return;
+  }
+
+  try {
+    console.log('🌱 AUTO_SEED enabled. Checking if seeding is needed...');
+    
+    // Check if database is empty
+    const result = await new Promise((resolve, reject) => {
+      db.get('SELECT COUNT(*) AS total FROM users', (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    const userCount = result && result.total ? Number(result.total) : 0;
+    if (userCount > 0) {
+      console.log('✅ Database sudah populated. Seeding dilewati.');
+      return;
+    }
+
+    console.log('🌱 Database kosong. Running seeding...');
+    const seedScript = path.join(__dirname, 'scripts', 'seed.js');
+    
+    await new Promise((resolve, reject) => {
+      require('child_process').execFile('node', [seedScript], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      }, (err, stdout, stderr) => {
+        if (stdout) console.log(stdout);
+        if (stderr) console.error(stderr);
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    console.log('✅ Database seeding completed.');
+  } catch (err) {
+    console.error('⚠️  Auto-seeding error (continuing anyway):', err.message);
+  }
+}
+
+// Start server with auto-seed
+async function startServer() {
+  await autoSeedIfNeeded();
+  
+  return new Promise((resolve) => {
+    const server = app.listen(PORT, () => {
+      console.log(`Server berjalan di http://localhost:${PORT}`);
+      resolve(server);
+    });
+  });
+}
+
+const server = startServer();
 
 function gracefulShutdown(signal) {
   console.log(`${signal} diterima. Menutup server...`);
