@@ -4,7 +4,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "export": "node scripts/export_seed_data.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

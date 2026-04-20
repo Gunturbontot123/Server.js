@@ -266,13 +266,19 @@ async function seedDatabase(data) {
     log(colors.cyan, '📝 Seeding users...');
     if (data.users && Array.isArray(data.users)) {
       for (const user of data.users) {
+        // If password not in seed file, skip user seeding (already in database)
+        // Password is kept in database for security
+        if (!user.password) {
+          log(colors.yellow, `⏭️  Skipping user ${user.username} - password not in seed file (already in database)`);
+          continue;
+        }
         const hashedPassword = bcrypt.hashSync(user.password, BCRYPT_ROUNDS);
         await db.run(
           `INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4)`,
           [user.username, user.email || null, hashedPassword, user.role]
         );
       }
-      log(colors.green, `✅ Seeded ${data.users.length} users`);
+      log(colors.green, `✅ Seeded users (passwords kept in database)`);
     }
 
     // Seed kategori
