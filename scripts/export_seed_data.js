@@ -72,18 +72,9 @@ async function exportSeedData() {
     });
     log(colors.green, `✅ Exported ${obat.length} obat`);
 
-    // Export scheduler_config
-    log(colors.cyan, '📝 Exporting scheduler_config...');
-    const schedulerConfig = await new Promise((resolve, reject) => {
-      db.all(
-        'SELECT config_type, interval_hari, enabled, email_jam FROM scheduler_config ORDER BY config_type',
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
-        }
-      );
-    });
-    log(colors.green, `✅ Exported ${schedulerConfig.length} scheduler configs`);
+    // Skip scheduler_config - not used in production
+    log(colors.yellow, '⏭️  Skipping scheduler_config (not in use)');
+    const schedulerConfig = [];
 
     // Export email_config
     log(colors.cyan, '📝 Exporting email_config...');

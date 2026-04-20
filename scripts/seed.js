@@ -306,17 +306,8 @@ async function seedDatabase(data) {
       log(colors.green, `✅ Seeded ${data.obat.length} obat`);
     }
 
-    // Seed scheduler_config
-    log(colors.cyan, '📝 Seeding scheduler_config...');
-    if (data.scheduler_config && Array.isArray(data.scheduler_config)) {
-      for (const config of data.scheduler_config) {
-        await db.run(
-          `INSERT INTO scheduler_config (id, config_type, interval_hari, enabled, email_jam) VALUES ($1, $2, $3, $4, $5)`,
-          [uuidv4(), config.config_type, config.interval_hari || 5, config.enabled !== false, config.email_jam || '08:00']
-        );
-      }
-      log(colors.green, `✅ Seeded scheduler_config`);
-    }
+    // Seed scheduler_config - SKIP (not in use)
+    log(colors.yellow, '⏭️  Skipping scheduler_config (not in use)');
 
     // Seed email_config
     log(colors.cyan, '📝 Seeding email_config...');
