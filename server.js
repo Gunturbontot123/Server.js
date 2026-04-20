@@ -40,7 +40,6 @@ const SESSION_COOKIE_OPTIONS = {
 
 const db = require('./database/database');
 const { sendMail, isEmailConfigured } = require('./utils/email');
-const { setupScheduler } = require('./utils/scheduler');
 
 function isBcryptHash(value) {
   return /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
