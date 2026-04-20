@@ -54,7 +54,7 @@
         </div>
         <div class="login-info-simple-item">
           <strong>4. Use case role pengguna</strong>
-          <p>APJ memiliki akses penuh termasuk manajemen user. Apoteker Pendamping fokus ke operasional obat, monitoring kadaluarsa, pencarian data, dan laporan.</p>
+          <p>APJ memiliki akses penuh termasuk manajemen user. Asisten Apoteker fokus ke operasional obat, monitoring kadaluarsa, pencarian data, dan laporan.</p>
         </div>
       </div>
       <div style="padding: 16px 24px 20px; border-top: 1px solid rgba(255,255,255,0.08); text-align: center;">
@@ -141,7 +141,7 @@
             <select id="loginRole" name="loginRole" class="login-role-native" required>
               <option value="">Pilih role login</option>
               <option value="APJ">APJ</option>
-              <option value="APOTEKER_PENDAMPING">Apoteker Pendamping</option>
+              <option value="ASISTEN_APOTEKER">Asisten Apoteker</option>
             </select>
           </div>
 
@@ -370,7 +370,7 @@ function showSessionNotice(user) {
   const notice = document.getElementById('sessionNotice');
   const form = document.getElementById('loginForm');
   if (!notice || !form) return;
-  const activeRole = user.role === 'APJ' ? 'APJ' : 'Apoteker Pendamping';
+  const activeRole = user.role === 'APJ' ? 'APJ' : 'Asisten Apoteker';
   form.style.display = 'none';
   notice.style.display = 'block';
   notice.innerHTML = `Anda masih login sebagai <strong>${user.username}</strong> dengan mode <strong>${activeRole}</strong>. Jika ingin masuk dengan akun atau mode lain, logout dulu.<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;"><button id="goDashboardBtn" type="button" class="btn-login" style="width:auto;margin-top:0;">Ke Dashboard</button><button id="switchAccountBtn" type="button" class="btn-secondary" style="width:auto;">Logout & Ganti Akun</button></div>`;

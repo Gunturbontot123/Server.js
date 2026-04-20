@@ -10,7 +10,7 @@
 
 Sistem ObatQu sekarang dilengkapi dengan fitur **Automated VED-FEFO Email Report Delivery** yang memungkinkan APJ untuk:
 
-1. **Mengirim laporan VED-FEFO secara manual** kapan saja ke semua pengguna (APJ + Apoteker Pendamping)
+1. **Mengirim laporan VED-FEFO secara manual** kapan saja ke semua pengguna (APJ + Asisten Apoteker)
 2. **Mengatur jadwal otomatis** untuk pengiriman laporan berkala (default: setiap 7 hari pada jam 09:00)
 3. **Memantau penerima email** dengan notifikasi sukses/gagal
 4. **Melacak history pengiriman** melalui log sistem
@@ -177,7 +177,7 @@ Content-Type: application/json
 7. Sistem mengambil semua data obat
 8. Sistem menganalisis VED + FEFO recommendations
 9. Sistem generate HTML email
-10. Sistem query semua users dengan role APJ/Apoteker Pendamping
+10. Sistem query semua users dengan role APJ/Asisten Apoteker
 11. Sistem kirim email ke setiap user via Nodemailer
 12. Sistem catat hasil dengan success/failed count
 13. UI menampilkan hasil pengiriman
@@ -335,7 +335,7 @@ Sample: `VED-FEFO email report sent: 4 successful, 1 failed`
 ### Access Control
 - **Hanya APJ** yang dapat mengakses endpoint email report
 - **Hanya APJ** yang dapat mengubah konfigurasi scheduler
-- Semua pengguna (APJ + Apoteker Pendamping) **menerima** laporan
+- Semua pengguna (APJ + Asisten Apoteker) **menerima** laporan
 
 ### Email Validation
 - Email user harus terdaftar dan tidak null
@@ -354,7 +354,7 @@ Sample: `VED-FEFO email report sent: 4 successful, 1 failed`
 **Penyebab:** Tidak ada user dengan email terdaftar
 **Solusi:**
 1. Update email user di menu "Mengelola Data User"
-2. Pastikan role user adalah "APJ" atau "Apoteker Pendamping"
+2. Pastikan role user adalah "APJ" atau "Asisten Apoteker"
 3. Email harus format valid (xxx@domain.com)
 
 ### ❌ "Gagal mengirim laporan: SMTP not configured"
@@ -412,7 +412,7 @@ Success Rate: 96%
 ### Email Recipients Overview
 ```
 Pengguna APJ: 5
-Pengguna Apoteker Pendamping: 8
+Pengguna Asisten Apoteker: 8
 Total User dengan Email: 13
 ```
 

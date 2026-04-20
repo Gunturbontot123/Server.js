@@ -10,12 +10,12 @@
 
 ### 1. **Duplicate Endpoint**
 - Ada 2 endpoint `/api/reports/send-ved-fefo-email` di server.js
-- Endpoint pertama (line ~2557): Callback-based dengan query `IN ('APJ', 'APOTEKER_PENDAMPING')`
+- Endpoint pertama (line ~2557): Callback-based dengan query `IN ('APJ', 'ASISTEN_APOTEKER')`
 - Endpoint kedua (line ~2749): Promise-based dengan improved logging
 - **Solusi:** Menghapus endpoint pertama yang duplicate
 
 ### 2. **Query Users Tidak Mengembalikan Hasil**
-- Query menggunakan: `WHERE role IN ('APJ', 'Apoteker Pendamping', 'APOTEKER_PENDAMPING')`
+- Query menggunakan: `WHERE role IN ('APJ', 'Asisten Apoteker', 'ASISTEN_APOTEKER')`
 - Masalah: Role kemungkinan hanya ada 2 nilai; role name mungkin tidak persis seperti itu
 - **Solusi:** Ubah query menjadi explicit OR condition untuk compatibility
 
@@ -39,7 +39,7 @@
 ```javascript
 const users = await promiseDb((cb) => 
   db.all("SELECT id, username, email, role FROM users 
-          WHERE role IN ('APJ', 'Apoteker Pendamping', 'APOTEKER_PENDAMPING') 
+          WHERE role IN ('APJ', 'Asisten Apoteker', 'ASISTEN_APOTEKER') 
           AND email IS NOT NULL 
           AND email != ''", cb)
 );
@@ -53,8 +53,8 @@ const users = await promiseDb((cb) =>
           WHERE email IS NOT NULL 
           AND email != '' 
           AND (role = 'APJ' 
-               OR role = 'Apoteker Pendamping' 
-               OR role = 'APOTEKER_PENDAMPING')", cb)
+               OR role = 'Asisten Apoteker' 
+               OR role = 'ASISTEN_APOTEKER')", cb)
 );
 
 console.log('[EMAIL-REPORT] ✅ Query complete. Users found:', users);
@@ -113,7 +113,7 @@ Jika tetap tidak berhasil, ikuti langkah berikut:
 SELECT id, username, email, role FROM users;
 ```
 
-**Expected output:** Minimal 1 user dengan email dan role = 'APJ' atau 'APOTEKER_PENDAMPING'
+**Expected output:** Minimal 1 user dengan email dan role = 'APJ' atau 'ASISTEN_APOTEKER'
 
 ### Step 2: Klik "Kirim Laporan Sekarang"
 - Dashboard → Mengelola Data User → Scroll ke email settings
@@ -170,7 +170,7 @@ SELECT id, username, email, role FROM users;
   "allUsersCount": 3,
   "allUsers": [
     { "id": 1, "username": "apj", "email": "apj@example.com", "role": "APJ" },
-    { "id": 2, "username": "pending", "email": null, "role": "APOTEKER_PENDAMPING" },
+    { "id": 2, "username": "pending", "email": null, "role": "ASISTEN_APOTEKER" },
     { "id": 3, "username": "admin", "email": "admin@example.com", "role": "SuperAdmin" }
   ]
 }
@@ -181,7 +181,7 @@ SELECT id, username, email, role FROM users;
 
 ⚠️ Semua user di database:
 - apj (APJ) - Email: apj@example.com
-- pending (APOTEKER_PENDAMPING) - Email: TIDAK ADA
+- pending (ASISTEN_APOTEKER) - Email: TIDAK ADA
 - admin (SuperAdmin) - Email: admin@example.com
 ```
 
@@ -206,7 +206,7 @@ SELECT id, username, email, role FROM users;
 Setiap user yang akan menerima laporan harus:
 - ✅ Terdaftar di database `users` table
 - ✅ Punya email yang valid dan tidak null
-- ✅ Role adalah `APJ` atau `APOTEKER_PENDAMPING` (case-sensitive!)
+- ✅ Role adalah `APJ` atau `ASISTEN_APOTEKER` (case-sensitive!)
 
 ### 2. **Klik Kirim Sekarang**
 
@@ -229,7 +229,7 @@ INSERT INTO users (username, email, password, role)
 VALUES ('apj_user', 'apj@example.com', 'hashed_password', 'APJ');
 
 INSERT INTO users (username, email, password, role) 
-VALUES ('apoteker_user', 'apoteker@example.com', 'hashed_password', 'APOTEKER_PENDAMPING');
+VALUES ('apoteker_user', 'apoteker@example.com', 'hashed_password', 'ASISTEN_APOTEKER');
 
 -- Verify
 SELECT id, username, email, role FROM users;
@@ -258,7 +258,7 @@ Tanpa SMTP config:
 
 Jika masih bermasalah:
 1. Cek database: `SELECT * FROM users;`
-2. Pastikan role adalah `APJ` atau `APOTEKER_PENDAMPING` (exact case)
+2. Pastikan role adalah `APJ` atau `ASISTEN_APOTEKER` (exact case)
 3. Pastikan email tidak null: `SELECT * FROM users WHERE email IS NULL;`
 4. Lihat server logs untuk error messages detail
 5. Cek browser console F12 untuk response API

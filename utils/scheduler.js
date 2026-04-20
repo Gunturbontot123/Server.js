@@ -1,6 +1,6 @@
 /**
  * Scheduler untuk mengirim laporan VED-FEFO setiap 5 hari
- * Email dikirim ke semua APJ dan Apoteker Pendamping yang terdaftar
+ * Email dikirim ke semua APJ dan Asisten Apoteker yang terdaftar
  */
 
 const cron = require('node-cron');
@@ -314,12 +314,12 @@ function parseExpiryDate(dateStr) {
 }
 
 /**
- * Ambil semua users APJ dan Apoteker Pendamping
+ * Ambil semua users APJ dan Asisten Apoteker
  */
 async function getAllUsersEmails(db) {
   return new Promise((resolve, reject) => {
     db.all(
-      "SELECT email, username, role FROM users WHERE role IN ('APJ', 'APOTEKER_PENDAMPING') AND email IS NOT NULL AND email != ''",
+      "SELECT email, username, role FROM users WHERE role IN ('APJ', 'ASISTEN_APOTEKER') AND email IS NOT NULL AND email != ''",
       (err, rows) => {
         if (err) {
           reject(err);

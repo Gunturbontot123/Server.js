@@ -17,7 +17,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'obatqu-secret-demo';
 const SESSION_COOKIE_NAME = 'obatqu.sid';
 const BCRYPT_ROUNDS = 10;
-const ALLOWED_ROLES = ['APJ', 'APOTEKER_PENDAMPING'];
+const ALLOWED_ROLES = ['APJ', 'ASISTEN_APOTEKER'];
 const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
 const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
 const OBAT_BOOTSTRAP_PATHS = [
@@ -60,7 +60,7 @@ function hashResetToken(token) {
 }
 
 function formatRoleLabel(role) {
-  return role === 'APJ' ? 'APJ' : 'Apoteker Pendamping';
+  return role === 'APJ' ? 'APJ' : 'Asisten Apoteker';
 }
 
 function getResetRequestMessage() {
@@ -759,7 +759,7 @@ function buildObatChangeSummary(beforeRow, afterRow) {
 function resolveActiveLoginRole(userRole, expectedRole) {
   if (!expectedRole) return null;
   if (userRole === expectedRole) return expectedRole;
-  if (userRole === 'APJ' && expectedRole === 'APOTEKER_PENDAMPING') return expectedRole;
+  if (userRole === 'APJ' && expectedRole === 'ASISTEN_APOTEKER') return expectedRole;
   return null;
 }
 
@@ -890,7 +890,13 @@ app.post('/api/reset-password/request', (req, res) => {
     return res.status(400).json({ message: 'Username atau email wajib diisi.' });
   }
 
-  const complete = () => res.json({ message: getResetRequestMessage(), delivery: isEmailConfigured() ? 'email' : 'fallback-log' });
+  const complete = (delivery) => {
+    let message = 'Jika akun ditemukan, link reset password sudah dikirim ke email yang terdaftar.';
+    if (delivery === 'fallback-log') {
+      message = 'Jika akun ditemukan, link reset password disimpan ke email-fallback.log karena SMTP belum dikonfigurasi.';
+    }
+    return res.json({ message, delivery: delivery || 'email' });
+  };
 
   db.run("DELETE FROM password_reset_tokens WHERE used_at IS NOT NULL OR expires_at <= ?", [new Date().toISOString()], () => {});
   const isEmailIdentifier = identifier.includes('@');
@@ -961,9 +967,17 @@ app.post('/api/reset-password/request', (req, res) => {
               </div>
             `;
 
-            await sendMail({ to: user.email, subject, text, html }, db);
-            addLog('auth', `reset password request ${user.username}`);
-            return complete();
+            try {
+              await sendMail({ to: user.email, subject, text, html }, db);
+              addLog('auth', `reset password request ${user.username}`);
+              return complete('email');
+            } catch (mailError) {
+              console.error(`Gagal mengirim email reset password ke ${user.email}:`, mailError);
+              // Fallback: Log link ke file jika email gagal
+              fs.appendFileSync('email-fallback.log', `[${new Date().toISOString()}] RESET LINK for ${user.username} (${user.email}): ${resetLink}\n`);
+              addLog('auth', `reset password request ${user.username} (fallback to log)`);
+              return complete('fallback-log');
+            }
           }
         );
       });
@@ -1648,8 +1662,8 @@ const PANDUAN_PDF_SECTIONS = [
     title: '2. Akun dan Login',
     paragraphs: [
       'Semua pengguna wajib memiliki akun sebelum dapat mengakses dashboard. Proses akun meliputi pendaftaran, masuk, dan pemulihan password.',
-      'Pendaftaran membutuhkan username unik, email, password minimal 4 karakter, dan pilihan role (APJ atau Apoteker Pendamping).',
-      'Login mewajibkan pemilihan role. Akun APJ dapat masuk sebagai APJ atau sebagai Apoteker Pendamping, namun Akun Apoteker Pendamping hanya dapat masuk dengan role tersebut.'
+      'Pendaftaran membutuhkan username unik, email, password minimal 4 karakter, dan pilihan role (APJ atau Asisten Apoteker)',
+      'Login mewajibkan pemilihan role. Akun APJ dapat masuk sebagai APJ atau sebagai Asisten Apoteker, namun Akun Asisten Apoteker hanya dapat masuk dengan role tersebut.'
     ],
     bullets: [
       'Gunakan username atau email saat login. Jika satu email dipakai lebih dari satu akun, gunakan username agar sistem mengenali akun yang benar.',
@@ -1660,12 +1674,12 @@ const PANDUAN_PDF_SECTIONS = [
   {
     title: '3. Hak Akses dan Role',
     paragraphs: [
-      'Sistem mendukung dua role utama: APJ (Apoteker Penanggung Jawab) dan Apoteker Pendamping.',
+      'Sistem mendukung dua role utama: APJ (Apoteker Penanggung Jawab) dan Asisten Apoteker.',
       'Keduanya dapat mengakses pengelolaan obat, monitoring, VED-FEFO, dan laporan. Manajemen user dan pengaturan email VED-FEFO hanya tersedia untuk APJ.'
     ],
     bullets: [
       'APJ: Akses penuh termasuk mengelola role pengguna lain dan mengatur pengaturan email VED-FEFO.',
-      'Apoteker Pendamping: Fokus pada operasional obat, monitoring, dan laporan.',
+      'Asisten Apoteker: Fokus pada operasional obat, monitoring, dan laporan.',
       'Akun APJ yang sedang aktif tidak dapat didemote dari dashboard untuk mencegah putus akses admin.'
     ]
   },
@@ -1741,7 +1755,7 @@ const PANDUAN_PDF_SECTIONS = [
     ],
     bullets: [
       'Cari user berdasarkan username atau email untuk menemukan akun dengan cepat.',
-      'Ubah role pengguna dari APJ atau Apoteker Pendamping sesuai kebutuhan organisasi.',
+      'Ubah role pengguna dari APJ atau Asisten Apoteker sesuai kebutuhan organisasi.',
       'Pengaturan Email VED-FEFO: Set interval pengiriman (1-30 hari), waktu pengiriman (HH:MM), aktifkan/nonaktifkan, dan test pengiriman.',
       'Gunakan buku panduan ini sebagai referensi operasional harian agar penggunaan sistem tetap konsisten dengan aturan role dan monitoring.'
     ]
@@ -3345,9 +3359,9 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
     const htmlContent = generateVedFefoReport(vedAnalysis, fefoRecommendations);
     console.log('[EMAIL-REPORT] ✅ HTML email generated');
     
-    // Fetch all users with role APJ or Apoteker Pendamping
+    // Fetch all users with role APJ or Asisten Apoteker
     console.log('[EMAIL-REPORT] 🔍 Querying users from database...');
-    const users = await promiseDb((cb) => db.all("SELECT id, username, email, role FROM users WHERE email IS NOT NULL AND email != '' AND (role = 'APJ' OR role = 'Apoteker Pendamping' OR role = 'APOTEKER_PENDAMPING')", cb));
+    const users = await promiseDb((cb) => db.all("SELECT id, username, email, role FROM users WHERE email IS NOT NULL AND email != '' AND (role = 'APJ' OR role = 'Asisten Apoteker' OR role = 'ASISTEN_APOTEKER')", cb));
     
     console.log('[EMAIL-REPORT] ✅ Query complete. Users found:', users);
     console.log('[EMAIL-REPORT] ✅ Users count:', users ? users.length : 0);
@@ -3536,8 +3550,9 @@ app.put('/api/laporan-pemusnahan/:id', authMiddleware, roleMiddleware(ALLOWED_RO
     if (err || !row) {
       return res.status(404).json({ message: 'Laporan tidak ditemukan' });
     }
-    if (row.status !== 'pending') {
-      return res.status(400).json({ message: 'Laporan tidak bisa diUpdate, status sudah: ' + row.status });
+    // Allow updating only when status is 'pending' or 'need_second_approval'
+    if (row.status !== 'pending' && row.status !== 'need_second_approval') {
+      return res.status(400).json({ message: 'Laporan tidak bisa diupdate, status sudah: ' + row.status });
     }
 
     const { unit_terjual, unit_sisa, pt_pemusnahan, biaya_pemusnahan, tanggal_pemusnahan, catatan } = req.body;
@@ -3558,7 +3573,7 @@ app.put('/api/laporan-pemusnahan/:id', authMiddleware, roleMiddleware(ALLOWED_RO
         if (err) {
           return res.status(500).json({ message: 'Error update: ' + err.message });
         }
-        res.json({ message: 'Laporan berhasil diupdate' });
+        res.json({ success: true, message: 'Laporan berhasil diupdate' });
       }
     );
   });

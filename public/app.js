@@ -314,7 +314,7 @@ function updateProfileInfo() {
 }
 
 function getRoleLabel(role) {
-  return role === 'APJ' ? 'APJ' : 'Apoteker Pendamping';
+  return role === 'APJ' ? 'APJ' : 'Asisten Apoteker';
 }
 
 function getRoleUseCases(role) {
@@ -337,10 +337,10 @@ function getRoleUseCases(role) {
   }
 
   return {
-    badge: 'Apoteker Pendamping',
-    title: 'Akses Apoteker Pendamping',
-    description: 'Apoteker Pendamping menjalankan use case operasional obat tanpa manajemen user.',
-    notice: 'Mode Apoteker Pendamping aktif. Use case yang tersedia: Mengelola Data Obat, Monitoring Kadaluarsa, Monitoring Stok, VED-FEFO, dan Laporan.',
+    badge: 'Asisten Apoteker',
+    title: 'Akses Asisten Apoteker',
+    description: 'Asisten Apoteker menjalankan use case operasional obat tanpa manajemen user.',
+    notice: 'Mode Asisten Apoteker aktif. Use case yang tersedia: Mengelola Data Obat, Monitoring Kadaluarsa, Monitoring Stok, VED-FEFO, dan Laporan.',
     noticeType: 'warning',
     items: [
       'Mengelola Data Obat',
@@ -453,7 +453,7 @@ function renderUsersTable(users = allUsers) {
       : '<div class="user-role-hint">Pilih role lalu simpan perubahan.</div>';
     const options = [
       `<option value="APJ" ${user.role === 'APJ' ? 'selected' : ''}>APJ</option>`,
-      `<option value="APOTEKER_PENDAMPING" ${user.role === 'APOTEKER_PENDAMPING' ? 'selected' : ''} ${pendampingOptionDisabled}>Apoteker Pendamping</option>`
+      `<option value="ASISTEN_APOTEKER" ${user.role === 'ASISTEN_APOTEKER' ? 'selected' : ''} ${pendampingOptionDisabled}>Asisten Apoteker</option>`
     ].join('');
 
     return `
@@ -3177,7 +3177,7 @@ async function loadLaporanPemusnahan() {
 
     if (!reports || reports.length === 0) {
       console.log('[LOAD LAPORAN] No reports found');
-      tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999; padding:20px;">Tidak ada laporan pemusnahan</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#999; padding:20px;">Tidak ada laporan pemusnahan</td></tr>';
       return;
     }
 
@@ -3197,6 +3197,7 @@ async function loadLaporanPemusnahan() {
           </td>
           <td>
             <button class="btn-sm btn-primary" data-action="view-detail" data-id="${laporan.id}">View</button>
+            ${(laporan.status === 'pending' || laporan.status === 'need_second_approval') ? `<button class="btn-sm btn-info" data-action="edit" data-id="${laporan.id}">✏️ Edit</button>` : ''}
             ${(laporan.status === 'pending' || laporan.status === 'need_second_approval') ? `<button class="btn-sm btn-success" data-action="approve" data-id="${laporan.id}">Approve</button>` : ''}
             ${laporan.status !== 'approved' ? `<button class="btn-sm btn-danger" data-action="reject" data-id="${laporan.id}">Reject</button>` : ''}
           </td>
@@ -3208,7 +3209,7 @@ async function loadLaporanPemusnahan() {
     console.error('[LOAD LAPORAN] ERROR:', err);
     const tableBody = document.getElementById('tableBodyPemusnahan');
     if (tableBody) {
-      tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#e74c3c; padding:20px;">Error loading reports</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#e74c3c; padding:20px;">Error loading reports</td></tr>';
     }
   }
 }
@@ -3239,7 +3240,7 @@ async function loadLaporanPemusnahanFull() {
 
     if (!reports || reports.length === 0) {
       console.log('[LOAD LAPORAN FULL] No reports found');
-      tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999; padding:20px;">Tidak ada laporan pemusnahan</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999; padding:20px;">Tidak ada laporan pemusnahan</td></tr>';
       return;
     }
 
@@ -3249,12 +3250,14 @@ async function loadLaporanPemusnahanFull() {
       return `
         <tr data-obat-id="${escapeHtml(String(laporan.obat_id))}">
           <td>${laporan.nama_obat || '-'}</td>
+          <td>${laporan.unit_terjual || 0} unit</td>
           <td>${laporan.unit_sisa || 0} unit</td>
           <td>Rp ${Number(laporan.biaya_pemusnahan || 0).toLocaleString('id-ID')}</td>
           <td>${laporan.pt_pemusnahan || '-'}</td>
           <td>${statusBadge}</td>
           <td>
             <button class="btn-sm btn-primary" data-action="view-detail" data-id="${laporan.id}">View</button>
+            ${(laporan.status === 'pending' || laporan.status === 'need_second_approval') ? `<button class="btn-sm btn-info" data-action="edit" data-id="${laporan.id}">✏️ Edit</button>` : ''}
             ${(laporan.status === 'pending' || laporan.status === 'need_second_approval') ? `<button class="btn-sm btn-success" data-action="approve" data-id="${laporan.id}">Approve</button>` : ''}
             ${laporan.status !== 'approved' ? `<button class="btn-sm btn-danger" data-action="reject" data-id="${laporan.id}">Reject</button>` : ''}
             ${canDownloadPDF ? `<button class="btn-sm btn-primary" data-action="download-pdf" data-id="${laporan.id}">📥 PDF</button>` : ''}
@@ -3267,7 +3270,7 @@ async function loadLaporanPemusnahanFull() {
     console.error('[LOAD LAPORAN FULL] ERROR:', err);
     const tableBody = document.getElementById('tableBodyPemusnahanFull');
     if (tableBody) {
-      tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#e74c3c; padding:20px;">Error loading reports</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#e74c3c; padding:20px;">Error loading reports</td></tr>';
     }
   }
 }
@@ -3342,7 +3345,7 @@ Created At: ${laporan.created_at || '-'}
 // LAPORAN PEMUSNAHAN APPROVAL WORKFLOW
 // ============================================
 // ALUR APPROVAL:
-// 1. APK (Apoteker Pendamping) = Membuat laporan dengan form
+// 1. APK (Asisten Apoteker) = Membuat laporan dengan form
 //    Status: PENDING (menunggu approval)
 // 2. APJ (Apoteker Jaga) = Review dan approve laporan
 //    - First Approval: Laporan di-review, status → NEED_SECOND_APPROVAL
@@ -3351,6 +3354,75 @@ Created At: ${laporan.created_at || '-'}
 // 3. Setelah APPROVED: APJ bisa download laporan sebagai PDF
 // 4. Obat yang di-pemusnahan di-delete dari database otomatis
 // ============================================
+
+// Global variable to track edit mode
+let currentEditingLaporanId = null;
+
+// Edit destruction report
+async function editPemusnahan(id) {
+  try {
+    console.log('[EDIT PEMUSNAHAN] Loading laporan for editing:', id);
+    const response = await fetch(`/api/laporan-pemusnahan/${id}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+    const laporan = await response.json();
+    if (!laporan || !laporan.id) {
+      showToast('Laporan tidak ditemukan', 'error');
+      return;
+    }
+
+    // Check if status allows editing
+    if (laporan.status !== 'pending' && laporan.status !== 'need_second_approval') {
+      showToast('Hanya laporan dengan status Pending atau Need 2nd Approval yang bisa diedit', 'error');
+      return;
+    }
+
+    // Set edit mode
+    currentEditingLaporanId = id;
+    console.log('[EDIT PEMUSNAHAN] Edit mode activated for:', id);
+
+    // Fill the form with existing data
+    document.getElementById('pemusnahanObatSelect').value = laporan.obat_id || '';
+    document.getElementById('pemusnahanUnitTerjual').value = laporan.unit_terjual || 0;
+    document.getElementById('pemusnahanUnitSisa').value = laporan.unit_sisa || 0;
+    document.getElementById('pemusnahanPtPemusnahan').value = laporan.pt_pemusnahan || '';
+    document.getElementById('pemusnahanBiaya').value = laporan.biaya_pemusnahan || 0;
+    document.getElementById('pemusnahanTanggal').value = laporan.tanggal_pemusnahan || '';
+    document.getElementById('pemusnahanCatatan').value = laporan.catatan || '';
+
+    // Display obat info with edit indicator
+    const infoDisplay = document.getElementById('pemusnahanInfoDisplay');
+    infoDisplay.innerHTML = `
+      <strong>✏️ Mode Edit:</strong> ${laporan.nama_obat || '-'}<br>
+      Batch: ${laporan.batch || '-'}<br>
+      <span style="color: #e67e22; font-weight: bold;">ID: ${id}</span>
+    `;
+
+    // Update submit button text and color
+    const form = document.getElementById('formPemusnahanFull');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '💾 Update Laporan';
+    submitBtn.style.background = '#3498db';
+
+    // Navigate to pemusnahan tab
+    const navElement = document.querySelector('a[data-nav-target="laporan"]');
+    if (navElement) navElement.click();
+    
+    setTimeout(() => {
+      const pemusnahanTab = document.querySelector('a[data-tab="contentPemusnahanObat"]');
+      if (pemusnahanTab) pemusnahanTab.click();
+      
+      // Scroll to form
+      const form = document.getElementById('formPemusnahanFull');
+      if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+
+    showToast('📝 Form siap untuk diedit. Ubah data dan klik Update Laporan.', 'info');
+  } catch (err) {
+    console.error('[EDIT PEMUSNAHAN] Error:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
 
 // Approve destruction report
 async function approvePemusnahan(id) {
@@ -3701,7 +3773,8 @@ async function handlePemusnahanFormSubmit(e) {
     selectValue, 
     obatId,
     type: typeof obatId,
-    length: obatId.length
+    length: obatId.length,
+    editMode: !!currentEditingLaporanId
   });
 
   // Get raw values dari form
@@ -3765,8 +3838,15 @@ async function handlePemusnahanFormSubmit(e) {
   console.log('[FORM SUBMIT] Payload JSON:', JSON.stringify(payload));
 
   try {
-    const response = await fetch('/api/laporan-pemusnahan', {
-      method: 'POST',
+    // Determine if updating or creating
+    const isEditMode = !!currentEditingLaporanId;
+    const url = isEditMode ? `/api/laporan-pemusnahan/${currentEditingLaporanId}` : '/api/laporan-pemusnahan';
+    const method = isEditMode ? 'PUT' : 'POST';
+    
+    console.log('[FORM SUBMIT] Submitting to:', { url, method, isEditMode });
+
+    const response = await fetch(url, {
+      method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
@@ -3774,8 +3854,24 @@ async function handlePemusnahanFormSubmit(e) {
     const data = await response.json();
     
     if (response.ok && data.message) {
-      showToast('Laporan pemusnahan berhasil disimpan (status: Pending)', 'success');
+      const successMsg = isEditMode 
+        ? 'Laporan pemusnahan berhasil diperbarui!' 
+        : 'Laporan pemusnahan berhasil disimpan (status: Pending)';
+      
+      console.log('[FORM SUBMIT] SUCCESS:', successMsg);
+      showToast(successMsg, 'success');
+      
+      // Reset form & clear edit mode
       document.getElementById('formPemusnahanFull').reset();
+      document.getElementById('pemusnahanInfoDisplay').innerHTML = 'Pilih obat untuk menampilkan informasi';
+      currentEditingLaporanId = null;
+      const submitBtn = document.querySelector('#formPemusnahanFull button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.innerHTML = '💾 Simpan Laporan';
+        submitBtn.style.background = '#27ae60';
+      }
+      
+      // Reload dropdowns and tables
       await loadPemusnahanObatDropdown();
       await loadLaporanPemusnahanFull(); // AWAIT - load table FIRST
       renderMonitoringKadaluarsa(); // Now render priority lists with loaded data
@@ -3858,6 +3954,9 @@ function setupPemusnahanListeners() {
     console.log('[LAPORAN ACTION] Button clicked:', { action, laporanId });
 
     switch (action) {
+      case 'edit':
+        editPemusnahan(laporanId);
+        break;
       case 'approve':
         approvePemusnahan(laporanId);
         break;

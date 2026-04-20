@@ -31,7 +31,7 @@ SELECT username, email, role FROM users;
 
 **Harusnya ada minimal 1 user dengan:**
 - Email: bukan null/kosong
-- Role: `APJ` atau `APOTEKER_PENDAMPING` (exact!)
+- Role: `APJ` atau `ASISTEN_APOTEKER` (exact!)
 
 ### 2. Buka Dashboard
 
@@ -58,7 +58,7 @@ Dikirim ke 3 pengguna
 
 ⚠️ Semua user di database:
 - apj_user (APJ) - Email: apj@example.com
-- apoteker (APOTEKER_PENDAMPING) - Email: TIDAK ADA
+- apoteker (ASISTEN_APOTEKER) - Email: TIDAK ADA
 - admin (ADMIN) - Email: admin@example.com
 ```
 
@@ -73,7 +73,7 @@ Dikirim ke 3 pengguna
 | Penyebab | Solusi |
 |----------|--------|
 | Email user kosong/NULL | Update user dengan email |
-| Role tidak tepat (typo) | Ganti role ke tepat: `APJ` atau `APOTEKER_PENDAMPING` |
+| Role tidak tepat (typo) | Ganti role ke tepat: `APJ` atau `ASISTEN_APOTEKER` |
 | Role ada spasi/case salah | Pastikan exact match: case-sensitive! |
 | User belum terdaftar | Register user baru di UI atau SQL |
 
@@ -98,12 +98,12 @@ SELECT id, username, email, role FROM users;
 
 ```javascript
 // Sebelum: tidak match karena IN operator
-WHERE role IN ('APJ', 'Apoteker Pendamping', 'APOTEKER_PENDAMPING')
+WHERE role IN ('APJ', 'Asisten Apoteker', 'ASISTEN_APOTEKER')
 
 // Sesudah: explicit OR untuk tolerance
 WHERE (role = 'APJ' 
-       OR role = 'Apoteker Pendamping' 
-       OR role = 'APOTEKER_PENDAMPING')
+       OR role = 'Asisten Apoteker' 
+       OR role = 'ASISTEN_APOTEKER')
 ```
 
 ### Console Logging (ADDED)
@@ -167,7 +167,7 @@ Jika tidak ada user match, response sekarang include:
 ## ✔️ VERIFICATON CHECKLIST
 
 - [ ] Database user ada dengan email yang valid
-- [ ] Role user adalah `APJ` atau `APOTEKER_PENDAMPING` (exact!)
+- [ ] Role user adalah `APJ` atau `ASISTEN_APOTEKER` (exact!)
 - [ ] SMTP dikonfigurasi di .env (opsional untuk test fallback-log)
 - [ ] Server sudah restart dengan perubahan terbaru
 - [ ] Klik "Kirim Laporan Sekarang" dari Dashboard
