@@ -30,7 +30,7 @@ const ADMIN_DEFAULT_PASSWORD = 'Abgbontot';
 const SESSION_COOKIE_SECURE = false;
 const SESSION_COOKIE_OPTIONS = {
   maxAge: 24 * 3600 * 1000,
-  httpOnly: true,
+  httpOnly: false,
   sameSite: 'lax',
   secure: SESSION_COOKIE_SECURE,
   path: '/'
