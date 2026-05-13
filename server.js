@@ -815,7 +815,7 @@ app.post('/api/login', (req, res) => {
     return db.all('SELECT * FROM users WHERE lower(email) = ? ORDER BY id DESC', [value.toLowerCase()], (err, users) => {
       if (err) {
         console.error('Login DB error:', err);
-        return res.status(500).json({ message: 'DB error' });
+        return res.status(500).json({ message: err.message || 'DB error' });
       }
       if (!users || users.length === 0) {
         return res.status(401).json({ message: 'Invalid credentials' });
@@ -830,7 +830,7 @@ app.post('/api/login', (req, res) => {
   db.get('SELECT * FROM users WHERE username = ?', [value], (err, user) => {
     if (err) {
       console.error('Login DB error:', err);
-      return res.status(500).json({ message: 'DB error' });
+      return res.status(500).json({ message: err.message || 'DB error' });
     }
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });

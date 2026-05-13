@@ -74,16 +74,15 @@ function replaceQuestionPlaceholders(sql) {
 
 class PostgresCompatDb {
   constructor() {
-    // --- Vercel Aurora PostgreSQL with IAM authentication ---
-    // See: https://vercel.com/docs/storage/vercel-postgres/iam-auth
+    const region = process.env.AWS_REGION;
     const signer = new Signer({
       hostname: process.env.PGHOST,
       port: Number(process.env.PGPORT),
       username: process.env.PGUSER,
-      region: process.env.AWS_REGION,
+      region,
       credentials: awsCredentialsProvider({
         roleArn: process.env.AWS_ROLE_ARN,
-        clientConfig: { region: process.env.AWS_REGION },
+        clientConfig: { region },
       }),
     });
 
@@ -97,13 +96,13 @@ class PostgresCompatDb {
     });
     attachDatabasePool(this.pool);
     // Log config for debugging (no secrets)
-    console.log('[DB] Using Vercel Aurora PostgreSQL IAM connection:', {
+    console.log('[DB] Using standard PostgreSQL connection:', {
       host: process.env.PGHOST,
       port: process.env.PGPORT,
       database: process.env.PGDATABASE,
       user: process.env.PGUSER,
-      region: process.env.AWS_REGION,
-      roleArn: process.env.AWS_ROLE_ARN,
+      ssl: true,
+      auroraIam: true,
     });
     this.ready = Promise.resolve(); // Pool connects lazily
   }
