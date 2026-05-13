@@ -25,7 +25,7 @@
 
 Jalankan di terminal:
 ```sql
-psql -U postgres -d postgres
+sqlite3 ./data.sqlite
 SELECT username, email, role FROM users;
 ```
 

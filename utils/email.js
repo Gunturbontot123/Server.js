@@ -69,7 +69,7 @@ async function loadEmailConfig(db) {
   }
 
   return new Promise((resolve) => {
-    db.get("SELECT * FROM email_config WHERE config_type = $1", ['ved_fefo_email'], (err, row) => {
+    db.get("SELECT * FROM email_config WHERE config_type = ?", ['ved_fefo_email'], (err, row) => {
       if (err) {
         console.error('[EMAIL] ❌ Error loading email config:', err);
         resolve(null);
