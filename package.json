@@ -9,9 +9,6 @@
     "export": "node scripts/export_seed_data.js"
   },
   "dependencies": {
-    "@aws-sdk/rds-signer": "^3.1045.0",
-    "@vercel/functions": "^3.5.1",
-    "@vercel/oidc-aws-credentials-provider": "^3.1.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "debug": "^4.4.3",
@@ -22,7 +19,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.2",
     "pdfkit": "^0.17.2",
-    "pg": "^8.20.0",
+    "sqlite3": "^5.1.7",
     "uuid": "^8.3.2",
     "xlsx": "^0.18.5"
   }

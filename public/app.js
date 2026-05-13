@@ -16,7 +16,7 @@ const API_BASE = RUNTIME_BASE || ((typeof window !== 'undefined' && window.locat
 const LOGIN_URL = API_BASE ? `${API_BASE}/login.html` : '/login.html';
 
 // Ensure fetch sends credentials by default (so session cookies are included)
-(function(){
+(function() {
   if (typeof window !== 'undefined' && window.fetch) {
     const _fetch = window.fetch.bind(window);
     window.fetch = function(url, opts = {}) {
@@ -172,10 +172,10 @@ function hideDashboardEntryOverlay() {
 function markDashboardReady() {
   console.log('[markDashboardReady] Removing dashboard-booting, adding dashboard-ready');
   console.log('[markDashboardReady] Before - classes:', document.body.className);
-  
+
   document.body.classList.remove('dashboard-booting');
   document.body.classList.add('dashboard-ready');
-  
+
   console.log('[markDashboardReady] After - classes:', document.body.className);
   console.log('[markDashboardReady] Scheduling overlay hide in 260ms');
   window.setTimeout(() => {
@@ -226,17 +226,17 @@ function downloadReport(type) {
     'management-pdf': (API_BASE || '') + '/api/reports/management-pdf',
     'restock-analysis-pdf': (API_BASE || '') + '/api/reports/restock-analysis-pdf'
   };
-  
+
   if (!urls[type]) {
     console.error('Unknown report type:', type);
     showToast('Tipe laporan tidak diketahui.', 'error');
     return;
   }
-  
+
   const url = urls[type];
   console.log('[DOWNLOAD] Starting:', { type, url });
   showToast('Mengunduh laporan...', 'info');
-  
+
   // Fetch first to check for errors
   fetch(url, {
     method: 'GET',
@@ -250,7 +250,7 @@ function downloadReport(type) {
         contentDisposition: res.headers.get('content-disposition'),
         contentLength: res.headers.get('content-length')
       });
-      
+
       if (!res.ok) {
         console.error('[DOWNLOAD] Response not ok');
         return res.text().then(text => {
@@ -263,36 +263,36 @@ function downloadReport(type) {
           }
         });
       }
-      
+
       return res.blob();
     })
     .then(blob => {
       console.log('[DOWNLOAD] Blob received:', { size: blob.size, type: blob.type });
-      
+
       if (blob.size === 0) {
         console.error('[DOWNLOAD] Blob empty!');
         throw new Error('File laporan kosong');
       }
-      
+
       // Create download link
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
       const ext = type.includes('pdf') ? 'pdf' : 'csv';
       link.download = `Laporan-${type}-${new Date().toISOString().split('T')[0]}.${ext}`;
-      
+
       console.log('[DOWNLOAD] Creating download:', link.download);
-      
+
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       setTimeout(() => {
         document.body.removeChild(link);
         URL.revokeObjectURL(blobUrl);
         console.log('[DOWNLOAD] Cleanup done');
       }, 100);
-      
+
       showToast('Laporan berhasil diunduh.', 'success');
       console.log('[DOWNLOAD] Success');
     })
@@ -516,16 +516,16 @@ async function deleteUser(userId, username) {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' }
     });
-    
+
     const data = await res.json();
-    
+
     if (!res.ok) {
       showToast(`Gagal: ${data.message || 'Tidak dapat menghapus user'}`, 'error');
       return;
     }
-    
+
     showToast(`✅ User "${username}" berhasil dihapus`, 'success');
-    
+
     // Tunggu 1 detik kemudian reload users list
     setTimeout(() => {
       loadUsers();
@@ -641,28 +641,27 @@ async function init() {
     const data = await fetchCurrentUser();
     currentUser = data.user;
     console.log('[init] Current user loaded:', currentUser.username, 'Role:', currentUser.role);
-    
+
     const userAvatar = document.getElementById('userAvatar');
     const userName = document.getElementById('userName');
     if (userAvatar) userAvatar.textContent = (currentUser.username || 'A')[0].toUpperCase();
     if (userName) userName.textContent = currentUser.username || 'User';
-    
+
     applyRolePermissions();
     console.log('[init] Role permissions applied');
-    
+
     await loadCategories();
     console.log('[init] Categories loaded');
-    
+
     await loadAllData();
     console.log('[init] All data loaded, marking dashboard ready...');
-    
+
     markDashboardReady();
     console.log('[init] Dashboard ready - initialization complete');
   } catch (err) {
     console.error("[init] Initialization failed:", err);
     console.error('[init] Error details:', err.message, err.stack);
     hideDashboardEntryOverlay();
-    redirectToLogin();
   }
 }
 
@@ -694,7 +693,7 @@ async function loadAllData() {
     console.log('[loadAllData] Starting data fetch...');
     const resObat = await fetch('/api/obat');
     console.log('[loadAllData] /api/obat response:', resObat.status, resObat.ok);
-    
+
     if (resObat.status === 401) {
       console.error('[loadAllData] Auth failed - session expired');
       showToast('Sesi login berakhir. Silakan login ulang.', 'warning');
@@ -716,7 +715,7 @@ async function loadAllData() {
       { total: 0 },
       (value) => (value && typeof value === 'object') ? value : { total: 0 }
     );
-    
+
     // Fetch kategori config for lead time calculations
     const kategoriConfig = await fetchOptionalJson('/api/kategori-config', [], (value) => Array.isArray(value) ? value : []);
     allKategoriConfig = kategoriConfig;
@@ -724,7 +723,7 @@ async function loadAllData() {
     if (allKategoriConfig.length > 0) {
       console.log('[loadAllData] Config details:', allKategoriConfig.map(k => ({ nama: k.nama, min: k.min_stok, optimal: k.optimal_stok })));
     }
-    
+
     console.log('[loadAllData] Rendering UI components...');
     updateDashboard();
     renderDataObatTable(allObat);
@@ -820,7 +819,7 @@ function getExpiryStatus(kadaluarsa) {
   const now = new Date();
   const diffDays = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return { key: 'kadaluarsa', label: 'Kadaluarsa', color: '#e74c3c' };
-  
+
   // Use days threshold for consistency with backend (60 days = 2 months)
   if (diffDays <= 60) return { key: 'kadaluarsa', label: 'Kadaluarsa', color: '#e74c3c' };
   if (diffDays <= 180) return { key: 'hampir', label: 'Hampir Kadaluarsa', color: '#f39c12' };
@@ -842,10 +841,10 @@ function getObatPriority(obat) {
   const ved = String(obat && obat.ved || '').toUpperCase();
   const kategori = String(obat && obat.kategori || '');
   const obatNama = String(obat && obat.nama || '');
-  
+
   // Get category config for this obat
   const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
-  
+
   // Debug log for telon product
   if (obatNama.toLowerCase().includes('telon')) {
     console.log('[PRIORITY] Telon product:', {
@@ -856,40 +855,40 @@ function getObatPriority(obat) {
       kategoriCfg: kategoriCfg ? { nama: kategoriCfg.nama, min: kategoriCfg.min_stok, optimal: kategoriCfg.optimal_stok } : 'NOT FOUND'
     });
   }
-  
+
   // Priority combines VED classification + stock level
   if (qty <= 0) return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };  // Out of stock = critical
-  
+
   // Use optimal/min stock thresholds from kategori config if available
   if (kategoriCfg) {
     const optimalStok = Number(kategoriCfg.optimal_stok || 5);
     const minStok = Number(kategoriCfg.min_stok || 2);
-    
+
     // Critical: below minimum stock
     if (qty < minStok) {
       if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
       if (ved === 'E') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
       return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
     }
-    
+
     // Medium: between min and optimal stock
     if (qty < optimalStok) {
       if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
       if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
       return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
     }
-    
+
     // All good: above optimal stock
     return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
   }
-  
+
   // Fallback to simple logic (qty <= 5)
   if (qty <= 5) {
     if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
     if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
     return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
   }
-  
+
   return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
 }
 
@@ -899,10 +898,10 @@ function getObatPriorityByProduct(obat) {
   const ved = String(obat && obat.ved || '').toUpperCase();
   const kategori = String(obat && obat.kategori || '');
   const obatNama = String(obat && obat.nama || '');
-  
+
   // Get category config for this obat
   const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
-  
+
   // Debug log for telon product
   if (obatNama.toLowerCase().includes('telon')) {
     console.log('[PRIORITY BY PRODUCT] Telon product:', {
@@ -914,40 +913,40 @@ function getObatPriorityByProduct(obat) {
       kategoriCfg: kategoriCfg ? { nama: kategoriCfg.nama, min: kategoriCfg.min_stok, optimal: kategoriCfg.optimal_stok } : 'NOT FOUND'
     });
   }
-  
+
   // Priority combines VED classification + stock level
   if (totalQty <= 0) return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };  // Out of stock = critical
-  
+
   // Use optimal/min stock thresholds from kategori config if available
   if (kategoriCfg) {
     const optimalStok = Number(kategoriCfg.optimal_stok || 5);
     const minStok = Number(kategoriCfg.min_stok || 2);
-    
+
     // Critical: below minimum total stock
     if (totalQty < minStok) {
       if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
       if (ved === 'E') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
       return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
     }
-    
+
     // Medium: between min and optimal TOTAL stock
     if (totalQty < optimalStok) {
       if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
       if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
       return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
     }
-    
+
     // All good: above optimal TOTAL stock
     return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
   }
-  
+
   // Fallback to simple logic (totalQty <= 5)
   if (totalQty <= 5) {
     if (ved === 'V') return { key: 'tinggi', label: 'Tinggi (P1)', level: 'P1' };
     if (ved === 'E') return { key: 'sedang', label: 'Sedang (P2)', level: 'P2' };
     return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
   }
-  
+
   return { key: 'rendah', label: 'Rendah (P3)', level: 'P3' };
 }
 
@@ -1020,7 +1019,7 @@ function buildFefoRankMap(rows) {
     // VED priority SECOND (only if same expiry date)
     return a.vedOrder - b.vedOrder;
   });
-  
+
   sorted.forEach((item, index) => {
     rankMap.set(String(item.id), index + 1);
   });
@@ -1029,10 +1028,10 @@ function buildFefoRankMap(rows) {
 
 function renderMonitoringKadaluarsa() {
   populateMonitoringMonthFilter();
-  
+
   // Get list of obat IDs that are already in disposal reports (pemusnahan)
   const obatInPemusnahan = new Set();
-  
+
   // Check BOTH pemusnahan tables (modal and full page)
   const tableBodyPemusnahan = document.getElementById('tableBodyPemusnahan');
   if (tableBodyPemusnahan) {
@@ -1042,7 +1041,7 @@ function renderMonitoringKadaluarsa() {
       if (dataId) obatInPemusnahan.add(dataId);
     });
   }
-  
+
   const tableBodyPemusnahanFull = document.getElementById('tableBodyPemusnahanFull');
   if (tableBodyPemusnahanFull) {
     const rows = tableBodyPemusnahanFull.querySelectorAll('tr');
@@ -1051,9 +1050,9 @@ function renderMonitoringKadaluarsa() {
       if (dataId) obatInPemusnahan.add(dataId);
     });
   }
-  
+
   console.log('[RENDER MONITORING] Obat in pemusnahan:', Array.from(obatInPemusnahan).slice(0, 5), '...');
-  
+
   const expired = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'kadaluarsa' && !obatInPemusnahan.has(String(obat.id)));
   const nearExpire = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'hampir' && !obatInPemusnahan.has(String(obat.id)));
   const good = allObat.filter((obat) => getExpiryStatus(obat.kadaluarsa).key === 'baik');
@@ -1158,7 +1157,7 @@ function renderMonitoringKadaluarsa() {
 function renderExpiryDataTable() {
   // Get list of obat IDs that are already in disposal reports (pemusnahan)
   const obatInPemusnahan = new Set();
-  
+
   // Check BOTH pemusnahan tables (modal and full page)
   const tableBodyPemusnahan = document.getElementById('tableBodyPemusnahan');
   if (tableBodyPemusnahan) {
@@ -1168,7 +1167,7 @@ function renderExpiryDataTable() {
       if (dataId) obatInPemusnahan.add(dataId);
     });
   }
-  
+
   const tableBodyPemusnahanFull = document.getElementById('tableBodyPemusnahanFull');
   if (tableBodyPemusnahanFull) {
     const rows = tableBodyPemusnahanFull.querySelectorAll('tr');
@@ -1177,7 +1176,7 @@ function renderExpiryDataTable() {
       if (dataId) obatInPemusnahan.add(dataId);
     });
   }
-  
+
   const timeFilterEl = document.getElementById('vedTimeFilter');
   const vitalList = document.getElementById('vedVitalList');
   const essentialList = document.getElementById('vedEssentialList');
@@ -1334,7 +1333,7 @@ const OBAT_EXPLANATION_OVERRIDES = {
   fargetik: 'Fargetik (Asam Mefenamat) - Pereda nyeri untuk migrain, nyeri sendi, nyeri haid. Mulai kerja 15-30 menit. Maksimal 3-4 hari penggunaan berturut-turut.',
   meloxicam: 'Meloxicam - NSAID selectif untuk nyeri sendi dan tulang kronis (arthritis). Efek anti-inflamasi kuat. Diminum 1x sehari 7.5-15mg sesuai resep dokter.',
   samcofenac: 'Samcofenac - Kombinasi diclofenac (anti-inflamasi) sendawa, untuk nyeri otot dan sendi. Aksi cepat untuk nyeri akut. Minum dengan makanan untuk proteksi lambung.',
-  
+
   // Antibiotik - Pembunuh Bakteri
   amoxicillin: 'Amoxicillin - Antibiotik beta-laktam untuk berbagai infeksi bakteri (telinga, hidung, kulit, saluran kencing). Harus diminum sampai habis (biasanya 7-10 hari) walaupun sudah merasa baik. Dewasa 500mg-1g tiap 8 jam.',
   'amoxicillin hj': 'Amoxicillin HJ - Amoxicillin generik berkualitas untuk pengobatan infeksi bakteri. Harus dihabiskan sesuai durasi yang diberikan dokter untuk mencegah resistensi bakteri.',
@@ -1349,18 +1348,18 @@ const OBAT_EXPLANATION_OVERRIDES = {
   clindamycin: 'Clindamycin - Antibiotik untuk infeksi bakteri serius termasuk anaerob. Efektif untuk infeksi gigi, kulit, saluran pernapasan. Minum dengan air putih banyak.',
   metronidazole: 'Metronidazole - Antimikroba untuk infeksi bakteri anaerob dan protozoa (ameba, trikomonas). Jangan minum alkohol saat menggunakan. Efek samping rasa logam di mulut.',
   helixime: 'Helixime - Kombinasi antibiotik untuk h. pylori penyebab tukak lambung. Biasanya diberikan dengan PPI. Efektivitas tinggi dalam eradikasi bakteri.',
-  
+
   // Antifungal - Obat Jamur
   ketokonazol: 'Ketokonazol - Antifungal untuk infeksi jamur sistemik dan lokal. Menghambat sintesis ergosterol sel jamur. Efektif untuk candida, dermatofita, pityriasis. Diminum dengan makanan untuk absorpsi optimal.',
   'ketokonazole salf': 'Ketokonazole Salep - Aplikasi topikal untuk jamur kulit, panu, eksim jamur. Oleskan pada area yang terkena 2x sehari. Efek dalam 2-4 minggu penggunaan teratur.',
   mycoral: 'Mycoral (Ketokonazol) - Tablet ketokonazol untuk infeksi jamur sistemik. Dosis 200-400mg sehari. Perlu pemantauan fungsi hati karena risiko hepatotoksisitas.',
   'mycoral cream': 'Mycoral Cream (Ketokonazole) - Krim untuk jamur kulit, penyakit kulit jamur, seborrheic dermatitis. Oleskan tipis pada area yang terkena Pagi dan malam.',
   flucadex: 'Flucadex (Fluconazole) - Antifungal untuk candidiasis orofaringeal, esofageal, vaginal, dan infeksi jamur sistemik. Efektif melawan candida albicans.',
-  
+
   // Asma & Bronkodilator
   salbutamol: 'Salbutamol (Albuterol) - Beta-2 agonis untuk melegakan saluran napas pada asma, bronkitis kronis, PPOK. Inhaler memberikan efek dalam 15 menit. Pemakaian rutin atau PRN sesuai kebutuhan dokter.',
   brochifar: 'Brochifar - Kombinasi ekspektoran dan bronkodilator untuk batuk asma, bronkitis. Memudahkan pengeluaran dahak dan lega napas. Minum 3-4x sehari.',
-  
+
   // Antihistamin & Alergi
   cetirizine: 'Cetirizine - Antihistamin H1 selektif, non-sedating (tidak mengantuk) untuk rhinitis alergi, urtikaria, alergi musiman. Mulai kerja 20-40 menit. Dewasa 10mg sehari, anak 5-10mg.',
   ctm: 'CTM (Chlorpheniramine Maleate) - Antihistamin obat untuk gejala alergi (gatal, bersin, pilek, bintik merah). DAPAT MENGANTUK, hindari mengemudi. Lebih sesuai untuk alergi berat.',
@@ -1370,7 +1369,7 @@ const OBAT_EXPLANATION_OVERRIDES = {
   'lerzin sirup': 'Lerzin Sirup (Cetirizine) - Cetirizine cair untuk anak dengan alergi. Penyerapan cepat, non-sedating. Aman untuk alergi musiman atau perennial.',
   caviplex: 'Caviplex - Kombinasi antihistamin dan dekongestan untuk flu alergi dan rhinitis alergi. Mengurangi hidung tersumbat + alergi. Minum 2-3x sehari.',
   'caviplex syr': 'Caviplex Sirup - Antihistamin sirup anak untuk alergi dan flu pada anak. Efektif mengurangi gejala alergi dengan rasa yang enak.',
-  
+
   // Antimaag & Anti-Asam Lambung
   omeprazole: 'Omeprazole - Proton Pump Inhibitor (PPI) untuk mengurangi produksi asam lambung. Efektif untuk GERD, tukak lambung, esofagitis. Diminum 30 menit sebelum makan, dosis 20-40mg sehari.',
   'omeprazol hj': 'Omeprazol HJ - Omeprazole generik berkualitas untuk penyakit asam lambung kronis. Penyembuhan lambung dalam 4-8 minggu penggunaan. Efek dalam 1 jam pertama.',
@@ -1378,7 +1377,7 @@ const OBAT_EXPLANATION_OVERRIDES = {
   gasela: 'Gasela (Ranitidine) - Ranitidine sirup untuk asam lambung kronis. Efektif 1-2 jam. Aman untuk jangka panjang, menurunkan keasaman lambung signifikan.',
   antasida: 'Antasida - Menetralisir asam lambung langsung untuk pereda nyeri ulu hati akut. Kerja cepat 5-10 menit. Berisi Ca/Al hydroxide. Gunakan sesuai kebutuhan tapi maksimal 3 jam setelah makan.',
   promaag: 'Promaag - Antasida kombinasi untuk maag, gastritis, perut kembung. Kandungan magnesium hidroksida dan simethicone untuk pereda gas. Kerja cepat untuk nyeri ulu hati akut.',
-  
+
   // Batuk & Pilek & Ekspektoran
   ambroxol: 'Ambroxol - Mucolytic ekspektoran untuk memecah dahak kental dan memudahkan batuk produktif. Efektif untuk batuk berdahak kronis. Diminum 3x sehari 30mg atau sirup. Mulai kerja 4-8 jam.',
   itramol: 'Itramol Sirup - Itrakonazol + ambroxol? atau paracetamol + ambroxol. Ekspektoran untuk batuk berdahak pada anak. Rasa jeruk yang disukai anak.',
@@ -1391,18 +1390,18 @@ const OBAT_EXPLANATION_OVERRIDES = {
   'pimtrakol syr': 'Pimtrakol Sirup Cherry - Batuk anak rasa cherry. Ekspektoran untuk memudahkan pengeluaran dahak. 3-4x sehari sesuai usia.',
   'procurma syr': 'Procurma Sirup - Obat batuk pilek kombinasi. Pereda batuk + demam + pilek dalam satu produk. Ideal untuk ISPA ringan-sedang.',
   guanistrep: 'Guanistrep Sirup - Guaifenesin ekspektoran sirup untuk anak. Memecah dahak kental. Diminum 3x sehari dengan banyak air putih.',
-  
+
   // Diabetes
   metformin: 'Metformin - Antidiabetes oral untuk diabetes tipe 2. Menurunkan gula darah dengan meningkatkan sensitivitas insulin dan mengurangi glukoneogenesis hepatik. Diminum 500-1000mg tiap 8 jam. Tidak menyebabkan hipoglikemia.',
   'metformin 500mg': 'Metformin 500mg - Dosis standar metformin untuk kontrol gula darah sedang. Dikombinasikan dengan diet dan olahraga. Efek penuh dalam 2-3 minggu.',
-  
+
   // Hipertensi & Jantung
   amlodipine: 'Amlodipine - Calcium channel blocker untuk hipertensi dan angina. Melemaskan otot pembuluh darah untuk turunkan tekanan darah. Diminum 1x sehari 5-10mg. Tidak boleh tiba-tiba dihentikan.',
   'amlodipine 5mg': 'Amlodipine 5mg - Dosis standar untuk hipertensi ringan-sedang. Diminum setiap hari pada waktu sama. Efektif dalam 6-14 hari. Efek samping minimal.',
   'amlodipin 10mg': 'Amlodipin 10mg - Dosis lebih kuat untuk hipertensi berat atau maintenance setelah dosis 5mg tidak cukup. Sangat efektif, toleransi baik.',
   simvastatin: 'Simvastatin - Statin untuk menurunkan kolesterol LDL berbahaya. Mencegah serangan jantung dan stroke. Diminum 1x malam 10-80mg. Jangan digabung beberapa statin.',
   'simvastatin hj': 'Simvastatin HJ - Simvastatin generik untuk terapi kolesterol kronis. Penurunan kolesterol terlihat dalam 4-6 minggu. Efektivitas terjaga dengan gaya hidup sehat.',
-  
+
   // Kortikosteroid
   dexamethasone: 'Dexamethasone - Kortikosteroid sistemik untuk inflamasi berat, alergi anaphylaxis, edema serebral, syok septik, myxedema. Potensial tinggi. Penggunaan jangka pendek sebisa mungkin.',
   'dexaharsen 0,5': 'Dexaharsen 0.5mg - Deksametason dosis rendah untuk penggunaan jangka panjang atau ringan. Untuk asma berat, alergi, inflamasi. Monitor fungsi adrenal.',
@@ -1410,14 +1409,14 @@ const OBAT_EXPLANATION_OVERRIDES = {
   'dexicorta': 'Dexicorta - Deksametason untuk kondisi inflamasi akut. Kerja cepat mengurangi peradangan. Taper down bertahap saat pulih untuk hindari adrenal insufficiency.',
   'metil prednisolon': 'Metil Prednisolon - Kortikosteroid untuk rheumatoid arthritis, SLE, inflamasi berat. Dosis mengikuti derajat peradangan. Konsumsi dengan makanan untuk proteksi lambung.',
   danasone: 'Danasone (Prednison) - Kortikosteroid untuk berbagai kondisi inflamasi dan imunitas. Harus taper down bertahap. Monitoring gula darah, tekanan darah, osteoporosis.',
-  
+
   // Antikonvulsan & Neurologis
   orphen: 'Orphen - Obat untuk kejang epilepsi dan neurologi. Stabilisasi membran sel saraf. Perlu pemeriksaan berkala dokter saraf.',
   grafalin: 'Grafalin - Antikonvulsan dosis anak untuk pencegahan kejang. Profilaksis untuk anak berisiko kejang. Dosis disesuaikan berat badan anak.',
-  
+
   // Antiemetic (Anti-Mual)
   ondansetron: 'Ondansetron - 5-HT3 antagonis untuk mual dan muntah terutama pasca operasi dan kemoterapi. Dosis 4-8mg IV, IM, atau PO. Sangat efektif dengan efek samping minimal.',
-  
+
   // Suplemen & Vitamin
   lecozinc: 'Lecozinc - Zinc + vitamin C kombinasi untuk imunitas dan pemulihan luka. Penting saat sakit atau pasca operasi. Diminum 1x sehari preferably pagi.',
   'leco zink': 'Leco Zinc Sirup - Zinc sirup untuk anak guna meningkatkan imunitas dan cepat sembuh dari sakit. Rasa jeruk. Berfungsi sebagai imunostimulan.',
@@ -1426,16 +1425,16 @@ const OBAT_EXPLANATION_OVERRIDES = {
   'vit c': 'Vitamin C - Asam askorbat untuk imunitas antioksidan pencegah flu. Asam + dapat meningkatkan penyerapan zat besi. Dewasa 50-200mg/hari, bayi 15-45mg.',
   'white vit c': 'White Vitamin C - Vitamin C putih asli untuk keamanan pencernaan dan penyerapan optimal. Tidak ada pewarna. Untuk mereka dengan pencernaan sensitif.',
   'vit c pot': 'Vitamin C Potassium - Vitamin C + Kalium kombinasi untuk imunitas dan keseimbangan elektrolit. Penting saat diare, muntah, atau dehidrasi.',
-  
+
   // Topical - Salep & Lotion
   'bufacort salep': 'Bufacort Salep - Kombinasi antifungal dan steroid untuk infeksi jamur dengan peradangan. Oleskan tipis pada area terkena 2x sehari. Perbaikan terlihat 3-5 hari.',
   'salep 24': 'Salep 24 - Salep universal untuk luka, iritasi kulit ringan, dermatitis. Formula lembut tidak perih. Cocok untuk sensit skin. Oleskan tiap kali perlu.',
   'genalten cream': 'Genalten Cream - Krim untuk berbagai masalah kulit (eksim, dermatitis, gatal). Formula lembut tidak menyakit. Aplikasi 2-3x sehari.',
   'enbatic cream': 'Enbatic Cream - Krim menyembuhkan luka ringan, goresan, lecet. Kandungan antiseptik + nutrisi regenerasi. Perawatan luka modern aman anak.',
-  
+
   // Pencernaan & Gangguan Lambung
   microlax: 'Microlax - Pencahar lunak untuk sembelit ringan. Enema mikro, kerja lokal di usus besar. Efek dalam 5-20 menit. Non-sistemik, aman untuk anak dan ibu hamil.',
-  
+
   // Obat Tetes & Lotion Mata
   insto: 'Insto - Tetes mata regular untuk mata kering, lelah, iritasi ringan. Pelumas mata alami. Gunakan sesuai kebutuhan, biasanya 3-4x sehari saat mata terasa kering.',
   rohto: 'Rohto - Tetes mata dengan menthol menyegarkan untuk mata lelah dan merah. Sensasi dingin meredakan kelelahan. Gunakan 1-2 tetes pada pagi atau malam.',
@@ -1443,15 +1442,15 @@ const OBAT_EXPLANATION_OVERRIDES = {
   'rohto steril': 'Rohto Steril 7ml - Tetes mata steril untuk iritasi mata, alergi, mata merah. Formula steril aman. Gunakan 1-2 tetes sesuai kebutuhan.',
   cazetin: 'Cazetin - Tetes mata untuk iritasi ringan, mata kering, conjunctivitis alergi. Formula mild tidak menyengat. Aman penggunaan berkala.',
   seremig: 'Seremig - Tetes mata untuk gejala mata lelah, minus, silau layar. Nutrisi mata optimal. Gunakan 1-2 tetes sebelum tidur.',
-  
+
   // Minyak Therapeutik
   'minyak kayu putih': 'Minyak Kayu Putih - Minyak aromaterapi dengan eucalyptus untuk pusing, pereda nyeri otot, flu tradisional. Hangatkan di telapak tangan, oleskan di dada. Dapat dengan vaporisasi.',
   'minyak telon': 'Minyak Telon - Minyak tradisional untuk bayi demam, kembung, masuk angin. Dari essensial oil jahe, lemongrass, dll. Oleskan dada, perut, lengan bayi sebelum tidur.',
-  
+
   // Antikonvulsan Tambahan
   vesperum: 'Vesperum - Suplemen untuk kesehatan dan kekuatan tulang, sendi. Kombinasi mineral dan vitamin. Penting untuk lansia dan osteoporosis.',
   'vesperum syr': 'Vesperum Sirup - Vesperum cair untuk anak dengan masalah pertumbuhan tulang. Rasa jeruk yang menarik, nutrisi tulang lengkap.',
-  
+
   // Obat Lain
   allofar: 'Allofar (Allopurinol) - Obat untuk penyakit gout dan asam urat tinggi kronis. Mengurangi produksi asam urat. Diminum 1x sehari 100-300mg. Efek penuh 2-6 minggu. Perlu tes laboratorium berkala.',
   alleron: 'Alleron - Antihistamin untuk alergi dan urtikaria. Alternatif CTM, umumnya sedating. Untuk alergi akut dan berat.',
@@ -1487,7 +1486,7 @@ const OBAT_EXPLANATION_OVERRIDES = {
   'zevask 5mg': 'Zevask 5mg - Montelukast dosis anak untuk asma kontrol alergi anak 2-6 tahun. Chewable tablet fruity flavor.',
   'zevask 10mg': 'Zevask 10mg - Montelukast dosis dewasa untuk asma persistent maintenance therapy. 1 tablet setiap malam. Tidak untuk acute attack (gunakan inhaler).',
   ramolit: 'Ramolit - Suplemen untuk metabolisme tulang dan persendian (osteoporoth treatment). Kalsilot + vitamin D. Jangka panjang untuk pencegahan fraktur.',
-  
+
   // Fallback
   unknown: 'Obat ini memerlukan penjelasan lebih detail dari tenaga medis profesional.'
 };
@@ -1599,31 +1598,31 @@ function openObatDetailPopup(obatId) {
   // Populate Stock Summary Section
   const totalProductQty = getTotalProductQty(obat.nama);
   const currentBatchQty = Number(obat.jumlah || 0);
-  const otherBatches = allObat.filter(o => 
+  const otherBatches = allObat.filter(o =>
     String(o.nama || '').trim().toLowerCase() === String(obat.nama || '').trim().toLowerCase() &&
     String(o.id) !== String(obat.id)
   );
-  
+
   // Get aggregated status and priority
   const aggregatedStatus = getStockMonitoringStatusByProduct(obat);
   const aggregatedPriority = getObatPriorityByProduct(obat);
-  
+
   // Get category config for threshold info
-  const kategoriCfg = allKategoriConfig.find(k => 
+  const kategoriCfg = allKategoriConfig.find(k =>
     String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase()
   );
-  
+
   const optimalStok = kategoriCfg ? Number(kategoriCfg.optimal_stok || 5) : 5;
   const minStok = kategoriCfg ? Number(kategoriCfg.min_stok || 2) : 2;
-  
+
   // Update current batch qty
   const currentBatchEl = document.getElementById('obatDetailCurrentBatchQty');
   if (currentBatchEl) currentBatchEl.textContent = `${currentBatchQty} unit`;
-  
+
   // Update total product qty
   const totalProductEl = document.getElementById('obatDetailTotalProductQty');
   if (totalProductEl) totalProductEl.textContent = `${totalProductQty} unit`;
-  
+
   // Build stock note explanation
   let stockNoteHtml = '';
   if (otherBatches.length > 0) {
@@ -1634,14 +1633,14 @@ function openObatDetailPopup(obatId) {
       </div>
     `;
   }
-  
+
   // Add ranking explanation based on aggregated qty
   stockNoteHtml += `
     <div style="margin-bottom: 8px;">
       <strong>Ranking:</strong> ${aggregatedPriority.label} (berdasarkan total ${totalProductQty} unit)
     </div>
   `;
-  
+
   // Add threshold info
   if (kategoriCfg) {
     stockNoteHtml += `
@@ -1649,7 +1648,7 @@ function openObatDetailPopup(obatId) {
         📋 Ambang: Min ${minStok} | Optimal ${optimalStok} unit
       </div>
     `;
-    
+
     // Calculate units needed to reach next threshold
     if (totalProductQty < optimalStok) {
       const unitsNeeded = optimalStok - totalProductQty;
@@ -1660,10 +1659,10 @@ function openObatDetailPopup(obatId) {
       `;
     }
   }
-  
+
   const stockNoteEl = document.getElementById('obatDetailStockNote');
   if (stockNoteEl) stockNoteEl.innerHTML = stockNoteHtml;
-  
+
   // Show other batches section if exists
   const otherBatchesSection = document.getElementById('obatDetailOtherBatches');
   const otherBatchesList = document.getElementById('obatDetailOtherBatchesList');
@@ -1693,15 +1692,15 @@ function openObatDetailPopup(obatId) {
     pemusnahanBtn.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      
+
       // CRITICAL: Blur the button FIRST before closing overlay (prevents aria-hidden focus warning)
       pemusnahanBtn.blur();
-      
+
       // Minimal delay to ensure blur completes
       requestAnimationFrame(() => {
         // Close detail popup
         closeObatDetailPopup();
-        
+
         // Then open pemusnahan section
         setTimeout(() => {
           openPemusnahanSection(obatId);
@@ -1728,7 +1727,7 @@ function closeObatDetailPopup() {
   if (focused && typeof focused.blur === 'function') {
     focused.blur();
   }
-  
+
   // Use requestAnimationFrame to ensure blur completes before hiding
   requestAnimationFrame(() => {
     const overlay = document.getElementById('obatDetailOverlay');
@@ -1766,7 +1765,7 @@ function bindObatDetailPopup() {
       }
     });
   }
-  
+
   // Global document click listener untuk detail popup (jangan tambah ke modalPemusnahan)
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -1781,22 +1780,22 @@ function bindObatDetailPopup() {
   document.addEventListener('click', (event) => {
     const trigger = event.target.closest('.obat-name-trigger');
     if (!trigger) return;
-    
+
     const obatId = trigger.dataset.id;
     const obat = allObat.find(o => o.id === obatId);
-    
+
     // Jika dari monitoring kadaluarsa (table atau priority list), buka form pemusnahan dengan dropdown terisi otomatis
     const monitoringTable = document.getElementById('monitoringExpiryTable');
     const monitoringPriorityList = document.getElementById('monitoringExpiryPriorityList');
-    
+
     const isFromMonitoring = (monitoringTable && monitoringTable.contains(trigger)) ||
-                             (monitoringPriorityList && monitoringPriorityList.contains(trigger));
-    
+      (monitoringPriorityList && monitoringPriorityList.contains(trigger));
+
     if (isFromMonitoring && obat) {
       openPemusnahanSection(obatId);
       return;
     }
-    
+
     // Default: buka detail popup
     openObatDetailPopup(obatId);
   });
@@ -1812,7 +1811,7 @@ function updateDashboard() {
   // Get unique product names to count products (not batches)
   const uniqueProducts = new Set(allObat.map(o => String(o.nama || '').trim().toLowerCase()));
   const productsNeedingRestock = new Set();
-  
+
   allObat.forEach(o => {
     const qty = Number(o.jumlah || 0);
     totalStockQty += Math.max(qty, 0);
@@ -1825,14 +1824,14 @@ function updateDashboard() {
     if (qty > 0 && qty <= 5) {
       lowStock++;
     }
-    
+
     // Check if PRODUCT (total qty) needs restock, not individual batch
     const totalProductQty = getTotalProductQty(o.nama);
     if (totalProductQty <= 5) {
       productsNeedingRestock.add(String(o.nama || '').trim().toLowerCase());
     }
   });
-  
+
   reorder = productsNeedingRestock.size;  // Count unique products needing restock
 
   const totalStockQtyEl = document.getElementById('totalStockQty');
@@ -1982,7 +1981,7 @@ function renderDataObatTable(data) {
   const tbody = document.querySelector('#tableObat');
   if (!tbody) return;
   tbody.innerHTML = '';
-  
+
   // Get list of obat IDs that are already in disposal reports (pemusnahan)
   // Obat that are BOTH expired AND in pemusnahan will be removed from display
   const obatInPemusnahan = new Set();
@@ -2002,7 +2001,7 @@ function renderDataObatTable(data) {
       if (dataId) obatInPemusnahan.add(dataId);
     });
   }
-  
+
   // Filter data: remove obat that are BOTH expired AND already in disposal list
   const filteredData = data.filter(o => {
     // Keep obat if it's NOT in pemusnahan, OR if it is in pemusnahan but NOT actually expired
@@ -2010,7 +2009,7 @@ function renderDataObatTable(data) {
     const isExpired = isObatActuallyExpired(o.kadaluarsa);
     return !(isInPemusnahan && isExpired);
   });
-  
+
   filteredData.forEach(o => {
     const st = getExpiryStatus(o.kadaluarsa);
     const priority = getObatPriority(o);
@@ -2341,10 +2340,10 @@ function getStockMonitoringStatus(obat) {
   const qty = Number(obat && obat.jumlah || 0);
   const kategori = String(obat && obat.kategori || '');
   const obatNama = String(obat && obat.nama || '');
-  
+
   // Get category config for this obat
   const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
-  
+
   // Debug log for telon product
   if (obatNama.toLowerCase().includes('telon')) {
     console.log('[STOCK STATUS] Telon product:', {
@@ -2356,25 +2355,25 @@ function getStockMonitoringStatus(obat) {
       configNames: allKategoriConfig.map(k => k.nama)
     });
   }
-  
+
   // Base status on quantity vs min/optimal stock thresholds
   if (qty <= 0) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
-  
+
   // If we have kategori config, use optimal and min stock levels
   if (kategoriCfg) {
     const optimalStok = Number(kategoriCfg.optimal_stok || 5);
     const minStok = Number(kategoriCfg.min_stok || 2);
-    
+
     // If stock is below minimum, it's critical
     if (qty < minStok) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
-    
+
     // If stock is below optimal but above minimum, it's low
     if (qty < optimalStok) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
-    
+
     // Above optimal is safe
     return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
   }
-  
+
   // Fallback to simple quantity-based logic if no config
   if (qty <= 5) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
   return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
@@ -2392,10 +2391,10 @@ function getStockMonitoringStatusByProduct(obat) {
   const totalQty = getTotalProductQty(obat.nama);
   const kategori = String(obat && obat.kategori || '');
   const obatNama = String(obat && obat.nama || '');
-  
+
   // Get category config for this obat
   const kategoriCfg = allKategoriConfig.find(k => String(k.nama || '').trim().toLowerCase() === String(kategori || '').trim().toLowerCase());
-  
+
   // Debug log for telon product
   if (obatNama.toLowerCase().includes('telon')) {
     console.log('[STOCK STATUS BY PRODUCT] Telon product:', {
@@ -2406,25 +2405,25 @@ function getStockMonitoringStatusByProduct(obat) {
       kategoriCfg: kategoriCfg ? { nama: kategoriCfg.nama, min: kategoriCfg.min_stok, optimal: kategoriCfg.optimal_stok } : 'NOT FOUND'
     });
   }
-  
+
   // Base status on quantity vs min/optimal stock thresholds
   if (totalQty <= 0) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
-  
+
   // If we have kategori config, use optimal and min stock levels
   if (kategoriCfg) {
     const optimalStok = Number(kategoriCfg.optimal_stok || 5);
     const minStok = Number(kategoriCfg.min_stok || 2);
-    
+
     // If total stock is below minimum, it's critical
     if (totalQty < minStok) return { key: 'habis', label: 'Habis', badgeKey: 'kadaluarsa' };
-    
+
     // If total stock is below optimal but above minimum, it's low
     if (totalQty < optimalStok) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
-    
+
     // Above optimal is safe
     return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
   }
-  
+
   // Fallback to simple quantity-based logic if no config
   if (totalQty <= 5) return { key: 'menipis', label: 'Menipis', badgeKey: 'hampir' };
   return { key: 'aman', label: 'Aman', badgeKey: 'baik' };
@@ -2550,7 +2549,7 @@ if (formTambahObat) formTambahObat.addEventListener('submit', async (e) => {
 function updateSelectObat() {
   const releaseObatSelect = document.getElementById('releaseObatSelect');
   if (!releaseObatSelect) return;
-  
+
   const currentValue = releaseObatSelect.value;
   releaseObatSelect.innerHTML = '<option value="">-- Pilih Obat --</option>';
   allObat.forEach(obat => {
@@ -2584,7 +2583,7 @@ async function handleLogout(event) {
 const exportBtn = document.getElementById('exportBtn');
 if (exportBtn) exportBtn.addEventListener('click', () => {
   const csvHeader = 'Nama,Batch,Kategori,Deskripsi,Jumlah,Kadaluarsa,VED';
-  const csvRows = allObat.map(o => `${o.nama},${(o.batch||'')},${(o.kategori||'—')},${(String(o.deskripsi || '').replace(/,/g, ';'))},${o.jumlah},${o.kadaluarsa || '—'},${o.ved || '—'}`);
+  const csvRows = allObat.map(o => `${o.nama},${(o.batch || '')},${(o.kategori || '—')},${(String(o.deskripsi || '').replace(/,/g, ';'))},${o.jumlah},${o.kadaluarsa || '—'},${o.ved || '—'}`);
   const csv = [csvHeader, ...csvRows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -2693,7 +2692,7 @@ function setupReleaseTracking() {
       showToast('Pilih obat terlebih dahulu.', 'warning');
       return;
     }
-    
+
     if (!qtyValue || !qtyValue.trim() || isNaN(qty) || qty < 1) {
       showToast('Masukkan jumlah obat yang valid (harus angka positif).', 'warning');
       return;
@@ -2705,7 +2704,7 @@ function setupReleaseTracking() {
       showToast('Obat tidak ditemukan. Silakan refresh halaman.', 'error');
       return;
     }
-    
+
     if (qty > selectedObat.jumlah) {
       showToast(`Stok tidak cukup! Stok tersedia: ${selectedObat.jumlah} unit.`, 'warning');
       return;
@@ -2714,12 +2713,12 @@ function setupReleaseTracking() {
     submitReleaseBtn.disabled = true;
     submitReleaseBtn.textContent = 'Memproses...';
 
-    const requestBody = { 
-      obat_id: obatId, 
-      jumlah: qty, 
-      keterangan: keterangan || '' 
+    const requestBody = {
+      obat_id: obatId,
+      jumlah: qty,
+      keterangan: keterangan || ''
     };
-    
+
     console.log('Sending release request:', {
       obatId,
       qty,
@@ -3035,7 +3034,7 @@ if (requestPasswordResetBtn) {
       showToast('Email pengguna tidak ditemukan.', 'error');
       return;
     }
-      
+
     requestPasswordResetBtn.disabled = true;
     requestPasswordResetBtn.textContent = 'Mengirim...';
 
@@ -3112,7 +3111,7 @@ async function loadPemusnahanObatSelect() {
   try {
     const response = await fetch('/api/obat');
     if (!response.ok) throw new Error('Failed to fetch obat');
-    
+
     const obatList = await response.json();
     const select = document.getElementById('pemusnahanObatId');
     if (!select || !Array.isArray(obatList)) return;
@@ -3127,7 +3126,7 @@ async function loadPemusnahanObatSelect() {
       expDate.setHours(0, 0, 0, 0);
       return expDate < today; // Only past dates = expired
     });
-    
+
     select.innerHTML = '<option value="">-- Pilih Obat Kadaluarsa --</option>';
     if (expiredObat.length === 0) {
       select.innerHTML += '<option disabled>Tidak ada obat kadaluarsa</option>';
@@ -3158,13 +3157,13 @@ async function loadLaporanPemusnahan() {
     const filterStatus = document.getElementById('filterStatusPemusnahan')?.value || '';
     const url = filterStatus ? `/api/laporan-pemusnahan?status=${filterStatus}` : '/api/laporan-pemusnahan';
     console.log('[LOAD LAPORAN] Fetching from:', url);
-    
+
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const data = await response.json();
     console.log('[LOAD LAPORAN] Response received:', { success: data.success, dataCount: Array.isArray(data.data) ? data.data.length : 'N/A' });
-    
+
     const tableBody = document.getElementById('tableBodyPemusnahan');
     if (!tableBody) {
       console.error('[LOAD LAPORAN] ERROR: tableBodyPemusnahan element not found!');
@@ -3221,13 +3220,13 @@ async function loadLaporanPemusnahanFull() {
     const filterStatus = document.getElementById('filterStatusPemusnahanFull')?.value || '';
     const url = filterStatus ? `/api/laporan-pemusnahan?status=${filterStatus}` : '/api/laporan-pemusnahan';
     console.log('[LOAD LAPORAN FULL] Fetching from:', url);
-    
+
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const data = await response.json();
     console.log('[LOAD LAPORAN FULL] Response received:', { success: data.success, dataCount: Array.isArray(data.data) ? data.data.length : 'N/A' });
-    
+
     const tableBody = document.getElementById('tableBodyPemusnahanFull');
     if (!tableBody) {
       console.error('[LOAD LAPORAN FULL] ERROR: tableBodyPemusnahanFull element not found!');
@@ -3312,7 +3311,7 @@ async function viewPemusnahanDetail(id) {
   try {
     const response = await fetch(`/api/laporan-pemusnahan/${id}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const laporan = await response.json();
     if (!laporan || !laporan.id) {
       showToast('Laporan tidak ditemukan', 'error');
@@ -3333,7 +3332,7 @@ Catatan: ${laporan.catatan || '-'}
 Created By: ${laporan.created_by || '-'}
 Created At: ${laporan.created_at || '-'}
     `;
-    
+
     alert(`Detail Laporan Pemusnahan:\n\n${detail}`);
   } catch (err) {
     console.error('Error viewing detail:', err);
@@ -3364,7 +3363,7 @@ async function editPemusnahan(id) {
     console.log('[EDIT PEMUSNAHAN] Loading laporan for editing:', id);
     const response = await fetch(`/api/laporan-pemusnahan/${id}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const laporan = await response.json();
     if (!laporan || !laporan.id) {
       showToast('Laporan tidak ditemukan', 'error');
@@ -3407,11 +3406,11 @@ async function editPemusnahan(id) {
     // Navigate to pemusnahan tab
     const navElement = document.querySelector('a[data-nav-target="laporan"]');
     if (navElement) navElement.click();
-    
+
     setTimeout(() => {
       const pemusnahanTab = document.querySelector('a[data-tab="contentPemusnahanObat"]');
       if (pemusnahanTab) pemusnahanTab.click();
-      
+
       // Scroll to form
       const form = document.getElementById('formPemusnahanFull');
       if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3430,7 +3429,7 @@ async function approvePemusnahan(id) {
     // Get current laporan to check status
     const fetchResponse = await fetch(`/api/laporan-pemusnahan/${id}`);
     if (!fetchResponse.ok) throw new Error('Failed to fetch laporan');
-    
+
     const laporan = await fetchResponse.json();
     if (!laporan || !laporan.id) {
       showToast('Laporan tidak ditemukan', 'error');
@@ -3458,13 +3457,13 @@ async function approvePemusnahan(id) {
     });
 
     const data = await response.json();
-    
+
     if (response.ok && data.message) {
       // Jika approval ke-2 (final), delete obat dari database
       if (approvalType === 'second' && laporan.obat_id) {
         const deleted = await deleteObatFromDatabase(laporan.obat_id);
-        const msg = deleted 
-          ? 'Laporan sudah diapprove! Obat berhasil dihapus dari database.' 
+        const msg = deleted
+          ? 'Laporan sudah diapprove! Obat berhasil dihapus dari database.'
           : 'Laporan sudah diapprove! (Catatan: gagal menghapus obat dari database)';
         showToast(msg, 'success');
       } else {
@@ -3494,7 +3493,7 @@ async function rejectPemusnahan(id) {
     });
 
     const data = await response.json();
-    
+
     if (response.ok && data.message) {
       showToast('Laporan pemusnahan ditolak', 'success');
       await loadLaporanPemusnahan(); // AWAIT - load table FIRST
@@ -3515,20 +3514,20 @@ async function rejectPemusnahan(id) {
 function calculateMinimumOrderQty(obat) {
   const ved = String(obat.ved || 'D').toUpperCase();
   const currentQty = Number(obat.jumlah || 0);
-  
+
   // Base minimum order quantity per kategori VED
   const baseQty = {
     'V': 100,  // Vital: jaga stok lebih tinggi
     'E': 50,   // Essential: moderate
     'D': 20    // Desirable: minimal
   };
-  
+
   const baseMin = baseQty[ved] || 20;
-  
+
   // Adjusted berdasarkan status kadaluarsa
   const status = getExpiryStatus(obat.kadaluarsa);
   let safetyFactor = 1.0;
-  
+
   if (status.key === 'baik') {
     safetyFactor = 1.2;  // Good stock: dapat order lebih banyak
   } else if (status.key === 'hampir') {
@@ -3536,7 +3535,7 @@ function calculateMinimumOrderQty(obat) {
   } else if (status.key === 'kadaluarsa') {
     safetyFactor = 0.5;  // Already expired: jangan order
   }
-  
+
   return Math.ceil(baseMin * safetyFactor);
 }
 
@@ -3545,10 +3544,10 @@ function generatePemusnahanAnalysis(laporan) {
   const ved = String(laporan.ved || 'D').toUpperCase();
   const minOrder = calculateMinimumOrderQty(laporan);
   const wasteCost = Number(laporan.biaya_pemusnahan || 0);
-  
+
   let analysis = '';
   let recommendation = '';
-  
+
   // Analysis
   if (ved === 'V') {
     analysis = `Obat ini termasuk kategori VITAL (penting). Pemusnahan ${laporan.unit_sisa} unit menyebabkan gap pada stok kritis dan meningkatkan risiko kehabisan stok.`;
@@ -3560,7 +3559,7 @@ function generatePemusnahanAnalysis(laporan) {
     analysis = `Obat ini termasuk kategori DESIRABLE (dapat diisi ulang dengan fleksibel). Pemusnahan tidak berdampak langsung pada operasional.`;
     recommendation = `REKOMENDASI: Pesan ulang minimal ${minOrder} unit saat ada kesempatan. Prioritaskan pemesanan kategori V dan E terlebih dahulu.`;
   }
-  
+
   return {
     minOrder: minOrder,
     analysis: analysis,
@@ -3574,7 +3573,7 @@ async function downloadPemusnahanPDF(laporanId) {
   try {
     const response = await fetch(`/api/laporan-pemusnahan/${laporanId}/pdf`);
     if (!response.ok) throw new Error('Failed to generate PDF');
-    
+
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -3584,7 +3583,7 @@ async function downloadPemusnahanPDF(laporanId) {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
-    
+
     showToast('PDF berhasil diunduh', 'success');
   } catch (err) {
     console.error('Error downloading PDF:', err);
@@ -3599,16 +3598,16 @@ let currentObatForPemusnahan = null;
 // Full-page section handlers for Pemusnahan Obat
 function openPemusnahanSection(obatId = null) {
   console.log('[OPEN PEMUSNAHAN] Called with obatId:', obatId, 'type:', typeof obatId);
-  
+
   // Navigate to laporan section first
   const laporanNav = document.querySelector('[data-section="laporan"]');
   if (laporanNav) {
     laporanNav.click();
   }
-  
+
   // Store for use after dropdown loads
   currentObatForPemusnahan = obatId ? String(obatId) : null;
-  
+
   // Give nav click time to process, then show pemusnahan tab
   setTimeout(() => {
     // Click on the pemusnahan tab
@@ -3616,7 +3615,7 @@ function openPemusnahanSection(obatId = null) {
     if (pemusnahanTab) {
       pemusnahanTab.click();
     }
-    
+
     // Load the dropdown FIRST
     loadPemusnahanObatDropdown().then(() => {
       // THEN pre-select the obat if passed in
@@ -3625,17 +3624,17 @@ function openPemusnahanSection(obatId = null) {
         if (select) {
           // Ensure both are strings for comparison
           const selectHasOption = Array.from(select.options).some(opt => String(opt.value) === String(currentObatForPemusnahan));
-          
+
           console.log('[PEMUSNAHAN SECTION] Setting obat select:', {
             obatId: currentObatForPemusnahan,
             optionExists: selectHasOption,
             availableOptions: Array.from(select.options).map(o => ({ value: o.value, text: o.text }))
           });
-          
+
           if (!selectHasOption) {
             console.warn('[PEMUSNAHAN SECTION] WARNING: Selected obat not in dropdown! The obat might not be expired or might have been deleted.');
           }
-          
+
           select.value = currentObatForPemusnahan;
           displayPemusnahanObatInfo();
           // Scroll to form
@@ -3663,7 +3662,7 @@ async function loadPemusnahanObatDropdown() {
     // Get only expired medicines
     const response = await fetch('/api/obat?status=kadaluarsa');
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const data = await response.json();
     const obatList = data.success ? data.data : (Array.isArray(data) ? data : []);
 
@@ -3687,7 +3686,7 @@ async function loadPemusnahanObatDropdown() {
       console.log('[LOAD DROPDOWN] Added option:', { id: obat.id, name: obat.nama });
       select.appendChild(option);
     });
-    
+
     console.log('[LOAD DROPDOWN] Dropdown loaded successfully, total options:', select.options.length);
   } catch (err) {
     console.error('[LOAD DROPDOWN] Error:', err);
@@ -3698,14 +3697,14 @@ async function loadPemusnahanObatDropdown() {
 function displayPemusnahanObatInfo() {
   const select = document.getElementById('pemusnahanObatSelect');
   const infoDiv = document.getElementById('pemusnahanInfoDisplay');
-  
+
   console.log('[DISPLAY OBAT INFO] Called:', { selectValue: select?.value, hasInfoDiv: !!infoDiv });
-  
+
   if (!select || !infoDiv) {
     console.error('[DISPLAY OBAT INFO] Missing elements:', { select: !!select, infoDiv: !!infoDiv });
     return;
   }
-  
+
   if (!select.value) {
     console.log('[DISPLAY OBAT INFO] No value selected yet');
     infoDiv.textContent = 'Pilih obat untuk menampilkan informasi';
@@ -3713,7 +3712,7 @@ function displayPemusnahanObatInfo() {
   }
 
   console.log('[DISPLAY OBAT INFO] Searching for obat with ID:', select.value, 'in allObat array with', allObat.length, 'items');
-  
+
   const obat = allObat.find(o => {
     const match = o.id == select.value;
     if (match) {
@@ -3721,7 +3720,7 @@ function displayPemusnahanObatInfo() {
     }
     return match;
   });
-  
+
   if (!obat) {
     console.warn('[DISPLAY OBAT INFO] Obat not found in allObat, searched for ID:', select.value);
     infoDiv.textContent = 'Obat tidak ditemukan';
@@ -3740,7 +3739,7 @@ function displayPemusnahanObatInfo() {
 
   // Auto-fill unit sisa
   document.getElementById('pemusnahanUnitSisa').value = obat.jumlah || 0;
-  
+
   // Set today's date
   document.getElementById('pemusnahanTanggal').value = new Date().toISOString().split('T')[0];
 }
@@ -3749,7 +3748,7 @@ async function handlePemusnahanFormSubmit(e) {
   e.preventDefault();
 
   const select = document.getElementById('pemusnahanObatSelect');
-  
+
   // Strict validation: select harus ada dan value harus ada dan valid
   if (!select) {
     showToast('Error: Element dropdown tidak ditemukan', 'error');
@@ -3758,7 +3757,7 @@ async function handlePemusnahanFormSubmit(e) {
   }
 
   const selectValue = select.value ? select.value.trim() : '';
-  
+
   if (!selectValue || selectValue === '') {
     showToast('Mohon pilih obat terlebih dahulu', 'error');
     console.warn('[FORM SUBMIT] No obat selected, select.value:', select.value);
@@ -3768,9 +3767,9 @@ async function handlePemusnahanFormSubmit(e) {
   // obat ID bisa berupa UUID string atau integer - gunakan langsung without parsing
   // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
   const obatId = selectValue;
-  
-  console.log('[FORM SUBMIT] Using obatId directly (without parseInt):', { 
-    selectValue, 
+
+  console.log('[FORM SUBMIT] Using obatId directly (without parseInt):', {
+    selectValue,
     obatId,
     type: typeof obatId,
     length: obatId.length,
@@ -3798,10 +3797,10 @@ async function handlePemusnahanFormSubmit(e) {
   });
 
   // Validate: semua required field harus tidak kosong
-  if (!unitSisa || unitSisa.trim() === '' || 
-      !ptPemusnahan || ptPemusnahan.trim() === '' || 
-      !biaya || biaya.trim() === '' || 
-      !tanggal || tanggal.trim() === '') {
+  if (!unitSisa || unitSisa.trim() === '' ||
+    !ptPemusnahan || ptPemusnahan.trim() === '' ||
+    !biaya || biaya.trim() === '' ||
+    !tanggal || tanggal.trim() === '') {
     console.error('[FORM SUBMIT] Validation FAILED - ada field yang kosong');
     showToast('Mohon isi semua field yang diperlukan', 'error');
     return;
@@ -3811,7 +3810,7 @@ async function handlePemusnahanFormSubmit(e) {
   const unitTerjualInt = parseInt(unitTerjual) || 0;
   const unitSisaInt = parseInt(unitSisa);
   const biayaFloat = parseFloat(biaya);
-  
+
   // Validate parsed values
   if (isNaN(unitSisaInt) || isNaN(biayaFloat)) {
     console.error('[FORM SUBMIT] Validation FAILED - invalid number format');
@@ -3829,7 +3828,7 @@ async function handlePemusnahanFormSubmit(e) {
     tanggal_pemusnahan: tanggal.trim(),
     catatan: catatan.trim()
   };
-  
+
   console.log('[FORM SUBMIT] Validation PASSED');
   console.log('[FORM SUBMIT] Parsed values:', {
     unitTerjualInt, unitSisaInt, biayaFloat
@@ -3842,7 +3841,7 @@ async function handlePemusnahanFormSubmit(e) {
     const isEditMode = !!currentEditingLaporanId;
     const url = isEditMode ? `/api/laporan-pemusnahan/${currentEditingLaporanId}` : '/api/laporan-pemusnahan';
     const method = isEditMode ? 'PUT' : 'POST';
-    
+
     console.log('[FORM SUBMIT] Submitting to:', { url, method, isEditMode });
 
     const response = await fetch(url, {
@@ -3852,15 +3851,15 @@ async function handlePemusnahanFormSubmit(e) {
     });
 
     const data = await response.json();
-    
+
     if (response.ok && data.message) {
-      const successMsg = isEditMode 
-        ? 'Laporan pemusnahan berhasil diperbarui!' 
+      const successMsg = isEditMode
+        ? 'Laporan pemusnahan berhasil diperbarui!'
         : 'Laporan pemusnahan berhasil disimpan (status: Pending)';
-      
+
       console.log('[FORM SUBMIT] SUCCESS:', successMsg);
       showToast(successMsg, 'success');
-      
+
       // Reset form & clear edit mode
       document.getElementById('formPemusnahanFull').reset();
       document.getElementById('pemusnahanInfoDisplay').innerHTML = 'Pilih obat untuk menampilkan informasi';
@@ -3870,15 +3869,15 @@ async function handlePemusnahanFormSubmit(e) {
         submitBtn.innerHTML = '💾 Simpan Laporan';
         submitBtn.style.background = '#27ae60';
       }
-      
+
       // Reload dropdowns and tables
       await loadPemusnahanObatDropdown();
       await loadLaporanPemusnahanFull(); // AWAIT - load table FIRST
       renderMonitoringKadaluarsa(); // Now render priority lists with loaded data
       renderExpiryDataTable();
     } else {
-      console.error('[FORM ERROR] Response tidak OK:', { 
-        status: response.status, 
+      console.error('[FORM ERROR] Response tidak OK:', {
+        status: response.status,
         statusText: response.statusText,
         data: data,
         fullResponse: JSON.stringify(data)
@@ -3894,11 +3893,11 @@ async function handlePemusnahanFormSubmit(e) {
 // Setup pemusnahan obat event listeners
 function setupPemusnahanListeners() {
   console.log('[SETUP PEMUSNAHAN] Called - setupPemusnahanListeners()');
-  
+
   // Form submit
   const form = document.getElementById('formPemusnahanFull');
   console.log('[SETUP PEMUSNAHAN] Form element found:', !!form, form?.id);
-  
+
   if (form) {
     console.log('[SETUP PEMUSNAHAN] Attaching submit listener to form');
     form.addEventListener('submit', handlePemusnahanFormSubmit);
@@ -3910,7 +3909,7 @@ function setupPemusnahanListeners() {
   // Obat select change
   const select = document.getElementById('pemusnahanObatSelect');
   console.log('[SETUP PEMUSNAHAN] Select element found:', !!select, select?.id);
-  
+
   if (select) {
     console.log('[SETUP PEMUSNAHAN] Attaching change listener to select');
     select.addEventListener('change', displayPemusnahanObatInfo);
@@ -3922,7 +3921,7 @@ function setupPemusnahanListeners() {
   // Filter status dropdown
   const filterBtn = document.getElementById('filterStatusPemusnahanFull');
   console.log('[SETUP PEMUSNAHAN] Filter element found:', !!filterBtn, filterBtn?.id);
-  
+
   if (filterBtn) {
     console.log('[SETUP PEMUSNAHAN] Attaching change listener to filter');
     filterBtn.addEventListener('change', loadLaporanPemusnahanFull);

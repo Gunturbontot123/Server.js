@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login - ObatQu</title>
   <script src="/runtime-config.js"></script>
   <script>
@@ -11,8 +12,9 @@
       window.location.replace(runtimeBase ? (runtimeBase + '/login.html') : 'http://localhost:3000/login.html');
     }
   </script>
-  <link rel="stylesheet" href="/style.css?v=20260313-login-welcome-centered"/>
+  <link rel="stylesheet" href="/style.css?v=20260313-login-welcome-centered" />
 </head>
+
 <body class="login-body">
   <div id="authTransitionOverlay" class="auth-transition-overlay" aria-hidden="true">
     <div class="auth-transition-card">
@@ -54,13 +56,15 @@
         </div>
         <div class="login-info-simple-item">
           <strong>4. Use case role pengguna</strong>
-          <p>APJ memiliki akses penuh termasuk manajemen user. Asisten Apoteker fokus ke operasional obat, monitoring kadaluarsa, pencarian data, dan laporan.</p>
+          <p>APJ memiliki akses penuh termasuk manajemen user. Asisten Apoteker fokus ke operasional obat, monitoring
+            kadaluarsa, pencarian data, dan laporan.</p>
         </div>
       </div>
       <div style="padding: 16px 24px 20px; border-top: 1px solid rgba(255,255,255,0.08); text-align: center;">
         <a href="/panduan.html" target="_blank" rel="noopener"
-           style="display:inline-block; padding: 9px 20px; background: rgba(15,191,155,0.15); color: #0fbf9b; border: 1px solid rgba(15,191,155,0.35); border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none; transition: background .2s;"
-           onmouseover="this.style.background='rgba(15,191,155,0.28)'" onmouseout="this.style.background='rgba(15,191,155,0.15)'">
+          style="display:inline-block; padding: 9px 20px; background: rgba(15,191,155,0.15); color: #0fbf9b; border: 1px solid rgba(15,191,155,0.35); border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none; transition: background .2s;"
+          onmouseover="this.style.background='rgba(15,191,155,0.28)'"
+          onmouseout="this.style.background='rgba(15,191,155,0.15)'">
           📖 Buku Panduan
         </a>
       </div>
@@ -120,7 +124,8 @@
             <label for="username">Username atau Email</label>
             <div class="login-input-shell">
               <span class="login-input-icon" aria-hidden="true">ID</span>
-              <input id="username" name="loginId" type="text" placeholder="Masukkan username atau email" autocomplete="username" autocapitalize="off" spellcheck="false" />
+              <input id="username" name="loginId" type="text" placeholder="Masukkan username atau email"
+                autocomplete="username" autocapitalize="off" spellcheck="false" />
             </div>
           </div>
 
@@ -131,7 +136,8 @@
             </div>
             <div class="input-pass login-input-shell">
               <span class="login-input-icon" aria-hidden="true">PW</span>
-              <input id="password" name="loginSecret" type="password" placeholder="Masukkan password" autocomplete="current-password" />
+              <input id="password" name="loginSecret" type="password" placeholder="Masukkan password"
+                autocomplete="current-password" />
               <button type="button" class="pass-toggle" id="togglePass" aria-label="Tampilkan password">Show</button>
             </div>
           </div>
@@ -164,289 +170,290 @@
     </section>
   </div>
 
-<script>
-// Use runtime base when provided, otherwise same-origin; keep localhost fallback only for file:// preview
-const RUNTIME_BASE = (window.__APP_BASE_URL || '').replace(/\/$/, '');
-const API_BASE = RUNTIME_BASE || ((location && location.protocol === 'file:') ? 'http://localhost:3000' : '');
-const DASHBOARD_URL = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html');
+  <script>
+    // Use runtime base when provided, otherwise same-origin; keep localhost fallback only for file:// preview
+    const RUNTIME_BASE = (window.__APP_BASE_URL || '').replace(/\/$/, '');
+    const API_BASE = RUNTIME_BASE || ((location && location.protocol === 'file:') ? 'http://localhost:3000' : '');
+    const DASHBOARD_URL = (API_BASE ? API_BASE + '/dashboard.html' : '/dashboard.html');
 
-function wait(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
+    function wait(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
 
-function setSubmitLoading(button, isLoading) {
-  if (!button) return;
-  button.disabled = isLoading;
-  button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
-  button.classList.toggle('is-loading', isLoading);
-}
+    function setSubmitLoading(button, isLoading) {
+      if (!button) return;
+      button.disabled = isLoading;
+      button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+      button.classList.toggle('is-loading', isLoading);
+    }
 
-function showAuthTransition(title, message) {
-  const overlay = document.getElementById('authTransitionOverlay');
-  const titleEl = document.getElementById('authTransitionTitle');
-  const messageEl = document.getElementById('authTransitionMessage');
-  if (titleEl && title) titleEl.textContent = title;
-  if (messageEl && message) messageEl.textContent = message;
-  if (!overlay) return;
-  overlay.classList.add('open');
-  overlay.setAttribute('aria-hidden', 'false');
-}
+    function showAuthTransition(title, message) {
+      const overlay = document.getElementById('authTransitionOverlay');
+      const titleEl = document.getElementById('authTransitionTitle');
+      const messageEl = document.getElementById('authTransitionMessage');
+      if (titleEl && title) titleEl.textContent = title;
+      if (messageEl && message) messageEl.textContent = message;
+      if (!overlay) return;
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
 
-function hideAuthTransition() {
-  const overlay = document.getElementById('authTransitionOverlay');
-  if (!overlay) return;
-  overlay.classList.remove('open');
-  overlay.setAttribute('aria-hidden', 'true');
-}
+    function hideAuthTransition() {
+      const overlay = document.getElementById('authTransitionOverlay');
+      if (!overlay) return;
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
 
-function openLoginInfoOverlay() {
-  const overlay = document.getElementById('loginInfoOverlay');
-  if (!overlay) return;
-  overlay.classList.remove('closing');
-  overlay.classList.add('open');
-  overlay.setAttribute('aria-hidden', 'false');
-}
+    function openLoginInfoOverlay() {
+      const overlay = document.getElementById('loginInfoOverlay');
+      if (!overlay) return;
+      overlay.classList.remove('closing');
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
 
-function closeLoginInfoOverlay() {
-  const overlay = document.getElementById('loginInfoOverlay');
-  if (!overlay) return;
-  overlay.classList.add('closing');
-  window.setTimeout(() => {
-    overlay.classList.remove('open');
-    overlay.classList.remove('closing');
-    overlay.setAttribute('aria-hidden', 'true');
-  }, 220);
-}
+    function closeLoginInfoOverlay() {
+      const overlay = document.getElementById('loginInfoOverlay');
+      if (!overlay) return;
+      overlay.classList.add('closing');
+      window.setTimeout(() => {
+        overlay.classList.remove('open');
+        overlay.classList.remove('closing');
+        overlay.setAttribute('aria-hidden', 'true');
+      }, 220);
+    }
 
-function setLoginInfoTab(tabName) {
-  const tabs = document.querySelectorAll('.login-info-tab');
-  const panels = document.querySelectorAll('.login-info-panel');
-  const wrap = document.querySelector('.login-info-panel-wrap');
-  const activeTab = Array.from(tabs).find((tab) => tab.classList.contains('is-active'));
-  if (activeTab && activeTab.dataset.infoTab === tabName) return;
+    function setLoginInfoTab(tabName) {
+      const tabs = document.querySelectorAll('.login-info-tab');
+      const panels = document.querySelectorAll('.login-info-panel');
+      const wrap = document.querySelector('.login-info-panel-wrap');
+      const activeTab = Array.from(tabs).find((tab) => tab.classList.contains('is-active'));
+      if (activeTab && activeTab.dataset.infoTab === tabName) return;
 
-  const currentIndex = Array.from(tabs).findIndex((tab) => tab.classList.contains('is-active'));
-  const nextIndex = Array.from(tabs).findIndex((tab) => tab.dataset.infoTab === tabName);
-  const direction = currentIndex === -1 || nextIndex >= currentIndex ? 'forward' : 'backward';
-  const currentPanel = Array.from(panels).find((panel) => panel.classList.contains('is-active'));
-  const nextPanel = Array.from(panels).find((panel) => panel.dataset.infoPanel === tabName);
-  if (!nextPanel) return;
+      const currentIndex = Array.from(tabs).findIndex((tab) => tab.classList.contains('is-active'));
+      const nextIndex = Array.from(tabs).findIndex((tab) => tab.dataset.infoTab === tabName);
+      const direction = currentIndex === -1 || nextIndex >= currentIndex ? 'forward' : 'backward';
+      const currentPanel = Array.from(panels).find((panel) => panel.classList.contains('is-active'));
+      const nextPanel = Array.from(panels).find((panel) => panel.dataset.infoPanel === tabName);
+      if (!nextPanel) return;
 
-  if (window.loginInfoTabTimer) {
-    window.clearTimeout(window.loginInfoTabTimer);
-  }
-
-  tabs.forEach((tab) => {
-    const isActive = tab.dataset.infoTab === tabName;
-    tab.classList.toggle('is-active', isActive);
-    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-  });
-
-  if (wrap) {
-    wrap.setAttribute('data-direction', direction);
-  }
-
-  panels.forEach((panel) => {
-    panel.classList.remove('is-entering-left', 'is-entering-right', 'is-leaving-left', 'is-leaving-right');
-  });
-
-  if (currentPanel && currentPanel !== nextPanel) {
-    currentPanel.classList.remove('is-active');
-    currentPanel.classList.add(direction === 'forward' ? 'is-leaving-left' : 'is-leaving-right');
-    currentPanel.setAttribute('aria-hidden', 'true');
-  }
-
-  nextPanel.classList.add('is-active', direction === 'forward' ? 'is-entering-right' : 'is-entering-left');
-  nextPanel.setAttribute('aria-hidden', 'false');
-
-  window.loginInfoTabTimer = window.setTimeout(() => {
-    panels.forEach((panel) => {
-      panel.classList.remove('is-entering-left', 'is-entering-right', 'is-leaving-left', 'is-leaving-right');
-      if (!panel.classList.contains('is-active')) {
-        panel.setAttribute('aria-hidden', 'true');
+      if (window.loginInfoTabTimer) {
+        window.clearTimeout(window.loginInfoTabTimer);
       }
-    });
-  }, 430);
-}
 
-function showAlert(message, type = 'error') {
-  const el = document.getElementById('alert');
-  if (!el) return;
-  if (!message) {
-    el.style.display = 'none';
-    el.textContent = '';
-    el.className = 'login-alert';
-    return;
-  }
-  el.style.display = 'block';
-  el.className = `login-alert alert-${type}`;
-  el.textContent = message;
-}
+      tabs.forEach((tab) => {
+        const isActive = tab.dataset.infoTab === tabName;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
 
-function focusShellControl(shell) {
-  if (!shell) return;
-  const control = shell.querySelector('input, select, textarea');
-  if (!control || control.disabled) return;
-  control.focus();
-  if (control.tagName === 'SELECT' && typeof control.showPicker === 'function') {
-    try { control.showPicker(); } catch (err) {}
-  }
-}
+      if (wrap) {
+        wrap.setAttribute('data-direction', direction);
+      }
 
-function bindLoginFieldShells() {
-  document.querySelectorAll('.login-input-shell').forEach((shell) => {
-    shell.addEventListener('pointerdown', (event) => {
-      const interactive = event.target.closest('button, a, input, select, textarea');
-      if (interactive && interactive !== shell) return;
-      focusShellControl(shell);
-    });
-    shell.addEventListener('click', (event) => {
-      const interactive = event.target.closest('button, a, input, select, textarea');
-      if (interactive && interactive !== shell) return;
-      focusShellControl(shell);
-    });
-  });
-}
+      panels.forEach((panel) => {
+        panel.classList.remove('is-entering-left', 'is-entering-right', 'is-leaving-left', 'is-leaving-right');
+      });
 
-async function handleLoginSubmit() {
-  const button = document.getElementById('btnLogin');
-  showAlert('');
+      if (currentPanel && currentPanel !== nextPanel) {
+        currentPanel.classList.remove('is-active');
+        currentPanel.classList.add(direction === 'forward' ? 'is-leaving-left' : 'is-leaving-right');
+        currentPanel.setAttribute('aria-hidden', 'true');
+      }
 
-  const username = document.getElementById('username').value.trim();
-  const role = document.getElementById('loginRole').value;
-  const password = document.getElementById('password').value;
+      nextPanel.classList.add('is-active', direction === 'forward' ? 'is-entering-right' : 'is-entering-left');
+      nextPanel.setAttribute('aria-hidden', 'false');
 
-  if (!username || !role || !password) {
-    showAlert('Username, role, dan password harus diisi.');
-    return;
-  }
-
-  const payload = username.includes('@') ? { email: username, password, role } : { username, password, role };
-
-  try {
-    if (document.getElementById('rememberMe').checked) {
-      localStorage.setItem('rememberUsername', username);
-      localStorage.setItem('rememberRole', role);
-    } else {
-      localStorage.removeItem('rememberUsername');
-      localStorage.removeItem('rememberRole');
-    }
-  } catch (err) {}
-
-  try {
-    setSubmitLoading(button, true);
-
-    const res = await fetch((API_BASE ? API_BASE : '') + '/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json().catch(() => ({ message: 'Response not JSON' }));
-
-    if (res.ok && data.user) {
-      try { localStorage.setItem('showWelcomeOnNextVisit', '1'); } catch (err) {}
-      showAlert('Login berhasil. Dashboard sedang dibuka.', 'success');
-      showAuthTransition('Login berhasil', 'Menyiapkan sesi dan membuka dashboard Anda.');
-      await wait(520);
-      window.location.replace(DASHBOARD_URL);
-      return;
+      window.loginInfoTabTimer = window.setTimeout(() => {
+        panels.forEach((panel) => {
+          panel.classList.remove('is-entering-left', 'is-entering-right', 'is-leaving-left', 'is-leaving-right');
+          if (!panel.classList.contains('is-active')) {
+            panel.setAttribute('aria-hidden', 'true');
+          }
+        });
+      }, 430);
     }
 
-    showAlert(data.message || data.error || 'Login gagal');
-  } catch (err) {
-    console.error('Login error:', err);
-    hideAuthTransition();
-    showAlert('Gagal terhubung ke server: ' + err.message);
-  } finally {
-    setSubmitLoading(button, false);
-  }
-}
+    function showAlert(message, type = 'error') {
+      const el = document.getElementById('alert');
+      if (!el) return;
+      if (!message) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.className = 'login-alert';
+        return;
+      }
+      el.style.display = 'block';
+      el.className = `login-alert alert-${type}`;
+      el.textContent = message;
+    }
 
-// Session cookie is already set by the server; redirect directly after login.
+    function focusShellControl(shell) {
+      if (!shell) return;
+      const control = shell.querySelector('input, select, textarea');
+      if (!control || control.disabled) return;
+      control.focus();
+      if (control.tagName === 'SELECT' && typeof control.showPicker === 'function') {
+        try {control.showPicker();} catch (err) { }
+      }
+    }
 
-function showSessionNotice(user) {
-  const notice = document.getElementById('sessionNotice');
-  const form = document.getElementById('loginForm');
-  if (!notice || !form) return;
-  const activeRole = user.role === 'APJ' ? 'APJ' : 'Asisten Apoteker';
-  form.style.display = 'none';
-  notice.style.display = 'block';
-  notice.innerHTML = `Anda masih login sebagai <strong>${user.username}</strong> dengan mode <strong>${activeRole}</strong>. Jika ingin masuk dengan akun atau mode lain, logout dulu.<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;"><button id="goDashboardBtn" type="button" class="btn-login" style="width:auto;margin-top:0;">Ke Dashboard</button><button id="switchAccountBtn" type="button" class="btn-secondary" style="width:auto;">Logout & Ganti Akun</button></div>`;
-  document.getElementById('goDashboardBtn').addEventListener('click', () => {
-    window.location = DASHBOARD_URL;
-  });
-  document.getElementById('switchAccountBtn').addEventListener('click', async () => {
-    try {
-      await fetch((API_BASE ? API_BASE : '') + '/api/logout', { method: 'POST', credentials: 'include' });
-    } catch (err) {}
-    notice.style.display = 'none';
-    form.style.display = 'block';
-  });
-}
+    function bindLoginFieldShells() {
+      document.querySelectorAll('.login-input-shell').forEach((shell) => {
+        shell.addEventListener('pointerdown', (event) => {
+          const interactive = event.target.closest('button, a, input, select, textarea');
+          if (interactive && interactive !== shell) return;
+          focusShellControl(shell);
+        });
+        shell.addEventListener('click', (event) => {
+          const interactive = event.target.closest('button, a, input, select, textarea');
+          if (interactive && interactive !== shell) return;
+          focusShellControl(shell);
+        });
+      });
+    }
 
-// remember username if chosen
-document.addEventListener('DOMContentLoaded', ()=>{
-  const saved = localStorage.getItem('rememberUsername');
-  if (saved) { document.getElementById('username').value = saved; document.getElementById('rememberMe').checked = true; }
-  const savedRole = localStorage.getItem('rememberRole');
-  if (savedRole) document.getElementById('loginRole').value = savedRole;
-  bindLoginFieldShells();
-  const openInfoBtn = document.getElementById('openLoginInfo');
-  const closeInfoBtn = document.getElementById('closeLoginInfo');
-  const infoOverlay = document.getElementById('loginInfoOverlay');
-  const infoTabs = document.querySelectorAll('.login-info-tab');
-  if (openInfoBtn) openInfoBtn.addEventListener('click', openLoginInfoOverlay);
-  if (closeInfoBtn) closeInfoBtn.addEventListener('click', closeLoginInfoOverlay);
-  if (infoTabs.length) {
-    infoTabs.forEach((tab) => {
-      tab.addEventListener('click', () => setLoginInfoTab(tab.dataset.infoTab));
+    async function handleLoginSubmit() {
+      const button = document.getElementById('btnLogin');
+      showAlert('');
+
+      const username = document.getElementById('username').value.trim();
+      const role = document.getElementById('loginRole').value;
+      const password = document.getElementById('password').value;
+
+      if (!username || !role || !password) {
+        showAlert('Username, role, dan password harus diisi.');
+        return;
+      }
+
+      const payload = username.includes('@') ? {email: username, password, role} : {username, password, role};
+
+      try {
+        if (document.getElementById('rememberMe').checked) {
+          localStorage.setItem('rememberUsername', username);
+          localStorage.setItem('rememberRole', role);
+        } else {
+          localStorage.removeItem('rememberUsername');
+          localStorage.removeItem('rememberRole');
+        }
+      } catch (err) { }
+
+      try {
+        setSubmitLoading(button, true);
+
+        const res = await fetch((API_BASE ? API_BASE : '') + '/api/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json().catch(() => ({message: 'Response not JSON'}));
+
+        if (res.ok && data.user) {
+          try {localStorage.setItem('showWelcomeOnNextVisit', '1');} catch (err) { }
+          showAlert('Login berhasil. Dashboard sedang dibuka.', 'success');
+          showAuthTransition('Login berhasil', 'Menyiapkan sesi dan membuka dashboard Anda.');
+          await wait(520);
+          window.location.replace(DASHBOARD_URL);
+          return;
+        }
+
+        showAlert(data.message || data.error || 'Login gagal');
+      } catch (err) {
+        console.error('Login error:', err);
+        hideAuthTransition();
+        showAlert('Gagal terhubung ke server: ' + err.message);
+      } finally {
+        setSubmitLoading(button, false);
+      }
+    }
+
+    // Session cookie is already set by the server; redirect directly after login.
+
+    function showSessionNotice(user) {
+      const notice = document.getElementById('sessionNotice');
+      const form = document.getElementById('loginForm');
+      if (!notice || !form) return;
+      const activeRole = user.role === 'APJ' ? 'APJ' : 'Asisten Apoteker';
+      form.style.display = 'none';
+      notice.style.display = 'block';
+      notice.innerHTML = `Anda masih login sebagai <strong>${user.username}</strong> dengan mode <strong>${activeRole}</strong>. Jika ingin masuk dengan akun atau mode lain, logout dulu.<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;"><button id="goDashboardBtn" type="button" class="btn-login" style="width:auto;margin-top:0;">Ke Dashboard</button><button id="switchAccountBtn" type="button" class="btn-secondary" style="width:auto;">Logout & Ganti Akun</button></div>`;
+      document.getElementById('goDashboardBtn').addEventListener('click', () => {
+        window.location = DASHBOARD_URL;
+      });
+      document.getElementById('switchAccountBtn').addEventListener('click', async () => {
+        try {
+          await fetch((API_BASE ? API_BASE : '') + '/api/logout', {method: 'POST', credentials: 'include'});
+        } catch (err) { }
+        notice.style.display = 'none';
+        form.style.display = 'block';
+      });
+    }
+
+    // remember username if chosen
+    document.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('rememberUsername');
+      if (saved) {document.getElementById('username').value = saved; document.getElementById('rememberMe').checked = true;}
+      const savedRole = localStorage.getItem('rememberRole');
+      if (savedRole) document.getElementById('loginRole').value = savedRole;
+      bindLoginFieldShells();
+      const openInfoBtn = document.getElementById('openLoginInfo');
+      const closeInfoBtn = document.getElementById('closeLoginInfo');
+      const infoOverlay = document.getElementById('loginInfoOverlay');
+      const infoTabs = document.querySelectorAll('.login-info-tab');
+      if (openInfoBtn) openInfoBtn.addEventListener('click', openLoginInfoOverlay);
+      if (closeInfoBtn) closeInfoBtn.addEventListener('click', closeLoginInfoOverlay);
+      if (infoTabs.length) {
+        infoTabs.forEach((tab) => {
+          tab.addEventListener('click', () => setLoginInfoTab(tab.dataset.infoTab));
+        });
+      }
+      if (infoOverlay) {
+        infoOverlay.addEventListener('click', (event) => {
+          if (event.target === infoOverlay) closeLoginInfoOverlay();
+        });
+      }
+      fetch((API_BASE ? API_BASE : '') + '/api/me', {credentials: 'include'})
+        .then(async (r) => {
+          if (!r.ok) return null;
+          const data = await r.json().catch(() => null);
+          return data && data.user ? data.user : null;
+        })
+        .then((user) => {
+          if (user) showSessionNotice(user);
+        })
+        .catch(() => { });
     });
-  }
-  if (infoOverlay) {
-    infoOverlay.addEventListener('click', (event) => {
-      if (event.target === infoOverlay) closeLoginInfoOverlay();
+
+    // toggle password visibility
+    document.getElementById('togglePass').addEventListener('click', (e) => {
+      e.preventDefault();
+      const p = document.getElementById('password');
+      const toggle = document.getElementById('togglePass');
+      if (p.type === 'password') {
+        p.type = 'text';
+        toggle.textContent = 'Hide';
+        toggle.setAttribute('aria-label', 'Sembunyikan password');
+      }
+      else {
+        p.type = 'password';
+        toggle.textContent = 'Show';
+        toggle.setAttribute('aria-label', 'Tampilkan password');
+      }
+      p.focus({preventScroll: true});
     });
-  }
-  fetch((API_BASE ? API_BASE : '') + '/api/me', { credentials: 'include' })
-    .then(async (r) => {
-      if (!r.ok) return null;
-      const data = await r.json().catch(() => null);
-      return data && data.user ? data.user : null;
-    })
-    .then((user) => {
-      if (user) showSessionNotice(user);
-    })
-    .catch(() => {});
-});
 
-// toggle password visibility
-document.getElementById('togglePass').addEventListener('click', (e)=>{
-  e.preventDefault();
-  const p = document.getElementById('password');
-  const toggle = document.getElementById('togglePass');
-  if (p.type === 'password') {
-    p.type = 'text';
-    toggle.textContent = 'Hide';
-    toggle.setAttribute('aria-label', 'Sembunyikan password');
-  }
-  else {
-    p.type = 'password';
-    toggle.textContent = 'Show';
-    toggle.setAttribute('aria-label', 'Tampilkan password');
-  }
-  p.focus({ preventScroll: true });
-});
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await handleLoginSubmit();
+    });
 
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  await handleLoginSubmit();
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeLoginInfoOverlay();
-});
-</script>
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLoginInfoOverlay();
+    });
+  </script>
 </body>
+
 </html>

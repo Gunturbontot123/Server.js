@@ -2,7 +2,7 @@
 
 /**
  * Export Seed Data Script
- * Exports real data from PostgreSQL to seed_data.xlsx
+ * Exports real data from SQLite to seed_data.xlsx
  * 
  * Usage: node scripts/export_seed_data.js
  */
@@ -34,7 +34,7 @@ async function exportSeedData() {
   await db.ready;
 
   try {
-    log(colors.cyan, '📤 Starting data export from PostgreSQL...\n');
+    log(colors.cyan, '📤 Starting data export from SQLite...\n');
 
     // Export users (without password - already safe in database)
     log(colors.cyan, '📝 Exporting users...');
