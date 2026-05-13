@@ -3,7 +3,7 @@ const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
+import { v4 as uuidv4 } from 'uuid';
 const helmet = require('helmet');
 const cors = require('cors');
 const PDFDocument = require('pdfkit');
