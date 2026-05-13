@@ -2,19 +2,25 @@
   "name": "backend-apotek",
   "version": "1.0.0",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "seed": "node scripts/seed.js",
+    "export": "node scripts/export_seed_data.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
+    "debug": "^4.4.3",
     "dotenv": "^17.3.1",
     "express": "^4.18.2",
     "express-session": "^1.19.0",
     "helmet": "^8.1.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.2",
     "pdfkit": "^0.17.2",
     "sqlite3": "^5.1.7",
-    "uuid": "^13.0.0",
+    "uuid": "^8.3.2",
     "xlsx": "^0.18.5"
   }
 }
