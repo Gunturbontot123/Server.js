@@ -1,7 +1,34 @@
 
-const path = require('path');
-const fs = require('fs');
-const sqlite3 = require('sqlite3').verbose();
+const sql = require("@libsql/client");
+
+const client = sql.createClient({
+  url: process.env.TURSO_DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
+
+function normalizeLastId(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'bigint') {
+    const num = Number(value);
+    return Number.isSafeInteger(num) ? num : value.toString();
+  }
+  return value;
+}
+
+function mapRow(result, row) {
+  if (!row) return null;
+  if (!Array.isArray(row)) return row;
+  const obj = {};
+  for (let i = 0; i < (result.columns || []).length; i += 1) {
+    obj[result.columns[i]] = row[i];
+  }
+  return obj;
+}
+
+function mapRows(result) {
+  if (!result || !Array.isArray(result.rows)) return [];
+  return result.rows.map((row) => mapRow(result, row));
+}
 
 function normalizeArgs(paramsOrCallback, callback) {
   if (typeof paramsOrCallback === 'function') {
@@ -10,100 +37,101 @@ function normalizeArgs(paramsOrCallback, callback) {
   return { params: Array.isArray(paramsOrCallback) ? paramsOrCallback : [], callback };
 }
 
-class SqliteDb {
+class TursoDB {
   constructor() {
-    const dbPath = process.env.SQLITE_PATH || path.resolve(__dirname, '..', 'data.sqlite');
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-
-    this.db = null;
-    this.ready = new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database(
-        dbPath,
-        sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
-        (err) => {
-          if (err) {
-            console.error('[DB] SQLite connection error:', err);
-            reject(err);
-            return;
-          }
-          this.db.exec('PRAGMA foreign_keys = ON');
-          console.log('[DB] Using SQLite database:', { path: dbPath });
-          resolve();
-        }
-      );
+    this.db = client;
+    this.ready = Promise.resolve();
+    console.log('[DB] Using Turso libsql database:', {
+      url: process.env.TURSO_DATABASE_URL?.substring(0, 30) + '...'
     });
   }
 
-  run(sql, paramsOrCallback, maybeCallback) {
+  async run(sql, paramsOrCallback, maybeCallback) {
     const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
-    return this.ready.then(
-      () => new Promise((resolve, reject) => {
-        this.db.run(String(sql || ''), params || [], function(err) {
-          if (callback) callback.call(this, err || null);
-          if (err) return reject(err);
-          return resolve({ changes: this.changes || 0, lastID: this.lastID || null });
-        });
-      })
-    );
+    try {
+      const result = await this.db.execute({
+        sql: String(sql || ''),
+        args: params || []
+      });
+      const changes = result.rowsAffected || 0;
+      const lastID = normalizeLastId(result.lastInsertRowid);
+      if (callback) callback.call({ lastID, changes }, null);
+      return { changes, lastID };
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
-  get(sql, paramsOrCallback, maybeCallback) {
+  async get(sql, paramsOrCallback, maybeCallback) {
     const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
-    return this.ready.then(
-      () => new Promise((resolve, reject) => {
-        this.db.get(String(sql || ''), params || [], (err, row) => {
-          if (callback) callback(err || null, row);
-          if (err) return reject(err);
-          return resolve(row);
-        });
-      })
-    );
+    try {
+      const result = await this.db.execute({
+        sql: String(sql || ''),
+        args: params || []
+      });
+      const row = mapRow(result, result.rows?.[0]) || null;
+      if (callback) callback(null, row);
+      return row;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
-  all(sql, paramsOrCallback, maybeCallback) {
+  async all(sql, paramsOrCallback, maybeCallback) {
     const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
-    return this.ready.then(
-      () => new Promise((resolve, reject) => {
-        this.db.all(String(sql || ''), params || [], (err, rows) => {
-          if (callback) callback(err || null, rows || []);
-          if (err) return reject(err);
-          return resolve(rows || []);
-        });
-      })
-    );
+    try {
+      const result = await this.db.execute({
+        sql: String(sql || ''),
+        args: params || []
+      });
+      const rows = mapRows(result);
+      if (callback) callback(null, rows);
+      return rows;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
-  exec(sql, callback) {
-    return this.ready.then(
-      () => new Promise((resolve, reject) => {
-        this.db.exec(String(sql || ''), (err) => {
-          if (callback) callback(err || null);
-          if (err) return reject(err);
-          return resolve();
-        });
-      })
-    );
+  async exec(sql, callback) {
+    try {
+      await this.db.execute(String(sql || ''));
+      if (callback) callback(null);
+      return;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
   serialize(fn) {
-    return this.db.serialize(fn);
+    // Turso executes queries serially by default, so just call the function
+    return fn();
   }
 
   prepare(sql) {
-    return this.db.prepare(String(sql || ''));
+    // Turso doesn't have a prepare step like SQLite3
+    // Return a stub object that can execute queries
+    return {
+      run: (...args) => this.run(sql, ...args),
+      get: (...args) => this.get(sql, ...args),
+      all: (...args) => this.all(sql, ...args),
+      finalize: (callback) => callback?.(null)
+    };
   }
 
-  close(callback) {
-    return this.ready.then(
-      () => new Promise((resolve, reject) => {
-        this.db.close((err) => {
-          if (callback) callback(err || null);
-          if (err) return reject(err);
-          return resolve();
-        });
-      })
-    );
+  async close(callback) {
+    try {
+      // Turso client doesn't need explicit closing
+      if (callback) callback(null);
+      return;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 }
 
-module.exports = new SqliteDb();
+module.exports = new TursoDB();
