@@ -109,7 +109,7 @@ Jika tetap tidak berhasil, ikuti langkah berikut:
 
 ### Step 1: Cek Database Users
 ```sql
--- Di PostgreSQL console
+-- Di SQLite console
 SELECT id, username, email, role FROM users;
 ```
 
@@ -195,7 +195,7 @@ SELECT id, username, email, role FROM users;
 - [x] Tambah debug output jika query kosong
 - [x] Perbaiki UI untuk handle undefined values
 - [x] Tampilkan semua user jika error untuk debugging
-- [x] Test query terhadap PostgreSQL database
+- [x] Test query terhadap SQLite database
 
 ---
 

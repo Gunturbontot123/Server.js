@@ -2,7 +2,7 @@
 
 /**
  * Database Seeding Script
- * Reads seed_data.xlsx and populates PostgreSQL database
+ * Reads seed_data.xlsx and populates SQLite database
  * 
  * Usage: node scripts/seed.js
  */
@@ -114,25 +114,25 @@ async function seedDatabase(data) {
     // Drop and recreate tables
     log(colors.cyan, '🔄 Dropping and recreating tables...');
     
-    await db.run(`DROP TABLE IF EXISTS laporan_pemusnahan_obat CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS stock_movements CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS password_reset_tokens CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS email_config CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS scheduler_config CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS kategori_config CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS obat CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS logs CASCADE`);
-    await db.run(`DROP TABLE IF EXISTS users CASCADE`);
+    await db.run(`DROP TABLE IF EXISTS laporan_pemusnahan_obat`);
+    await db.run(`DROP TABLE IF EXISTS stock_movements`);
+    await db.run(`DROP TABLE IF EXISTS password_reset_tokens`);
+    await db.run(`DROP TABLE IF EXISTS email_config`);
+    await db.run(`DROP TABLE IF EXISTS scheduler_config`);
+    await db.run(`DROP TABLE IF EXISTS kategori_config`);
+    await db.run(`DROP TABLE IF EXISTS obat`);
+    await db.run(`DROP TABLE IF EXISTS logs`);
+    await db.run(`DROP TABLE IF EXISTS users`);
 
     // Create users table
     await db.run(`
       CREATE TABLE users (
-        id SERIAL PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         email TEXT,
         password TEXT NOT NULL,
         role TEXT NOT NULL CHECK (role IN ('APJ', 'ASISTEN_APOTEKER')),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -147,8 +147,8 @@ async function seedDatabase(data) {
         batch TEXT,
         kategori TEXT DEFAULT 'TABLET BEBAS',
         deskripsi TEXT DEFAULT '',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -162,7 +162,7 @@ async function seedDatabase(data) {
         optimal_stok INTEGER DEFAULT 30,
         reorder_qty INTEGER DEFAULT 50,
         keterangan TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -172,7 +172,7 @@ async function seedDatabase(data) {
         id TEXT PRIMARY KEY,
         type TEXT,
         message TEXT,
-        time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        time TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -182,9 +182,9 @@ async function seedDatabase(data) {
         id TEXT PRIMARY KEY,
         user_id INTEGER NOT NULL,
         token_hash TEXT UNIQUE NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        used_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT NOT NULL,
+        used_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
@@ -195,11 +195,11 @@ async function seedDatabase(data) {
         id TEXT PRIMARY KEY,
         config_type TEXT UNIQUE NOT NULL,
         interval_hari INTEGER DEFAULT 5,
-        enabled BOOLEAN DEFAULT true,
+        enabled INTEGER DEFAULT 1,
         email_jam TEXT DEFAULT '08:00',
-        last_sent_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        last_sent_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -212,11 +212,11 @@ async function seedDatabase(data) {
         smtp_port INTEGER NOT NULL,
         smtp_user TEXT NOT NULL,
         smtp_pass TEXT NOT NULL,
-        smtp_secure BOOLEAN DEFAULT true,
+        smtp_secure INTEGER DEFAULT 1,
         notify_from TEXT,
         notify_to TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -229,8 +229,8 @@ async function seedDatabase(data) {
         jenis_movement TEXT,
         jumlah INTEGER,
         keterangan TEXT,
-        waktu TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        waktu TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (obat_id) REFERENCES obat(id) ON DELETE CASCADE
       )
     `);
@@ -251,11 +251,11 @@ async function seedDatabase(data) {
         created_by TEXT NOT NULL,
         status TEXT DEFAULT 'pending',
         approved_by_first TEXT,
-        approved_at_first TIMESTAMP,
+        approved_at_first TEXT,
         approved_by_second TEXT,
-        approved_at_second TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        approved_at_second TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (obat_id) REFERENCES obat(id) ON DELETE CASCADE
       )
     `);
@@ -274,7 +274,7 @@ async function seedDatabase(data) {
         }
         const hashedPassword = bcrypt.hashSync(user.password, BCRYPT_ROUNDS);
         await db.run(
-          `INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4)`,
+          `INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)`,
           [user.username, user.email || null, hashedPassword, user.role]
         );
       }
@@ -286,7 +286,7 @@ async function seedDatabase(data) {
     if (data.kategori && Array.isArray(data.kategori)) {
       for (const kategori of data.kategori) {
         await db.run(
-          `INSERT INTO kategori_config (id, nama, lead_time_hari, min_stok, optimal_stok, reorder_qty) VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO kategori_config (id, nama, lead_time_hari, min_stok, optimal_stok, reorder_qty) VALUES (?, ?, ?, ?, ?, ?)`,
           [uuidv4(), kategori.nama, kategori.lead_time_hari || 7, kategori.min_stok || 10, kategori.optimal_stok || 30, kategori.reorder_qty || 50]
         );
       }
@@ -299,7 +299,7 @@ async function seedDatabase(data) {
       for (const obat of data.obat) {
         const ved = classifyVED(obat.jumlah);
         await db.run(
-          `INSERT INTO obat (id, nama, jumlah, kadaluarsa, ved, batch, kategori, deskripsi) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO obat (id, nama, jumlah, kadaluarsa, ved, batch, kategori, deskripsi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [uuidv4(), obat.nama, obat.jumlah || 0, obat.kadaluarsa || null, ved, obat.batch || '', obat.kategori || 'TABLET BEBAS', obat.deskripsi || '']
         );
       }
@@ -314,8 +314,8 @@ async function seedDatabase(data) {
     if (data.email_config && Array.isArray(data.email_config)) {
       for (const config of data.email_config) {
         await db.run(
-          `INSERT INTO email_config (id, config_type, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [uuidv4(), config.config_type, config.smtp_host, config.smtp_port || 465, config.smtp_user || '', config.smtp_pass || '', config.smtp_secure !== false]
+          `INSERT INTO email_config (id, config_type, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), config.config_type, config.smtp_host, config.smtp_port || 465, config.smtp_user || '', config.smtp_pass || '', config.smtp_secure !== false ? 1 : 0]
         );
       }
       log(colors.green, `✅ Seeded email_config`);

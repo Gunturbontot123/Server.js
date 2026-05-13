@@ -1,4 +1,34 @@
-const { Client } = require('pg');
+
+const sql = require("@libsql/client");
+
+const client = sql.createClient({
+  url: process.env.TURSO_DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
+
+function normalizeLastId(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'bigint') {
+    const num = Number(value);
+    return Number.isSafeInteger(num) ? num : value.toString();
+  }
+  return value;
+}
+
+function mapRow(result, row) {
+  if (!row) return null;
+  if (!Array.isArray(row)) return row;
+  const obj = {};
+  for (let i = 0; i < (result.columns || []).length; i += 1) {
+    obj[result.columns[i]] = row[i];
+  }
+  return obj;
+}
+
+function mapRows(result) {
+  if (!result || !Array.isArray(result.rows)) return [];
+  return result.rows.map((row) => mapRow(result, row));
+}
 
 function normalizeArgs(paramsOrCallback, callback) {
   if (typeof paramsOrCallback === 'function') {
@@ -7,189 +37,101 @@ function normalizeArgs(paramsOrCallback, callback) {
   return { params: Array.isArray(paramsOrCallback) ? paramsOrCallback : [], callback };
 }
 
-function replaceQuestionPlaceholders(sql) {
-  let idx = 0;
-  let inSingle = false;
-  let inDouble = false;
-  let inLineComment = false;
-  let inBlockComment = false;
-  let result = '';
-
-  for (let i = 0; i < sql.length; i += 1) {
-    const ch = sql[i];
-    const next = sql[i + 1];
-
-    if (!inSingle && !inDouble && !inBlockComment && ch === '-' && next === '-') {
-      inLineComment = true;
-      result += ch;
-      continue;
-    }
-    if (inLineComment) {
-      result += ch;
-      if (ch === '\n') inLineComment = false;
-      continue;
-    }
-
-    if (!inSingle && !inDouble && !inLineComment && ch === '/' && next === '*') {
-      inBlockComment = true;
-      result += ch;
-      continue;
-    }
-    if (inBlockComment) {
-      result += ch;
-      if (ch === '*' && next === '/') inBlockComment = false;
-      continue;
-    }
-
-    if (!inDouble && ch === '\'' && sql[i - 1] !== '\\') {
-      inSingle = !inSingle;
-      result += ch;
-      continue;
-    }
-    if (!inSingle && ch === '"' && sql[i - 1] !== '\\') {
-      inDouble = !inDouble;
-      result += ch;
-      continue;
-    }
-
-    if (!inSingle && !inDouble && ch === '?') {
-      idx += 1;
-      result += `$${idx}`;
-      continue;
-    }
-
-    result += ch;
-  }
-
-  return result;
-}
-
-class PostgresCompatDb {
+class TursoDB {
   constructor() {
-    // Build config untuk PostgreSQL client
-    const databaseUrl = (process.env.DATABASE_URL || '').trim();
-    const config = databaseUrl
-      ? { connectionString: databaseUrl }
-      : {
-          host: process.env.PGHOST || 'localhost',
-          port: parseInt(process.env.PGPORT || '5432', 10),
-          database: process.env.PGDATABASE || 'postgres',
-          user: process.env.PGUSER || 'postgres'
-        };
-
-    // Add password hanya jika tidak pakai DATABASE_URL
-    if (!databaseUrl) {
-      const password = (process.env.PGPASSWORD || '').trim();
-      if (password) {
-        config.password = password;
-      }
-    }
-
-    const pgSsl = String(process.env.PG_SSL || '').toLowerCase() === 'true';
-    const sslRequiredByUrl = /sslmode=require/i.test(databaseUrl);
-    if (pgSsl || sslRequiredByUrl) {
-      const rejectUnauthorized = String(process.env.PG_SSL_REJECT_UNAUTHORIZED || '').toLowerCase() === 'true';
-      config.ssl = { rejectUnauthorized };
-    }
-
-    // Log config untuk debugging (tanpa password)
-    console.log('[DB] PostgreSQL config:', {
-      host: config.host || '(from DATABASE_URL)',
-      port: config.port || '(from DATABASE_URL)',
-      database: config.database || '(from DATABASE_URL)',
-      user: config.user || '(from DATABASE_URL)',
-      hasPassword: Boolean(config.password || databaseUrl),
-      hasSsl: Boolean(config.ssl)
+    this.db = client;
+    this.ready = Promise.resolve();
+    console.log('[DB] Using Turso libsql database:', {
+      url: process.env.TURSO_DATABASE_URL?.substring(0, 30) + '...'
     });
-    
-    this.client = new Client(config);
+  }
 
-    this.ready = this.client.connect()
-      .then(() => {
-        console.log('✅ PostgreSQL terhubung');
-      })
-      .catch((err) => {
-        console.error('⚠️  PostgreSQL tidak terhubung:', err.message);
-        // Graceful error handling - jangan throw, biar server tetap jalan
+  async run(sql, paramsOrCallback, maybeCallback) {
+    const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
+    try {
+      const result = await this.db.execute({
+        sql: String(sql || ''),
+        args: params || []
       });
+      const changes = result.rowsAffected || 0;
+      const lastID = normalizeLastId(result.lastInsertRowid);
+      if (callback) callback.call({ lastID, changes }, null);
+      return { changes, lastID };
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
-  _query(sql, params, callback, mode) {
-    const text = replaceQuestionPlaceholders(String(sql || ''));
-    return this.ready
-      .then(() => this.client.query(text, params || []))
-      .then((result) => {
-        if (mode === 'all') {
-          callback && callback(null, result.rows);
-          return result.rows;
-        }
-        if (mode === 'get') {
-          callback && callback(null, result.rows[0] || undefined);
-          return result.rows[0] || undefined;
-        }
-
-        const ctx = {
-          changes: Number(result.rowCount || 0),
-          lastID: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null
-        };
-        callback && callback.call(ctx, null);
-        return ctx;
-      })
-      .catch((err) => {
-        if (mode === 'all') {
-          callback && callback(err, []);
-          return [];
-        }
-        if (mode === 'get') {
-          callback && callback(err);
-          return undefined;
-        }
-        callback && callback.call({ changes: 0, lastID: null }, err);
-        return undefined;
+  async get(sql, paramsOrCallback, maybeCallback) {
+    const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
+    try {
+      const result = await this.db.execute({
+        sql: String(sql || ''),
+        args: params || []
       });
+      const row = mapRow(result, result.rows?.[0]) || null;
+      if (callback) callback(null, row);
+      return row;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
-  run(sql, paramsOrCallback, maybeCallback) {
+  async all(sql, paramsOrCallback, maybeCallback) {
     const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
-    return this._query(sql, params, callback, 'run');
+    try {
+      const result = await this.db.execute({
+        sql: String(sql || ''),
+        args: params || []
+      });
+      const rows = mapRows(result);
+      if (callback) callback(null, rows);
+      return rows;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
-  get(sql, paramsOrCallback, maybeCallback) {
-    const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
-    return this._query(sql, params, callback, 'get');
-  }
-
-  all(sql, paramsOrCallback, maybeCallback) {
-    const { params, callback } = normalizeArgs(paramsOrCallback, maybeCallback);
-    return this._query(sql, params, callback, 'all');
-  }
-
-  exec(sql, callback) {
-    return this._query(sql, [], callback, 'run');
+  async exec(sql, callback) {
+    try {
+      await this.db.execute(String(sql || ''));
+      if (callback) callback(null);
+      return;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 
   serialize(fn) {
-    if (typeof fn === 'function') fn();
+    // Turso executes queries serially by default, so just call the function
+    return fn();
   }
 
   prepare(sql) {
+    // Turso doesn't have a prepare step like SQLite3
+    // Return a stub object that can execute queries
     return {
-      run: (paramsOrCallback, maybeCallback) => this.run(sql, paramsOrCallback, maybeCallback),
-      finalize: (callback) => {
-        if (typeof callback === 'function') callback(null);
-      }
+      run: (...args) => this.run(sql, ...args),
+      get: (...args) => this.get(sql, ...args),
+      all: (...args) => this.all(sql, ...args),
+      finalize: (callback) => callback?.(null)
     };
   }
 
-  close(callback) {
-    return this.client.end()
-      .then(() => {
-        if (typeof callback === 'function') callback(null);
-      })
-      .catch((err) => {
-        if (typeof callback === 'function') callback(err);
-      });
+  async close(callback) {
+    try {
+      // Turso client doesn't need explicit closing
+      if (callback) callback(null);
+      return;
+    } catch (err) {
+      if (callback) callback(err);
+      throw err;
+    }
   }
 }
 
-module.exports = new PostgresCompatDb();
+module.exports = new TursoDB();

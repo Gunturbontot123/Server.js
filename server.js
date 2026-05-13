@@ -27,12 +27,10 @@ const OBAT_BOOTSTRAP_PATHS = [
 const ADMIN_USERNAME = 'bontot';
 const ADMIN_EMAIL = 'useoppo507@gmail.com';
 const ADMIN_DEFAULT_PASSWORD = 'Abgbontot';
-const SESSION_COOKIE_SECURE = process.env.SESSION_COOKIE_SECURE
-  ? process.env.SESSION_COOKIE_SECURE === 'true'
-  : IS_PRODUCTION;
+const SESSION_COOKIE_SECURE = false;
 const SESSION_COOKIE_OPTIONS = {
   maxAge: 24 * 3600 * 1000,
-  httpOnly: true,
+  httpOnly: false,
   sameSite: 'lax',
   secure: SESSION_COOKIE_SECURE,
   path: '/'
@@ -247,7 +245,7 @@ function initializeKategoriConfig() {
     db.serialize(() => {
       db.run('BEGIN TRANSACTION');
       const stmt = db.prepare('INSERT INTO kategori_config (id, nama, lead_time_hari, min_stok, optimal_stok, reorder_qty, keterangan, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-      
+
       defaultKategori.forEach(kat => {
         stmt.run([uuidv4(), kat.nama, kat.lead_time, kat.min_stok, kat.optimal_stok, kat.reorder_qty, kat.keterangan, new Date().toISOString()]);
       });
@@ -278,7 +276,7 @@ function initializeSchedulerConfig(callback) {
       if (callback) callback(err);
       return;
     }
-    
+
     if (row && row.total > 0) {
       console.log('✅ Scheduler config sudah ada di database');
       if (callback) callback(null);
@@ -286,7 +284,7 @@ function initializeSchedulerConfig(callback) {
     }
 
     const now = new Date().toISOString();
-    
+
     // Default scheduler config untuk VED-FEFO email
     console.log('[INIT] Menginisialisasi scheduler_config dengan default values...');
     db.run(
@@ -312,7 +310,7 @@ function initializeEmailConfig(callback) {
       if (callback) callback(err);
       return;
     }
-    
+
     if (row && row.total > 0) {
       console.log('✅ Email config sudah ada di database');
       if (callback) callback(null);
@@ -327,7 +325,7 @@ function initializeEmailConfig(callback) {
     const smtpPass = 'FROM_ENV';        // Signal to read password from environment
     const notifyFrom = process.env.SMTP_USER || '';  // Use SMTP_USER as sender
     const notifyTo = '';
-    
+
     console.log('[INIT] Menginisialisasi email_config dengan akun: ' + smtpUser);
     db.run(
       "INSERT INTO email_config (id, config_type, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, notify_from, notify_to, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -351,7 +349,7 @@ function initializeEmailConfig(callback) {
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE,
       email TEXT,
       password TEXT,
@@ -425,7 +423,7 @@ db.serialize(() => {
       id TEXT PRIMARY KEY,
       config_type TEXT UNIQUE NOT NULL,
       interval_hari INTEGER DEFAULT 5,
-      enabled BOOLEAN DEFAULT true,
+      enabled INTEGER DEFAULT 1,
       email_jam TEXT DEFAULT '08:00',
       last_sent_at TEXT,
       created_at TEXT,
@@ -441,7 +439,7 @@ db.serialize(() => {
       smtp_port INTEGER NOT NULL,
       smtp_user TEXT NOT NULL,
       smtp_pass TEXT NOT NULL,
-      smtp_secure BOOLEAN DEFAULT true,
+      smtp_secure INTEGER DEFAULT 1,
       notify_from TEXT,
       notify_to TEXT,
       created_at TEXT,
@@ -473,16 +471,12 @@ db.serialize(() => {
     )
   `);
 
-  db.all(`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'obat'
-  `, (err, cols) => {
+  db.all(`PRAGMA table_info(obat)`, (err, cols) => {
     if (err) {
       console.error('Error checking obat columns:', err);
       return;
     }
-    const colNames = (cols || []).map(c => c.column_name);
+    const colNames = (cols || []).map(c => c.name);
     const missingColumns = [];
     if (!colNames.includes('batch')) missingColumns.push("ALTER TABLE obat ADD COLUMN batch TEXT");
     if (!colNames.includes('kategori')) missingColumns.push("ALTER TABLE obat ADD COLUMN kategori TEXT DEFAULT 'TABLET BEBAS'");
@@ -595,7 +589,9 @@ app.get('/readyz', (req, res) => {
 });
 
 const authMiddleware = (req, res, next) => {
+  console.debug(req.session)
   if (req.session && req.session.user) return next();
+  console.debug("Auth middleware returns 401")
   return res.status(401).json({ message: 'Unauthorized' });
 };
 
@@ -634,10 +630,10 @@ function resolveStoredVED(obat) {
 // Hitung umur obat (hari tersisa sampai kadaluarsa)
 function getAgeStatus(kadaluarsaStr) {
   if (!kadaluarsaStr) return { daysLeft: null, status: 'unknown', urgency: 0 };
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   // Parse berbagai format expiry
   let expiryDate;
   try {
@@ -657,14 +653,14 @@ function getAgeStatus(kadaluarsaStr) {
       // Coba format ISO atau DD-MM-YYYY
       expiryDate = new Date(kadaluarsaStr);
     }
-    
+
     if (isNaN(expiryDate)) throw new Error('Invalid date');
   } catch (err) {
     return { daysLeft: null, status: 'unknown', urgency: 0 };
   }
-  
+
   const daysLeft = Math.floor((expiryDate - today) / (1000 * 60 * 60 * 24));
-  
+
   let status, urgency;
   if (daysLeft < 0 || daysLeft <= 60) {
     status = 'kadaluarsa';
@@ -679,7 +675,7 @@ function getAgeStatus(kadaluarsaStr) {
     status = 'aman';
     urgency = 0;
   }
-  
+
   return { daysLeft, status, urgency };
 }
 
@@ -688,10 +684,10 @@ function analyzeObatVED(obat) {
   const n = parseInt(obat.jumlah || 0);
   const ved = resolveStoredVED(obat);
   const age = getAgeStatus(obat.kadaluarsa);
-  
+
   let recommendation = '';
   let action = 'monitor';
-  
+
   // Rekomendasi berdasarkan VED + Age
   if (age.status === 'kadaluarsa') {
     recommendation = '🔴 SEGERA BUANG - Obat sudah kadaluarsa';
@@ -712,7 +708,7 @@ function analyzeObatVED(obat) {
     recommendation = '✅ STOCK CUKUP - Pemantauan normal';
     action = 'routine';
   }
-  
+
   return { ved, ...age, recommendation, action };
 }
 
@@ -796,6 +792,7 @@ function completeLogin(req, res, user, password, expectedRole) {
         return res.status(500).json({ message: 'Session error' });
       }
       addLog('auth', `${user.username} login sebagai ${activeRole}`);
+      console.debug("A log in success with", req.session.user)
       return res.json({ message: 'Logged in', user: req.session.user });
     });
   });
@@ -815,7 +812,7 @@ app.post('/api/login', (req, res) => {
     return db.all('SELECT * FROM users WHERE lower(email) = ? ORDER BY id DESC', [value.toLowerCase()], (err, users) => {
       if (err) {
         console.error('Login DB error:', err);
-        return res.status(500).json({ message: 'DB error' });
+        return res.status(500).json({ message: err.message || 'DB error' });
       }
       if (!users || users.length === 0) {
         return res.status(401).json({ message: 'Invalid credentials' });
@@ -830,7 +827,7 @@ app.post('/api/login', (req, res) => {
   db.get('SELECT * FROM users WHERE username = ?', [value], (err, user) => {
     if (err) {
       console.error('Login DB error:', err);
-      return res.status(500).json({ message: 'DB error' });
+      return res.status(500).json({ message: err.message || 'DB error' });
     }
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -860,10 +857,10 @@ app.post('/api/register', (req, res) => {
   }
 
   const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
-  const sql = `INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?) RETURNING id`;
-  db.get(sql, [normalizedUsername, normalizedEmail, hash, normalizedRole], (err, inserted) => {
+  const sql = `INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)`;
+  db.run(sql, [normalizedUsername, normalizedEmail, hash, normalizedRole], function(err) {
     if (err) {
-      if (String(err.code || '') === '23505' || String(err.message || '').includes('users.username')) {
+      if (String(err.code || '') === 'SQLITE_CONSTRAINT' || String(err.message || '').includes('users.username')) {
         return res.status(400).json({ error: 'Username sudah dipakai' });
       }
       return res.status(400).json({ error: 'Pendaftaran gagal disimpan' });
@@ -873,7 +870,7 @@ app.post('/api/register', (req, res) => {
         console.error('Session regenerate error:', regenErr);
         return res.status(500).json({ message: 'Session error' });
       }
-      req.session.user = { id: inserted && inserted.id, username: normalizedUsername, role: normalizedRole };
+      req.session.user = { id: this.lastID, username: normalizedUsername, role: normalizedRole };
       req.session.save((saveErr) => {
         if (saveErr) return res.status(500).json({ message: 'Session error' });
         addLog('auth', `register ${normalizedUsername} (${normalizedRole})`);
@@ -897,7 +894,7 @@ app.post('/api/reset-password/request', (req, res) => {
     return res.json({ message, delivery: delivery || 'email' });
   };
 
-  db.run("DELETE FROM password_reset_tokens WHERE used_at IS NOT NULL OR expires_at <= ?", [new Date().toISOString()], () => {});
+  db.run("DELETE FROM password_reset_tokens WHERE used_at IS NOT NULL OR expires_at <= ?", [new Date().toISOString()], () => { });
   const isEmailIdentifier = identifier.includes('@');
   const lookupSql = isEmailIdentifier
     ? "SELECT id, username, email FROM users WHERE lower(email) = ? ORDER BY id DESC"
@@ -1048,7 +1045,7 @@ app.post('/api/reset-password/confirm', (req, res) => {
             return res.status(500).json({ message: 'DB error' });
           }
 
-          db.run('DELETE FROM password_reset_tokens WHERE user_id = ? AND id != ?', [row.user_id, row.id], () => {});
+          db.run('DELETE FROM password_reset_tokens WHERE user_id = ? AND id != ?', [row.user_id, row.id], () => { });
           addLog('auth', `reset password success ${row.username}`);
           return res.json({ message: 'Password berhasil diubah. Silakan login dengan password baru.' });
         });
@@ -1116,8 +1113,8 @@ app.put('/api/user/password', authMiddleware, (req, res) => {
 app.post('/api/request-password-reset', authMiddleware, (req, res) => {
   const userId = req.session.user.id;
 
-  const complete = (delivery) => res.json({ 
-    message: delivery === 'email' 
+  const complete = (delivery) => res.json({
+    message: delivery === 'email'
       ? 'Link reset password telah dikirim ke email Anda.'
       : 'SMTP tidak terkonfigurasi. Link reset disimpan di log server.',
     delivery
@@ -1233,7 +1230,7 @@ app.delete('/api/users/:id', authMiddleware, roleMiddleware(['APJ']), (req, res)
     if (findErr) return res.status(500).json({ message: 'DB error' });
     if (!user) return res.status(404).json({ message: 'User tidak ditemukan' });
 
-    db.run("DELETE FROM users WHERE id = ?", [targetId], function (err) {
+    db.run("DELETE FROM users WHERE id = ?", [targetId], function(err) {
       if (err) return res.status(500).json({ message: 'DB error' });
       addLog('audit', `Hapus user: ${user.username} (${user.role}) oleh ${actor}`);
       return res.json({ message: `User ${user.username} berhasil dihapus` });
@@ -1261,7 +1258,7 @@ app.post('/api/obat', authMiddleware, (req, res) => {
   db.run(
     "INSERT INTO obat (id,nama,jumlah,kadaluarsa,ved,kategori,batch,deskripsi) VALUES (?,?,?,?,?,?,?,?)",
     [uuidv4(), nama, jumlah, kadaluarsa, ved, kategori || 'TABLET BEBAS', batch || '', finalDeskripsi],
-    function (err) {
+    function(err) {
       if (err) return res.status(500).json({ message: 'DB error' });
       addLog('audit', `Tambah obat: ${nama} (Batch ${batch || '-'}) oleh ${actor}`);
       return res.json({ message: 'Obat ditambahkan' });
@@ -1280,7 +1277,7 @@ app.put('/api/obat/:id', authMiddleware, (req, res) => {
     db.run(
       "UPDATE obat SET nama=?, jumlah=?, kadaluarsa=?, ved=?, kategori=?, batch=?, deskripsi=? WHERE id=?",
       [nama, jumlah, kadaluarsa, vedValue, kategori || 'TABLET BEBAS', batch || '', finalDeskripsi, req.params.id],
-      function (err) {
+      function(err) {
         if (err) return res.status(500).json({ message: 'DB error' });
         const afterRow = {
           nama,
@@ -1327,7 +1324,7 @@ app.delete('/api/obat/:id', authMiddleware, (req, res) => {
     db.run(
       "DELETE FROM obat WHERE id=?",
       [req.params.id],
-      function (err) {
+      function(err) {
         if (err) return res.status(500).json({ message: 'DB error' });
         addLog('audit', `Hapus obat: ${obat.nama} (Batch ${obat.batch || '-'}) oleh ${actor}`);
         return res.json({ message: 'Deleted' });
@@ -1354,7 +1351,7 @@ app.post('/api/keluar', authMiddleware, (req, res) => {
         [newJumlah, classifyVED(newJumlah), obat.id],
         (err2) => {
           if (err2) return res.status(500).json({ message: 'DB error' });
-          
+
           // Track stock movement
           const movementId = uuidv4();
           const now = new Date().toISOString();
@@ -1365,7 +1362,7 @@ app.post('/api/keluar', authMiddleware, (req, res) => {
               if (err3) console.error('Stock movement log error:', err3);
             }
           );
-          
+
           addLog('fefo', `FEFO ${obat.nama} oleh ${req.session.user.username} (${formatRoleLabel(req.session.user.role)})`);
           return res.json({ message: 'FEFO berhasil' });
         }
@@ -1378,24 +1375,24 @@ app.post('/api/keluar', authMiddleware, (req, res) => {
 app.post('/api/release', authMiddleware, async (req, res) => {
   try {
     const { obat_id, jumlah, keterangan } = req.body || {};
-    
+
     console.log('=== /api/release START ===');
     console.log('Request:', { obat_id, jumlah, keterangan });
-    
+
     // Validasi input
     if (!obat_id) {
       console.error('[FAIL] obat_id missing');
       return res.status(400).json({ message: 'Obat ID diperlukan' });
     }
-    
+
     const qtyInt = parseInt(jumlah || 0);
     if (isNaN(qtyInt) || qtyInt < 1) {
       console.error('[FAIL] jumlah invalid:', jumlah);
       return res.status(400).json({ message: 'Jumlah harus angka positif' });
     }
-    
+
     console.log('[OK] Input valid. qtyInt=' + qtyInt);
-    
+
     // Get obat - using Promise wrapper
     const obat = await new Promise((resolve, reject) => {
       db.get("SELECT * FROM obat WHERE id = ?", [obat_id], (err, row) => {
@@ -1404,14 +1401,14 @@ app.post('/api/release', authMiddleware, async (req, res) => {
         resolve(row);
       });
     });
-    
+
     console.log('[OK] Obat found:', obat.nama, 'Current stok:', obat.jumlah);
-    
+
     const releaseQty = Math.min(qtyInt, obat.jumlah);
     const newJumlah = Math.max(0, obat.jumlah - releaseQty);
-    
+
     console.log('[INFO] releaseQty=' + releaseQty + ', newJumlah=' + newJumlah);
-    
+
     // Update obat stok
     await new Promise((resolve, reject) => {
       db.run(
@@ -1424,7 +1421,7 @@ app.post('/api/release', authMiddleware, async (req, res) => {
         }
       );
     });
-    
+
     // Record movement (don't block on this)
     const movementId = uuidv4();
     const now = new Date().toISOString();
@@ -1436,7 +1433,7 @@ app.post('/api/release', authMiddleware, async (req, res) => {
         else console.log('[OK] Movement recorded');
       }
     );
-    
+
     // Log activity (async, don't block)
     setImmediate(() => {
       try {
@@ -1446,27 +1443,27 @@ app.post('/api/release', authMiddleware, async (req, res) => {
         console.error('[WARN] Log error:', logErr.message);
       }
     });
-    
+
     // SEND RESPONSE IMMEDIATELY
     console.log('[OK] Sending response with status 200');
-    res.json({ 
-      message: 'Release berhasil', 
-      released: releaseQty, 
-      remaining: newJumlah 
+    res.json({
+      message: 'Release berhasil',
+      released: releaseQty,
+      remaining: newJumlah
     });
     console.log('=== /api/release END (SUCCESS) ===\n');
-    
+
   } catch (err) {
     console.error('[ERROR] Exception caught:', err.message);
     console.log('=== /api/release END (ERROR) ===\n');
-    
+
     if (res.headersSent) {
       console.error('[CRITICAL] Headers already sent, cannot send error response');
       return;
     }
-    
-    res.status(500).json({ 
-      message: 'Gagal: ' + err.message 
+
+    res.status(500).json({
+      message: 'Gagal: ' + err.message
     });
   }
 });
@@ -1478,24 +1475,24 @@ app.post('/api/release', authMiddleware, async (req, res) => {
 app.get('/api/ved-analysis', authMiddleware, (req, res) => {
   db.all("SELECT * FROM obat", (err, rows) => {
     if (err) return res.status(500).json({ message: 'DB error' });
-    
+
     const analysis = rows.map(obat => ({
       ...obat,
       ...analyzeObatVED(obat)
     }));
-    
+
     // Group by VED
     const byVed = { V: [], E: [], D: [] };
     analysis.forEach(item => {
       byVed[item.ved].push(item);
     });
-    
+
     // Count by status
     const byStatus = {};
     analysis.forEach(item => {
       byStatus[item.status] = (byStatus[item.status] || 0) + 1;
     });
-    
+
     res.json({
       total: analysis.length,
       byVed,
@@ -1516,16 +1513,16 @@ app.get('/api/ved-analysis', authMiddleware, (req, res) => {
 app.get('/api/fefo-recommendations', authMiddleware, (req, res) => {
   db.all("SELECT * FROM obat ORDER BY kadaluarsa ASC", (err, rows) => {
     if (err) return res.status(500).json({ message: 'DB error' });
-    
+
     const urgent = [];    // Kadaluarsa atau hampir kadaluarsa
     const critical = [];  // Vital (V) dengan stok rendah
     const monitor = [];   // Essential (E) dengan perhatian
     const routine = [];   // Desirable (D) atau aman
-    
+
     rows.forEach(obat => {
       const analysis = analyzeObatVED(obat);
       const item = { ...obat, ...analysis };
-      
+
       if (analysis.action === 'remove') {
         urgent.push(item);
       } else if (analysis.action === 'urgent' || analysis.action === 'urgent_order') {
@@ -1536,7 +1533,7 @@ app.get('/api/fefo-recommendations', authMiddleware, (req, res) => {
         routine.push(item);
       }
     });
-    
+
     res.json({
       urgent: { count: urgent.length, items: urgent.slice(0, 10) },
       critical: { count: critical.length, items: critical.slice(0, 10) },
@@ -1553,12 +1550,12 @@ app.get('/api/notifications', authMiddleware, (req, res) => {
   db.all("SELECT * FROM obat", (err, rows) => {
     if (err) return res.status(500).json({ message: 'DB error' });
     const limit = Math.min(500, Math.max(1, Number(req.query.limit || 200) || 200));
-    
+
     const notifications = [];
-    
+
     rows.forEach(obat => {
       const analysis = analyzeObatVED(obat);
-      
+
       // Critical alerts
       if (analysis.status === 'kadaluarsa') {
         notifications.push({
@@ -1579,7 +1576,7 @@ app.get('/api/notifications', authMiddleware, (req, res) => {
           timestamp: new Date()
         });
       }
-      
+
       // Stock alerts
       const qty = parseInt(obat.jumlah || 0, 10);
       if (qty <= 0) {
@@ -1602,10 +1599,10 @@ app.get('/api/notifications', authMiddleware, (req, res) => {
         });
       }
     });
-    
+
     // Sort by urgency and return top 20
     notifications.sort((a, b) => b.urgency - a.urgency);
-    
+
     res.json({
       total: notifications.length,
       critical: notifications.filter(n => n.urgency >= 2).length,
@@ -1935,15 +1932,15 @@ app.get('/api/panduan/pdf', (req, res) => {
   try {
     const doc = new PDFDocument({ margin: 42, size: 'A4', compress: false });
     const fileName = 'obatqu-online-panduan-April-2026.pdf';
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    
+
     doc.info.Title = 'obatqu.online - Panduan Penggunaan';
     doc.info.Author = 'obatqu';
     doc.info.Subject = 'Panduan penggunaan sistem obatqu';
     doc.info.Creator = 'obatqu Server';
-    
+
     doc.pipe(res);
     writePanduanPdf(doc);
     doc.end();
@@ -1959,7 +1956,7 @@ app.get('/api/panduan/pdf', (req, res) => {
 app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req, res) => {
   try {
     console.log('[REPORT] /api/reports/pdf START - COMPREHENSIVE STOCK & EXPIRY REPORT');
-    
+
     db.all("SELECT * FROM obat ORDER BY nama ASC", (err, rows) => {
       db.all("SELECT * FROM stock_movements ORDER BY waktu DESC LIMIT 100", (movErr, movements) => {
         try {
@@ -1970,50 +1967,50 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
             }
             return;
           }
-          
+
           if (!Array.isArray(rows) || rows.length === 0) {
             console.warn('[REPORT] No data from database');
             rows = [];
           }
-          
+
           console.log('[REPORT] Creating comprehensive PDF with ' + rows.length + ' items');
-          
+
           const doc = new PDFDocument({ margin: 30, bufferPages: false });
           const fileName = `Laporan-Stok-Lengkap-${new Date().toISOString().split('T')[0]}.pdf`;
-          
+
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-          
+
           doc.on('error', (err) => {
             console.error('[REPORT] Document error:', err.message);
             if (!res.headersSent) {
               res.status(500).json({ message: 'PDF generation error' });
             }
           });
-          
+
           res.on('error', (err) => {
             console.error('[REPORT] Response error:', err.message);
             doc.end();
           });
-          
+
           doc.pipe(res);
-          
+
           // HEADER
           doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN STOK DAN KADALUARSA OBAT', { align: 'center' });
           doc.fontSize(10).font('Helvetica').text('obatqu - Pharmacy Management System', { align: 'center' });
           const tanggalLaporan = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
           doc.text(`Tanggal: ${tanggalLaporan}`, { align: 'center' });
           doc.moveDown();
-          
+
           // ===== SECTION 1: RINGKASAN KADALUARSA =====
           doc.fontSize(13).font('Helvetica-Bold').fillColor('#2c3e50').text('█ BAGIAN 1: RINGKASAN KADALUARSA');
           doc.fillColor('#000000').fontSize(10).font('Helvetica');
-          
+
           const expiryStats = { expired: 0, nearExpiry: 0, safe: 0 };
           const expiredList = [];
           const nearExpiryList = [];
-          
+
           rows.forEach(obat => {
             const analysis = analyzeObatVED(obat);
             if (analysis.status === 'kadaluarsa') {
@@ -2026,12 +2023,12 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
               expiryStats.safe++;
             }
           });
-          
+
           doc.text(`Total Obat Kadaluarsa: ${expiryStats.expired} item - HARUS DIMUSNAHKAN`, { font: 'Helvetica-Bold' });
           doc.text(`Total Obat Hampir Kadaluarsa (<=6 bulan): ${expiryStats.nearExpiry} item - PRIORITAS PENJUALAN`, { font: 'Helvetica-Bold' });
           doc.text(`Total Obat Aman: ${expiryStats.safe} item - STOK TERJAGA`, { font: 'Helvetica-Bold' });
           doc.moveDown();
-          
+
           if (expiryStats.expired > 0) {
             doc.fontSize(11).font('Helvetica-Bold').text('Obat Kadaluarsa - PRIORITAS TINGGI:');
             doc.fontSize(9).font('Helvetica');
@@ -2043,20 +2040,20 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
             }
             doc.moveDown();
           }
-          
+
           // ===== SECTION 2: RINGKASAN STOK =====
           doc.fontSize(13).font('Helvetica-Bold').fillColor('#2c3e50').text('█ BAGIAN 2: RINGKASAN STOK OBAT');
           doc.fillColor('#000000').fontSize(10).font('Helvetica');
-          
+
           const stockStats = { outOfStock: 0, lowStock: 0, criticalVital: 0, normalStock: 0 };
           const outOfStockList = [];
           const lowStockList = [];
           const criticalList = [];
-          
+
           rows.forEach(obat => {
             const qty = Number(obat.jumlah || 0);
             const ved = String(obat.ved || 'D').toUpperCase();
-            
+
             if (qty <= 0) {
               stockStats.outOfStock++;
               outOfStockList.push(obat);
@@ -2071,13 +2068,13 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
               stockStats.normalStock++;
             }
           });
-          
+
           doc.text(`Total Obat Habis (0 unit): ${stockStats.outOfStock} item - LAYANAN TERGANGGU, PESAN SEGERA`, { font: 'Helvetica-Bold' });
           doc.text(`Total Obat Menipis (1-5 unit): ${stockStats.lowStock} item - PERLU REORDER`, { font: 'Helvetica-Bold' });
           doc.text(`Total Obat VITAL Menipis: ${stockStats.criticalVital} item - URGEN SESUAIKAN STOK`, { font: 'Helvetica-Bold' });
           doc.text(`Total Obat Stok Aman (>5 unit): ${stockStats.normalStock} item - KONDISI BAIK`, { font: 'Helvetica-Bold' });
           doc.moveDown();
-          
+
           if (stockStats.outOfStock > 0) {
             doc.fontSize(11).font('Helvetica-Bold').text('Obat Habis - PRIORITAS TERTINGGI:');
             doc.fontSize(9).font('Helvetica');
@@ -2089,7 +2086,7 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
             }
             doc.moveDown();
           }
-          
+
           if (stockStats.criticalVital > 0) {
             doc.fontSize(11).font('Helvetica-Bold').text('Obat VITAL Menipis - URGEN:');
             doc.fontSize(9).font('Helvetica');
@@ -2098,25 +2095,25 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
             });
             doc.moveDown();
           }
-          
+
           // ===== PAGE BREAK / New Section =====
           doc.addPage();
-          
+
           // ===== SECTION 3: VED-FEFO PRIORITY =====
           doc.fontSize(13).font('Helvetica-Bold').fillColor('#2c3e50').text('█ BAGIAN 3: KLASIFIKASI VED-FEFO');
           doc.fillColor('#000000').fontSize(10).font('Helvetica');
           doc.text('Strategi Vital-Essential-Desirable dengan First Expiry First Out untuk optimasi stok dan meminimalkan kerugian kadaluarsa.');
           doc.moveDown();
-          
+
           const vedStats = { V: 0, E: 0, D: 0 };
           const vedList = { V: [], E: [], D: [] };
-          
+
           rows.forEach(obat => {
             const analysis = analyzeObatVED(obat);
             vedStats[analysis.ved]++;
             vedList[analysis.ved].push(obat);
           });
-          
+
           doc.fontSize(11).font('Helvetica-Bold').text(`V - VITAL (Stok Kritis): ${vedStats.V} item`);
           doc.fontSize(9).font('Helvetica').text('Obat esensial yang harus selalu tersedia. Kekurangan dapat mengganggu layanan kesehatan. Stok minimal: 2 unit.');
           vedList.V.slice(0, 5).forEach((obat, idx) => {
@@ -2124,7 +2121,7 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
           });
           if (vedStats.V > 5) doc.text(`  ... dan ${vedStats.V - 5} obat Vital lainnya`);
           doc.moveDown(0.5);
-          
+
           doc.fontSize(11).font('Helvetica-Bold').text(`E - ESSENTIAL (Stok Pantau): ${vedStats.E} item`);
           doc.fontSize(9).font('Helvetica').text('Obat penting yang diperlukan secara teratur. Stok optimal: 3-10 unit.');
           vedList.E.slice(0, 5).forEach((obat, idx) => {
@@ -2132,7 +2129,7 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
           });
           if (vedStats.E > 5) doc.text(`  ... dan ${vedStats.E - 5} obat Essential lainnya`);
           doc.moveDown(0.5);
-          
+
           doc.fontSize(11).font('Helvetica-Bold').text(`D - DESIRABLE (Stok Aman): ${vedStats.D} item`);
           doc.fontSize(9).font('Helvetica').text('Obat tambahan untuk melengkapi layanan. Stok aman: lebih dari 10 unit.');
           vedList.D.slice(0, 5).forEach((obat, idx) => {
@@ -2140,11 +2137,11 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
           });
           if (vedStats.D > 5) doc.text(`  ... dan ${vedStats.D - 5} obat Desirable lainnya`);
           doc.moveDown();
-          
+
           // ===== SECTION 4: HISTORY OBAT MASUK/KELUAR =====
           doc.fontSize(13).font('Helvetica-Bold').fillColor('#2c3e50').text('█ BAGIAN 4: RIWAYAT STOK (100 TRANSAKSI TERAKHIR)');
           doc.fillColor('#000000').fontSize(9).font('Helvetica');
-          
+
           if (movements && movements.length > 0) {
             movements.slice(0, 20).forEach((mov, idx) => {
               const waktuFormat = new Date(mov.waktu).toLocaleDateString('id-ID');
@@ -2158,14 +2155,14 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
             doc.text('Belum ada history obat masuk/keluar');
           }
           doc.moveDown();
-          
+
           // ===== FOOTER =====
           doc.fontSize(9).font('Helvetica').fillColor('#666666').text('LAPORAN MANAJEMEN STOK OBAT KOMPREHENSIF', { align: 'center', underline: true });
           doc.fontSize(8).text('Laporan ini berfokus pada pengelolaan kadaluarsa, stok, dan prioritas VED-FEFO untuk meminimalkan kerugian dan memastikan ketersediaan obat esensial.', { align: 'justify', color: '#666666' });
-          
+
           console.log('[REPORT] Comprehensive report generated successfully');
           doc.end();
-          
+
         } catch (innerErr) {
           console.error('[REPORT] Inner error:', innerErr.message, innerErr.stack);
           if (!res.headersSent) {
@@ -2174,7 +2171,7 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
         }
       });
     });
-    
+
   } catch (err) {
     console.error('[REPORT] Outer error:', err.message);
     if (!res.headersSent) {
@@ -2186,27 +2183,27 @@ app.get('/api/reports/pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req,
 // Simplified VED Summary PDF
 app.get('/api/reports/ved-summary-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES), (req, res) => {
   console.log('[REPORT] 📊 GET /api/reports/ved-summary-pdf START');
-  
+
   db.all("SELECT * FROM obat ORDER BY nama ASC", (err, rows) => {
     if (err) {
       console.error('[REPORT] ❌ DB error:', err.message);
       return res.status(500).json({ message: 'Database error: ' + err.message });
     }
-    
+
     if (!Array.isArray(rows) || rows.length === 0) {
       console.warn('[REPORT] ⚠️ No data from database');
       rows = [];
     }
-    
+
     try {
       console.log('[REPORT] ✅ Query successful, generating PDF with ' + rows.length + ' items');
-      
+
       const doc = new PDFDocument({ margin: 36, size: 'A4' });
       const fileName = `Laporan-VED-FEFO-${new Date().toISOString().split('T')[0]}.pdf`;
-      
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      
+
       // Error handler untuk PDF document
       doc.on('error', (err) => {
         console.error('[REPORT] ❌ PDF document error:', err.message, err.stack);
@@ -2214,7 +2211,7 @@ app.get('/api/reports/ved-summary-pdf', authMiddleware, roleMiddleware(ALLOWED_R
           res.status(500).json({ message: 'PDF error: ' + err.message });
         }
       });
-      
+
       // Error handler untuk response stream
       res.on('error', (err) => {
         console.error('[REPORT] ❌ Response stream error:', err.message);
@@ -2224,93 +2221,93 @@ app.get('/api/reports/ved-summary-pdf', authMiddleware, roleMiddleware(ALLOWED_R
           console.error('[REPORT] Error destroying doc:', e.message);
         }
       });
-      
+
       doc.pipe(res);
-    
-    // HEADER
-    doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN ANALISIS VED-FEFO', { align: 'center' });
-    doc.fontSize(11).font('Helvetica').text('Klasifikasi Obat Berdasarkan Ketersediaan Stok', { align: 'center' });
-    const tanggalLaporan = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    doc.fontSize(10).text(`Tanggal: ${tanggalLaporan}`, { align: 'center' });
-    doc.moveDown(1.5);
-    
-    // Summary boxes
-    const categories = { V: [], E: [], D: [] };
-    rows.forEach(obat => {
-      const ved = resolveStoredVED(obat);
-      categories[ved].push(obat);
-    });
-    
-    const totalItems = rows.length;
-    doc.fontSize(12).font('Helvetica-Bold').text('RINGKASAN KLASIFIKASI OBAT', { align: 'left' });
-    doc.moveDown(0.5);
-    
-    // Summary statistics
-    doc.fontSize(11).font('Helvetica');
-    doc.text(`Total Obat: ${totalItems} item`, { underline: true });
-    doc.fontSize(9).text(`[V] Vital: ${categories.V.length} item (${((categories.V.length/totalItems)*100).toFixed(1)}%)`);
-    doc.text(`[E] Essential: ${categories.E.length} item (${((categories.E.length/totalItems)*100).toFixed(1)}%)`);
-    doc.text(`[D] Desirable: ${categories.D.length} item (${((categories.D.length/totalItems)*100).toFixed(1)}%)`);
-    doc.moveDown(1);
-    
-    // VITAL Section
-    doc.fontSize(13).font('Helvetica-Bold').fillColor('#c0392b').text('[V] VITAL - Stok Kritis', { underline: true });
-    doc.fillColor('#000000').fontSize(9).font('Helvetica');
-    doc.text('Obat esensial yang harus selalu tersedia di apotek. Stok harus dijaga minimal 2 unit. Kekurangan stok dapat mengganggu layanan kesehatan.', { align: 'left' });
-    doc.moveDown(0.3);
-    
-    if (categories.V.length === 0) {
-      doc.text('✓ Tidak ada obat kategori Vital');
-    } else {
-      doc.text(`Daftar ${Math.min(categories.V.length, 15)} dari ${categories.V.length} obat Vital:`, { underline: true });
-      doc.moveDown(0.2);
-      categories.V.slice(0, 15).forEach((obat, i) => {
-        doc.text(`${i+1}. ${obat.nama} | Stok: ${obat.jumlah} unit | Kadaluarsa: ${obat.kadaluarsa || '-'}`);
+
+      // HEADER
+      doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN ANALISIS VED-FEFO', { align: 'center' });
+      doc.fontSize(11).font('Helvetica').text('Klasifikasi Obat Berdasarkan Ketersediaan Stok', { align: 'center' });
+      const tanggalLaporan = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      doc.fontSize(10).text(`Tanggal: ${tanggalLaporan}`, { align: 'center' });
+      doc.moveDown(1.5);
+
+      // Summary boxes
+      const categories = { V: [], E: [], D: [] };
+      rows.forEach(obat => {
+        const ved = resolveStoredVED(obat);
+        categories[ved].push(obat);
       });
-      if (categories.V.length > 15) {
-        doc.text(`... dan ${categories.V.length - 15} obat Vital lainnya`);
+
+      const totalItems = rows.length;
+      doc.fontSize(12).font('Helvetica-Bold').text('RINGKASAN KLASIFIKASI OBAT', { align: 'left' });
+      doc.moveDown(0.5);
+
+      // Summary statistics
+      doc.fontSize(11).font('Helvetica');
+      doc.text(`Total Obat: ${totalItems} item`, { underline: true });
+      doc.fontSize(9).text(`[V] Vital: ${categories.V.length} item (${((categories.V.length / totalItems) * 100).toFixed(1)}%)`);
+      doc.text(`[E] Essential: ${categories.E.length} item (${((categories.E.length / totalItems) * 100).toFixed(1)}%)`);
+      doc.text(`[D] Desirable: ${categories.D.length} item (${((categories.D.length / totalItems) * 100).toFixed(1)}%)`);
+      doc.moveDown(1);
+
+      // VITAL Section
+      doc.fontSize(13).font('Helvetica-Bold').fillColor('#c0392b').text('[V] VITAL - Stok Kritis', { underline: true });
+      doc.fillColor('#000000').fontSize(9).font('Helvetica');
+      doc.text('Obat esensial yang harus selalu tersedia di apotek. Stok harus dijaga minimal 2 unit. Kekurangan stok dapat mengganggu layanan kesehatan.', { align: 'left' });
+      doc.moveDown(0.3);
+
+      if (categories.V.length === 0) {
+        doc.text('✓ Tidak ada obat kategori Vital');
+      } else {
+        doc.text(`Daftar ${Math.min(categories.V.length, 15)} dari ${categories.V.length} obat Vital:`, { underline: true });
+        doc.moveDown(0.2);
+        categories.V.slice(0, 15).forEach((obat, i) => {
+          doc.text(`${i + 1}. ${obat.nama} | Stok: ${obat.jumlah} unit | Kadaluarsa: ${obat.kadaluarsa || '-'}`);
+        });
+        if (categories.V.length > 15) {
+          doc.text(`... dan ${categories.V.length - 15} obat Vital lainnya`);
+        }
       }
-    }
-    doc.moveDown(1);
-    
-    // ESSENTIAL Section
-    doc.fontSize(13).font('Helvetica-Bold').fillColor('#f39c12').text('[E] ESSENTIAL - Stok Pantau', { underline: true });
-    doc.fillColor('#000000').fontSize(9).font('Helvetica');
-    doc.text('Obat penting yang diperlukan secara teratur. Stok optimal adalah 3-10 unit. Kelangkaan stok dapat mengurangi kenyamanan layanan.', { align: 'left' });
-    doc.moveDown(0.3);
-    
-    if (categories.E.length === 0) {
-      doc.text('✓ Tidak ada obat kategori Essential');
-    } else {
-      doc.text(`Total: ${categories.E.length} obat Essential`);
-      doc.moveDown(0.2);
-      categories.E.slice(0, 10).forEach((obat, i) => {
-        doc.text(`${i+1}. ${obat.nama} | Stok: ${obat.jumlah} unit | Kadaluarsa: ${obat.kadaluarsa || '-'}`);
-      });
-      if (categories.E.length > 10) {
-        doc.text(`... dan ${categories.E.length - 10} obat Essential lainnya`);
+      doc.moveDown(1);
+
+      // ESSENTIAL Section
+      doc.fontSize(13).font('Helvetica-Bold').fillColor('#f39c12').text('[E] ESSENTIAL - Stok Pantau', { underline: true });
+      doc.fillColor('#000000').fontSize(9).font('Helvetica');
+      doc.text('Obat penting yang diperlukan secara teratur. Stok optimal adalah 3-10 unit. Kelangkaan stok dapat mengurangi kenyamanan layanan.', { align: 'left' });
+      doc.moveDown(0.3);
+
+      if (categories.E.length === 0) {
+        doc.text('✓ Tidak ada obat kategori Essential');
+      } else {
+        doc.text(`Total: ${categories.E.length} obat Essential`);
+        doc.moveDown(0.2);
+        categories.E.slice(0, 10).forEach((obat, i) => {
+          doc.text(`${i + 1}. ${obat.nama} | Stok: ${obat.jumlah} unit | Kadaluarsa: ${obat.kadaluarsa || '-'}`);
+        });
+        if (categories.E.length > 10) {
+          doc.text(`... dan ${categories.E.length - 10} obat Essential lainnya`);
+        }
       }
-    }
-    doc.moveDown(1);
-    
-    // DESIRABLE Section
-    doc.fontSize(13).font('Helvetica-Bold').fillColor('#27ae60').text('[D] DESIRABLE - Stok Aman', { underline: true });
-    doc.fillColor('#000000').fontSize(9).font('Helvetica');
-    doc.text('Obat tambahan yang tersedia sesuai kebutuhan. Stok yang aman adalah lebih dari 10 unit. Ketersediaan ini mendukung pelayanan yang komprehensif.', { align: 'left' });
-    doc.moveDown(0.3);
-    
-    if (categories.D.length === 0) {
-      doc.text('✓ Tidak ada obat kategori Desirable');
-    } else {
-      doc.text(`Total: ${categories.D.length} obat Desirable (kondisi stok aman)`);
-    }
-    doc.moveDown(1.5);
-    
-    // Footer
-    doc.fontSize(9).font('Helvetica').fillColor('#666666');
-    doc.text('PENJELASAN METODE VED-FEFO:', { underline: true, color: '#000000' });
-    doc.text('VED-FEFO adalah singkatan dari Vital-Essential-Desirable dan First Expiry First Out. Metode ini menggabungkan klasifikasi obat berdasarkan pentingnya ketersediaan (VED) dengan prinsip "obat dengan tanggal kadaluarsa terdekat harus dijual lebih dulu" (FEFO). Dengan metode ini, apotek dapat meminimalkan kerugian dari obat yang kadaluarsa sambil memastikan ketersediaan obat esensial.', { align: 'justify' });
-    
+      doc.moveDown(1);
+
+      // DESIRABLE Section
+      doc.fontSize(13).font('Helvetica-Bold').fillColor('#27ae60').text('[D] DESIRABLE - Stok Aman', { underline: true });
+      doc.fillColor('#000000').fontSize(9).font('Helvetica');
+      doc.text('Obat tambahan yang tersedia sesuai kebutuhan. Stok yang aman adalah lebih dari 10 unit. Ketersediaan ini mendukung pelayanan yang komprehensif.', { align: 'left' });
+      doc.moveDown(0.3);
+
+      if (categories.D.length === 0) {
+        doc.text('✓ Tidak ada obat kategori Desirable');
+      } else {
+        doc.text(`Total: ${categories.D.length} obat Desirable (kondisi stok aman)`);
+      }
+      doc.moveDown(1.5);
+
+      // Footer
+      doc.fontSize(9).font('Helvetica').fillColor('#666666');
+      doc.text('PENJELASAN METODE VED-FEFO:', { underline: true, color: '#000000' });
+      doc.text('VED-FEFO adalah singkatan dari Vital-Essential-Desirable dan First Expiry First Out. Metode ini menggabungkan klasifikasi obat berdasarkan pentingnya ketersediaan (VED) dengan prinsip "obat dengan tanggal kadaluarsa terdekat harus dijual lebih dulu" (FEFO). Dengan metode ini, apotek dapat meminimalkan kerugian dari obat yang kadaluarsa sambil memastikan ketersediaan obat esensial.', { align: 'justify' });
+
       doc.end();
       console.log('[REPORT] ✅ PDF stream ended');
     } catch (err) {
@@ -2362,7 +2359,7 @@ app.get('/api/reports/critical-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLE
       console.error('[REPORT] ❌ DB error:', err.message);
       return res.status(500).json({ message: 'Database error: ' + err.message });
     }
-    
+
     if (!rows) {
       console.log('[REPORT] ℹ️ No rows found (null result)');
       rows = [];
@@ -2380,10 +2377,10 @@ app.get('/api/reports/critical-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLE
 
       const doc = new PDFDocument({ margin: 36, size: 'A4' });
       const fileName = `Laporan-Obat-Kritis-${new Date().toISOString().split('T')[0]}.pdf`;
-      
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      
+
       // Error handlers BEFORE pipe
       doc.on('error', (docErr) => {
         console.error('[REPORT] ❌ PDF error:', docErr.message);
@@ -2391,85 +2388,85 @@ app.get('/api/reports/critical-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLE
       });
       res.on('error', (resErr) => {
         console.error('[REPORT] ❌ Response error:', resErr.message);
-        try { doc.destroy(); } catch (e) {}
+        try { doc.destroy(); } catch (e) { }
       });
-      
+
       doc.pipe(res);
 
-    // HEADER
-    doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN OBAT KRITIS', { align: 'center' });
-    doc.fontSize(11).font('Helvetica').text('Obat Prioritas yang Memerlukan Tindakan Segera', { align: 'center' });
-    const tanggalLaporan = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    doc.fontSize(10).text(`Tanggal: ${tanggalLaporan}`, { align: 'center' });
-    doc.moveDown(1.5);
+      // HEADER
+      doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN OBAT KRITIS', { align: 'center' });
+      doc.fontSize(11).font('Helvetica').text('Obat Prioritas yang Memerlukan Tindakan Segera', { align: 'center' });
+      const tanggalLaporan = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      doc.fontSize(10).text(`Tanggal: ${tanggalLaporan}`, { align: 'center' });
+      doc.moveDown(1.5);
 
-    // Summary section - dengan count yang AKURAT
-    doc.fontSize(11).font('Helvetica-Bold').text('RINGKASAN KONDISI KRITIS', { underline: true });
-    doc.fontSize(9).font('Helvetica');
-    doc.text(`• Obat Kadaluarsa: ${expired.length} item (HARUS DIMUSNAHKAN SEGERA)`);
-    doc.text(`• Obat Hampir Kadaluarsa: ${nearExpiry.length} item (PRIORITAS PENJUALAN FEFO)`);
-    doc.text(`• Obat Vital Menipis: ${vitalLowStock.length} item (URGEN PESAN ULANG)`);
-    doc.moveDown(1);
+      // Summary section - dengan count yang AKURAT
+      doc.fontSize(11).font('Helvetica-Bold').text('RINGKASAN KONDISI KRITIS', { underline: true });
+      doc.fontSize(9).font('Helvetica');
+      doc.text(`• Obat Kadaluarsa: ${expired.length} item (HARUS DIMUSNAHKAN SEGERA)`);
+      doc.text(`• Obat Hampir Kadaluarsa: ${nearExpiry.length} item (PRIORITAS PENJUALAN FEFO)`);
+      doc.text(`• Obat Vital Menipis: ${vitalLowStock.length} item (URGEN PESAN ULANG)`);
+      doc.moveDown(1);
 
-    // Content
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#c0392b').text('DAFTAR OBAT MEMERLUKAN TINDAKAN', { underline: true });
-    doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.3);
+      // Content
+      doc.fontSize(12).font('Helvetica-Bold').fillColor('#c0392b').text('DAFTAR OBAT MEMERLUKAN TINDAKAN', { underline: true });
+      doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.3);
 
-    const totalCritical = expired.length + nearExpiry.length + vitalLowStock.length;
-    if (totalCritical === 0) {
-      doc.text('✓ Tidak ada obat kritis saat ini. Kondisi stok dan kadaluarsa dalam keadaan baik.');
+      const totalCritical = expired.length + nearExpiry.length + vitalLowStock.length;
+      if (totalCritical === 0) {
+        doc.text('✓ Tidak ada obat kritis saat ini. Kondisi stok dan kadaluarsa dalam keadaan baik.');
+        doc.end();
+        return;
+      }
+
+      // Group by status - FIXED LOGIC
+      const grouped = {
+        expired: expired,
+        nearExpiry: nearExpiry,
+        vitalLowStock: vitalLowStock
+      };
+
+      // Expired section
+      if (grouped.expired.length > 0) {
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#c0392b').text(`🔴 KADALUARSA - HARUS DIMUSNAHKAN (${grouped.expired.length} item)`, { underline: true });
+        doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.2);
+        grouped.expired.forEach((item, index) => {
+          doc.text(`${index + 1}. ${item.nama}`);
+          doc.fontSize(8).text(`   Stok: ${item.jumlah} unit | Batch: ${item.batch || '-'} | Kadaluarsa: ${item.kadaluarsa || '-'} | Kategori: ${item.kategori || '-'}`);
+          doc.fontSize(9);
+        });
+        doc.moveDown(0.5);
+      }
+
+      // Near expiry section
+      if (grouped.nearExpiry.length > 0) {
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#e8a900').text(`🟠 HAMPIR KADALUARSA - PRIORITAS PENJUALAN (${grouped.nearExpiry.length} item)`, { underline: true });
+        doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.2);
+        grouped.nearExpiry.forEach((item, index) => {
+          doc.text(`${index + 1}. ${item.nama}`);
+          doc.fontSize(8).text(`   Stok: ${item.jumlah} unit | Batch: ${item.batch || '-'} | Kadaluarsa: ${item.kadaluarsa || '-'} | Kategori: ${item.kategori || '-'}`);
+          doc.fontSize(9);
+        });
+        doc.moveDown(0.5);
+      }
+
+      // Vital low stock section
+      if (grouped.vitalLowStock.length > 0) {
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#c0392b').text(`🔴 OBAT VITAL MENIPIS - URGEN PESAN ULANG (${grouped.vitalLowStock.length} item)`, { underline: true });
+        doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.2);
+        grouped.vitalLowStock.forEach((item, index) => {
+          doc.text(`${index + 1}. ${item.nama}`);
+          doc.fontSize(8).text(`   Stok: ${item.jumlah} unit | Batch: ${item.batch || '-'} | Kadaluarsa: ${item.kadaluarsa || '-'} | Kategori: ${item.kategori || '-'}`);
+          doc.fontSize(9);
+        });
+      }
+
+      doc.moveDown(1);
+      doc.fontSize(8).font('Helvetica').fillColor('#666666');
+      doc.text('Laporan ini menampilkan obat-obat yang memerlukan tindakan segera. Tindakan yang disarankan: (1) Musnahkan obat kadaluarsa sesuai prosedur, (2) Prioritaskan penjualan obat hampir kadaluarsa dengan sistem FEFO, (3) Pesan ulang obat vital yang menipis.');
+
       doc.end();
-      return;
-    }
-
-    // Group by status - FIXED LOGIC
-    const grouped = {
-      expired: expired,
-      nearExpiry: nearExpiry,
-      vitalLowStock: vitalLowStock
-    };
-
-    // Expired section
-    if (grouped.expired.length > 0) {
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#c0392b').text(`🔴 KADALUARSA - HARUS DIMUSNAHKAN (${grouped.expired.length} item)`, { underline: true });
-      doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.2);
-      grouped.expired.forEach((item, index) => {
-        doc.text(`${index + 1}. ${item.nama}`);
-        doc.fontSize(8).text(`   Stok: ${item.jumlah} unit | Batch: ${item.batch || '-'} | Kadaluarsa: ${item.kadaluarsa || '-'} | Kategori: ${item.kategori || '-'}`);
-        doc.fontSize(9);
-      });
-      doc.moveDown(0.5);
-    }
-
-    // Near expiry section
-    if (grouped.nearExpiry.length > 0) {
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#e8a900').text(`🟠 HAMPIR KADALUARSA - PRIORITAS PENJUALAN (${grouped.nearExpiry.length} item)`, { underline: true });
-      doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.2);
-      grouped.nearExpiry.forEach((item, index) => {
-        doc.text(`${index + 1}. ${item.nama}`);
-        doc.fontSize(8).text(`   Stok: ${item.jumlah} unit | Batch: ${item.batch || '-'} | Kadaluarsa: ${item.kadaluarsa || '-'} | Kategori: ${item.kategori || '-'}`);
-        doc.fontSize(9);
-      });
-      doc.moveDown(0.5);
-    }
-
-    // Vital low stock section
-    if (grouped.vitalLowStock.length > 0) {
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#c0392b').text(`🔴 OBAT VITAL MENIPIS - URGEN PESAN ULANG (${grouped.vitalLowStock.length} item)`, { underline: true });
-      doc.fillColor('#000000').fontSize(9).font('Helvetica').moveDown(0.2);
-      grouped.vitalLowStock.forEach((item, index) => {
-        doc.text(`${index + 1}. ${item.nama}`);
-        doc.fontSize(8).text(`   Stok: ${item.jumlah} unit | Batch: ${item.batch || '-'} | Kadaluarsa: ${item.kadaluarsa || '-'} | Kategori: ${item.kategori || '-'}`);
-        doc.fontSize(9);
-      });
-    }
-
-    doc.moveDown(1);
-    doc.fontSize(8).font('Helvetica').fillColor('#666666');
-    doc.text('Laporan ini menampilkan obat-obat yang memerlukan tindakan segera. Tindakan yang disarankan: (1) Musnahkan obat kadaluarsa sesuai prosedur, (2) Prioritaskan penjualan obat hampir kadaluarsa dengan sistem FEFO, (3) Pesan ulang obat vital yang menipis.');
-
-    doc.end();
-    console.log('[REPORT] ✅ critical-pdf generated successfully');
+      console.log('[REPORT] ✅ critical-pdf generated successfully');
     } catch (ex) {
       console.error('[REPORT] ❌ Exception:', ex.message, ex.stack);
       if (!res.headersSent) {
@@ -2483,13 +2480,13 @@ app.get('/api/reports/daily-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES),
   console.log('[REPORT] 📊 GET /api/reports/daily-pdf START');
   const today = new Date().toISOString().slice(0, 10);
   console.log('[REPORT] Query date:', today);
-  
+
   db.all("SELECT * FROM logs WHERE substr(time, 1, 10) = ? ORDER BY time DESC", [today], (err, rows) => {
     if (err) {
       console.error('[REPORT] ❌ DB error:', err.message);
       return res.status(500).json({ message: 'Database error: ' + err.message });
     }
-    
+
     if (!rows) {
       console.log('[REPORT] ℹ️ No rows found (null result)');
       rows = [];
@@ -2499,10 +2496,10 @@ app.get('/api/reports/daily-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES),
     try {
       const doc = new PDFDocument({ margin: 36, size: 'A4' });
       const fileName = `Laporan-Aktivitas-Harian-${today}.pdf`;
-      
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      
+
       // Error handlers BEFORE pipe
       doc.on('error', (docErr) => {
         console.error('[REPORT] ❌ PDF error:', docErr.message);
@@ -2510,9 +2507,9 @@ app.get('/api/reports/daily-pdf', authMiddleware, roleMiddleware(ALLOWED_ROLES),
       });
       res.on('error', (resErr) => {
         console.error('[REPORT] ❌ Response error:', resErr.message);
-        try { doc.destroy(); } catch (e) {}
+        try { doc.destroy(); } catch (e) { }
       });
-      
+
       doc.pipe(res);
 
       // HEADER
@@ -2607,7 +2604,7 @@ app.get('/api/reports/management-pdf', authMiddleware, roleMiddleware(ALLOWED_RO
       console.error('[REPORT] ❌ DB error in movements query:', err.message);
       return res.status(500).json({ message: 'Database error: ' + err.message });
     }
-    
+
     if (!movements) {
       console.log('[REPORT] ℹ️ No movements found (null result)');
       movements = [];
@@ -2623,10 +2620,10 @@ app.get('/api/reports/management-pdf', authMiddleware, roleMiddleware(ALLOWED_RO
       try {
         const doc = new PDFDocument({ margin: 36, size: 'A4' });
         const fileName = `Laporan-Pelepasan-Obat-${new Date().toISOString().split('T')[0]}.pdf`;
-        
+
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        
+
         // Error handlers BEFORE pipe - CRITICAL!
         doc.on('error', (docErr) => {
           console.error('[REPORT] ❌ PDF error:', docErr.message);
@@ -2634,12 +2631,12 @@ app.get('/api/reports/management-pdf', authMiddleware, roleMiddleware(ALLOWED_RO
             res.status(500).json({ message: 'PDF error: ' + docErr.message });
           }
         });
-        
+
         res.on('error', (resErr) => {
           console.error('[REPORT] ❌ Response error:', resErr.message);
-          try { doc.destroy(); } catch (e) {}
+          try { doc.destroy(); } catch (e) { }
         });
-        
+
         doc.pipe(res);
 
         // Header
@@ -2689,12 +2686,12 @@ app.get('/api/reports/management-pdf', authMiddleware, roleMiddleware(ALLOWED_RO
           const [obatName, data] = entry;
           doc.fontSize(10).font('Helvetica-Bold').text(`${idx + 1}. ${obatName}`);
           doc.fontSize(8).font('Helvetica').text(`   Total Pelepasan: ${data.total} unit | Transaksi: ${data.transactions.length} kali`);
-          
+
           data.transactions.slice(0, 3).forEach(tx => {
             const dateFormat = new Date(tx.date).toLocaleDateString('id-ID');
             doc.text(`   • ${tx.type} (${tx.qty} unit) - ${dateFormat} - ${tx.notes || 'Tanpa catatan'}`);
           });
-          
+
           if (data.transactions.length > 3) {
             doc.text(`   ... dan ${data.transactions.length - 3} transaksi lainnya`);
           }
@@ -2704,7 +2701,7 @@ app.get('/api/reports/management-pdf', authMiddleware, roleMiddleware(ALLOWED_RO
         doc.moveDown();
         doc.fontSize(8).font('Helvetica').fillColor('#666666');
         doc.text('Laporan ini menampilkan semua transaksi pelepasan obat dari database, termasuk penjualan normal, pengembalian, dan pengeluaran lainnya.', { align: 'justify' });
-        
+
         doc.end();
         console.log('[REPORT] ✅ management-pdf stream completed');
       } catch (ex) {
@@ -2744,10 +2741,10 @@ app.get('/api/reports/restock-analysis-pdf', authMiddleware, roleMiddleware(ALLO
         try {
           const doc = new PDFDocument({ margin: 36, size: 'A4' });
           const fileName = `Laporan-Analisis-Restock-${new Date().toISOString().split('T')[0]}.pdf`;
-          
+
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-          
+
           // Error handlers BEFORE pipe - CRITICAL!
           doc.on('error', (docErr) => {
             console.error('[REPORT] ❌ PDF error:', docErr.message);
@@ -2755,334 +2752,334 @@ app.get('/api/reports/restock-analysis-pdf', authMiddleware, roleMiddleware(ALLO
               res.status(500).json({ message: 'PDF error: ' + docErr.message });
             }
           });
-          
+
           res.on('error', (resErr) => {
             console.error('[REPORT] ❌ Response error:', resErr.message);
-            try { doc.destroy(); } catch (e) {}
+            try { doc.destroy(); } catch (e) { }
           });
-          
+
           doc.pipe(res);
 
-        // Header
-        doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN ANALISIS & REKOMENDASI RESTOCK', { align: 'center' });
-        doc.fontSize(11).font('Helvetica').text('Berbasis Pola Penggunaan 30 Hari dan Lead Time Supplier', { align: 'center' });
-        doc.fontSize(10).text(`Tanggal: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, { align: 'center' });
-        doc.moveDown(1);
+          // Header
+          doc.fontSize(20).font('Helvetica-Bold').text('LAPORAN ANALISIS & REKOMENDASI RESTOCK', { align: 'center' });
+          doc.fontSize(11).font('Helvetica').text('Berbasis Pola Penggunaan 30 Hari dan Lead Time Supplier', { align: 'center' });
+          doc.fontSize(10).text(`Tanggal: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, { align: 'center' });
+          doc.moveDown(1);
 
-        // Calculate usage rates
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        
-        const releaseHistory = {};
-        movements.forEach(m => {
-          const movDate = new Date(m.created_at);
-          if (movDate >= thirtyDaysAgo) {
-            if (!releaseHistory[m.obat_nama]) {
-              releaseHistory[m.obat_nama] = { total: 0, count: 0 };
+          // Calculate usage rates
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+          const releaseHistory = {};
+          movements.forEach(m => {
+            const movDate = new Date(m.created_at);
+            if (movDate >= thirtyDaysAgo) {
+              if (!releaseHistory[m.obat_nama]) {
+                releaseHistory[m.obat_nama] = { total: 0, count: 0 };
+              }
+              releaseHistory[m.obat_nama].total += m.jumlah || 0;
+              releaseHistory[m.obat_nama].count += 1;
             }
-            releaseHistory[m.obat_nama].total += m.jumlah || 0;
-            releaseHistory[m.obat_nama].count += 1;
-          }
-        });
-
-        // Get kategori config map
-        const kategoriMap = {};
-        kategoriConfig.forEach(k => {
-          kategoriMap[k.nama] = {
-            leadTime: k.lead_time_hari,
-            minStock: k.min_stok,
-            optimalStock: k.optimal_stok,
-            reorderQty: k.reorder_qty
-          };
-        });
-
-        // Default config for unmapped categories
-        const defaultConfig = {
-          leadTime: 7,
-          minStock: 10,
-          optimalStock: 30,
-          reorderQty: 50
-        };
-
-        // Generate recommendations
-        const recommendations = obat.map(o => {
-          const currentStock = o.jumlah;
-          const usage = releaseHistory[o.nama] || { total: 0, count: 0 };
-          const dailyUsage = usage.total / 30;
-          const kategori = o.kategori || 'TABLET BEBAS';
-          
-          // Get config for this category
-          const config = kategoriMap[kategori] || defaultConfig;
-          const leadTime = config.leadTime;
-          const minStock = config.minStock;
-          const optimalStock = config.optimalStock;
-          const reorderQty = config.reorderQty;
-          
-          let recommendation = '';
-          let daysOfStock = dailyUsage > 0 ? Math.round(currentStock / dailyUsage) : 999;
-          let reorderLevel = dailyUsage * leadTime; // Berapa stok yg dibutuhkan untuk lead time
-          
-          // Logic berbasis kategori dan lead time:
-          // Jika stok saat ini akan habis dalam waktu <= lead time, URGENT
-          if (currentStock <= 0) {
-            recommendation = '[URGENT] Stok habis, pesan SEGERA ke supplier';
-          } else if (daysOfStock <= leadTime) {
-            // Stok saat ini tidak akan cukup sampai pesanan tiba
-            recommendation = `[URGENT] Restock sekarang! Ada ${daysOfStock} hari stok, lead time ${leadTime} hari`;
-          } else if (daysOfStock <= leadTime + 2) {
-            // Margin kecil saja untuk buffer
-            recommendation = `[HIGH PRIORITY] Pesan dalam 1-2 hari. Stok: ${daysOfStock} hari, lead time: ${leadTime} hari`;
-          } else if (currentStock < minStock) {
-            // Stok di bawah minimum untuk kategori ini
-            recommendation = `[MEDIUM] Stok ${currentStock} unit < minimum ${minStock}. Rencanakan pemesanan`;
-          } else if (currentStock < optimalStock && dailyUsage > 1) {
-            // Diantara minimum dan optimal, usage tinggi
-            recommendation = '[MEDIUM] Pertimbangkan pesan minggu depan';
-          } else if (dailyUsage > 5) {
-            // Penggunaan sangat tinggi, monitor ketat
-            recommendation = '[MONITOR] Putaran tinggi, usage ' + dailyUsage.toFixed(2) + ' unit/hari';
-          } else {
-            recommendation = '[OK] Stok cukup';
-          }
-          
-          return {
-            nama: o.nama,
-            ved: resolveStoredVED(o),
-            batch: o.batch || '-',
-            kategori,
-            currentStock,
-            dailyUsage: dailyUsage.toFixed(2),
-            daysOfStock,
-            monthlyUsage: usage.total,
-            minStock,
-            optimalStock,
-            reorderQty,
-            leadTime,
-            recommendation
-          };
-        }).sort((a, b) => {
-          // Sort by priority: urgent first, high next (text-based labels)
-          const priorityMap = { 
-            '[URGENT]': 0, 
-            '[HIGH PRIORITY]': 1, 
-            '[MEDIUM]': 2, 
-            '[MONITOR]': 3, 
-            '[OK]': 4 
-          };
-          
-          // Extract priority label from recommendation
-          let aPriority = 5;
-          let bPriority = 5;
-          
-          for (const [label, priority] of Object.entries(priorityMap)) {
-            if (a.recommendation.startsWith(label)) aPriority = priority;
-            if (b.recommendation.startsWith(label)) bPriority = priority;
-          }
-          
-          return aPriority - bPriority;
-        });
-
-        // Calculate priority counts for summary
-        const urgentCount = recommendations.filter(r => r.recommendation.startsWith('[URGENT]')).length;
-        const highCount = recommendations.filter(r => r.recommendation.startsWith('[HIGH PRIORITY]')).length;
-        const mediumCount = recommendations.filter(r => r.recommendation.startsWith('[MEDIUM]')).length;
-        const monitorCount = recommendations.filter(r => r.recommendation.startsWith('[MONITOR]')).length;
-
-        // Calculate total and average usage for summary
-        const totalUsage = recommendations.reduce((sum, r) => sum + r.monthlyUsage, 0);
-        const avgDailyUsage = (totalUsage / 30).toFixed(2);
-
-        // Summary section dengan visual yang lebih baik - LARGER & CLEARER
-        doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('RINGKASAN ANALISIS PENGGUNAAN 30 HARI', { underline: true }).fillColor('#000000');
-        doc.moveDown(0.5);
-        
-        doc.fontSize(12).font('Helvetica-Bold').fillColor('#2c3e50');
-        doc.text(`Total Pengeluaran Obat: ${totalUsage} unit / 30 hari`, { width: 200 });
-        doc.fontSize(11).font('Helvetica').fillColor('#555555');
-        doc.text(`Rata-rata: ${avgDailyUsage} unit/hari (~${(avgDailyUsage * 30).toFixed(0)} unit/bulan)`);
-        doc.moveDown(0.5);
-        
-        // Status boxes - WIDER & CLEARER
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#c0392b');
-        doc.text(`[URGENT] Obat yang harus dipesan HARI INI: ${urgentCount} item`);
-        doc.fontSize(10).font('Helvetica').fillColor('#666666');
-        doc.text(`Stok akan habis lebih cepat dari waktu pengiriman supplier. Tindakan: Hubungi supplier segera.`);
-        doc.moveDown(0.4);
-        
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#e8a900');
-        doc.text(`[HIGH PRIORITY] Obat untuk dipesan dalam 1-2 HARI: ${highCount} item`);
-        doc.fontSize(10).font('Helvetica').fillColor('#666666');
-        doc.text(`Stok akan mencapai titik kritis dalam 1-2 hari. Tindakan: Persiapkan pemesanan dengan segera.`);
-        doc.moveDown(0.4);
-        
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#f39c12');
-        doc.text(`[MEDIUM] Obat untuk direncanakan minggu depan: ${mediumCount} item`);
-        doc.fontSize(10).font('Helvetica').fillColor('#666666');
-        doc.text(`Stok normal tetapi masih di bawah optimal. Rencanakan pemesanan dalam 3-7 hari.`);
-        doc.moveDown(0.4);
-
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#9b59b6');
-        doc.text(`[MONITOR] Obat dengan putaran tinggi: ${monitorCount} item`);
-        doc.fontSize(10).font('Helvetica').fillColor('#666666');
-        doc.text(`Penjualan tinggi membutuhkan monitoring harian dan pemesanan lebih sering.`);
-        doc.moveDown(0.6);
-        
-        // Kesimpulan
-        doc.fontSize(10).font('Helvetica-Oblique').fillColor('#7f8c8d').text('CATATAN: Analisis di atas berbasis pola penggunaan 30 hari terakhir. Data akurat membantu keputusan pemesanan supplier yang lebih efektif.').fillColor('#000000');
-        doc.moveDown();
-
-        // Recommendations by Priority - IMPROVED LAYOUT & WIDER
-        doc.addPage(); // New page untuk recommendations
-        doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('REKOMENDASI RESTOCK BERDASARKAN PRIORITAS', { underline: true }).fillColor('#000000');
-        doc.moveDown(0.5);
-
-        const priorityGroups = {
-          '[URGENT] PESAN HARI INI': [
-            recommendations.filter(r => r.recommendation.startsWith('[URGENT]')), 
-            'Stok akan habis LEBIH CEPAT daripada waktu pengiriman. HUBUNGI SUPPLIER HARI INI untuk menghindari kehabisan stok di apotek.',
-            '#c0392b'
-          ],
-          '[HIGH PRIORITY] PESAN 1-2 HARI': [
-            recommendations.filter(r => r.recommendation.startsWith('[HIGH PRIORITY]')), 
-            'Stok tersedia namun akan kritiks dalam 1-2 hari. Mulai persiapkan pemesanan kepada supplier dengan segera.',
-            '#e8a900'
-          ],
-          '[MEDIUM] RENCANA MINGGU DEPAN': [
-            recommendations.filter(r => r.recommendation.startsWith('[MEDIUM]')), 
-            'Stok saat ini normal tetapi masih di bawah level optimal. Rencanakan pemesanan dalam periode 3-7 hari.',
-            '#f39c12'
-          ],
-          '[MONITOR] PUTARAN TINGGI': [
-            recommendations.filter(r => r.recommendation.startsWith('[MONITOR]')), 
-            'Penjualan obat ini sangat tinggi (>5 unit/hari). Pantau stok harian dan pertimbangkan pemesanan lebih sering.',
-            '#9b59b6'
-          ],
-          '[OK] STOK AMAN': [
-            recommendations.filter(r => r.recommendation.startsWith('[OK]')), 
-            'Stok obat dalam kondisi baik dan mencukupi. Tidak ada pemesanan mendesak. Lanjutkan monitoring rutin.',
-            '#27ae60'
-          ]
-        };
-
-        Object.entries(priorityGroups).forEach(([priority, [items, description, color]]) => {
-          if (items.length === 0) return;
-          
-          // Priority header
-          doc.fontSize(12).font('Helvetica-Bold').fillColor(color).text(`${priority} (${items.length} item)`, { underline: true }).fillColor('#000000');
-          doc.fontSize(10).font('Helvetica').fillColor('#333333').text(description);
-          doc.moveDown(0.4);
-          
-          // Items - WIDER & CLEARER
-          items.forEach((item, idx) => {
-            // Medicine name - BIGGER & BOLD
-            doc.fontSize(11).font('Helvetica-Bold').fillColor('#1a1a1a').text(`${idx + 1}. ${item.nama}`).fillColor('#000000');
-            
-            // Key info - ON ONE LINE each for clarity
-            doc.fontSize(9).font('Helvetica');
-            doc.text(`    Kategori: ${item.kategori} | VED: ${item.ved || '-'} | Batch: ${item.batch}`);
-            
-            // Two columns: Stock Info | Reorder Info
-            doc.fontSize(9).font('Helvetica-Bold').fillColor('#2980b9').text('    STOK SAAT INI:', 50).fillColor('#000000');
-            doc.fontSize(9).text(`REORDER TARGET:`, 300);
-            doc.moveDown(0.15);
-            
-            doc.fontSize(9).text(`      Stok: ${item.currentStock} unit`, 50);
-            doc.text(`Minimum: ${item.minStock} unit`, 300);
-            doc.moveDown(0.1);
-            
-            doc.fontSize(9).text(`      Pakai: ${item.dailyUsage} unit/hari`, 50);
-            doc.text(`Optimal: ${item.optimalStock} unit`, 300);
-            doc.moveDown(0.1);
-            
-            doc.fontSize(9).text(`      Sisa: ${item.daysOfStock} hari`, 50);
-            doc.text(`Lead time: ${item.leadTime} hari`, 300);
-            doc.moveDown(0.1);
-            
-            doc.fontSize(9).text(`      Bulan: ${item.monthlyUsage} unit`, 50);
-            doc.text(`Order: ${item.reorderQty} unit`, 300);
-            doc.moveDown(0.3);
-            
-            // Recommendation note - CLEAR
-            doc.fontSize(10).font('Helvetica-Bold').fillColor(color);
-            doc.text(`    → ${item.recommendation}`);
-            doc.fillColor('#000000');
-            
-            doc.moveDown(0.5);
           });
-          
-          doc.moveDown(0.3);
-        });
 
-        // Kategori Config Info - IMPROVED
-        doc.addPage();
-        doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('█ KONFIGURASI & STANDAR PER KATEGORI OBAT', { underline: true }).fillColor('#000000');
-        doc.fontSize(10).font('Helvetica').text('Tabel berikut menunjukkan parameter yang digunakan untuk setiap jenis/kategori obat dalam mengevaluasi kebutuhan pemesanan:');
-        doc.moveDown(0.5);
-        
-        // Table header
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#34495e');
-        doc.text('Kategori', 50);
-        doc.fontSize(10).text('Lead Time', 200);
-        doc.text('Min Stok', 280);
-        doc.text('Optimal', 360);
-        doc.text('Reorder Qty', 440);
-        doc.fillColor('#000000').moveDown(0.3);
-        
-        // Line separator
-        doc.lineWidth(0.5).moveTo(50, doc.y).lineTo(530, doc.y).stroke().moveDown(0.3);
-        
-        // Table content
-        kategoriConfig.forEach((k, idx) => {
-          doc.fontSize(10).font('Helvetica-Bold').text(k.nama, 50);
-          doc.fontSize(10).font('Helvetica');
-          doc.text(`${k.lead_time_hari} hari`, 200);
-          doc.text(`${k.min_stok} unit`, 280);
-          doc.text(`${k.optimal_stok} unit`, 360);
-          doc.text(`${k.reorder_qty} unit`, 440);
-          
-          // Deskripsi jika ada
-          if (k.keterangan && k.keterangan.trim().length > 0) {
-            doc.fontSize(8).font('Helvetica-Oblique').fillColor('#7f8c8d');
-            doc.text(`Catatan: ${k.keterangan}`, 50, doc.y, { width: 450 });
-            doc.fillColor('#000000');
-          }
-          
+          // Get kategori config map
+          const kategoriMap = {};
+          kategoriConfig.forEach(k => {
+            kategoriMap[k.nama] = {
+              leadTime: k.lead_time_hari,
+              minStock: k.min_stok,
+              optimalStock: k.optimal_stok,
+              reorderQty: k.reorder_qty
+            };
+          });
+
+          // Default config for unmapped categories
+          const defaultConfig = {
+            leadTime: 7,
+            minStock: 10,
+            optimalStock: 30,
+            reorderQty: 50
+          };
+
+          // Generate recommendations
+          const recommendations = obat.map(o => {
+            const currentStock = o.jumlah;
+            const usage = releaseHistory[o.nama] || { total: 0, count: 0 };
+            const dailyUsage = usage.total / 30;
+            const kategori = o.kategori || 'TABLET BEBAS';
+
+            // Get config for this category
+            const config = kategoriMap[kategori] || defaultConfig;
+            const leadTime = config.leadTime;
+            const minStock = config.minStock;
+            const optimalStock = config.optimalStock;
+            const reorderQty = config.reorderQty;
+
+            let recommendation = '';
+            let daysOfStock = dailyUsage > 0 ? Math.round(currentStock / dailyUsage) : 999;
+            let reorderLevel = dailyUsage * leadTime; // Berapa stok yg dibutuhkan untuk lead time
+
+            // Logic berbasis kategori dan lead time:
+            // Jika stok saat ini akan habis dalam waktu <= lead time, URGENT
+            if (currentStock <= 0) {
+              recommendation = '[URGENT] Stok habis, pesan SEGERA ke supplier';
+            } else if (daysOfStock <= leadTime) {
+              // Stok saat ini tidak akan cukup sampai pesanan tiba
+              recommendation = `[URGENT] Restock sekarang! Ada ${daysOfStock} hari stok, lead time ${leadTime} hari`;
+            } else if (daysOfStock <= leadTime + 2) {
+              // Margin kecil saja untuk buffer
+              recommendation = `[HIGH PRIORITY] Pesan dalam 1-2 hari. Stok: ${daysOfStock} hari, lead time: ${leadTime} hari`;
+            } else if (currentStock < minStock) {
+              // Stok di bawah minimum untuk kategori ini
+              recommendation = `[MEDIUM] Stok ${currentStock} unit < minimum ${minStock}. Rencanakan pemesanan`;
+            } else if (currentStock < optimalStock && dailyUsage > 1) {
+              // Diantara minimum dan optimal, usage tinggi
+              recommendation = '[MEDIUM] Pertimbangkan pesan minggu depan';
+            } else if (dailyUsage > 5) {
+              // Penggunaan sangat tinggi, monitor ketat
+              recommendation = '[MONITOR] Putaran tinggi, usage ' + dailyUsage.toFixed(2) + ' unit/hari';
+            } else {
+              recommendation = '[OK] Stok cukup';
+            }
+
+            return {
+              nama: o.nama,
+              ved: resolveStoredVED(o),
+              batch: o.batch || '-',
+              kategori,
+              currentStock,
+              dailyUsage: dailyUsage.toFixed(2),
+              daysOfStock,
+              monthlyUsage: usage.total,
+              minStock,
+              optimalStock,
+              reorderQty,
+              leadTime,
+              recommendation
+            };
+          }).sort((a, b) => {
+            // Sort by priority: urgent first, high next (text-based labels)
+            const priorityMap = {
+              '[URGENT]': 0,
+              '[HIGH PRIORITY]': 1,
+              '[MEDIUM]': 2,
+              '[MONITOR]': 3,
+              '[OK]': 4
+            };
+
+            // Extract priority label from recommendation
+            let aPriority = 5;
+            let bPriority = 5;
+
+            for (const [label, priority] of Object.entries(priorityMap)) {
+              if (a.recommendation.startsWith(label)) aPriority = priority;
+              if (b.recommendation.startsWith(label)) bPriority = priority;
+            }
+
+            return aPriority - bPriority;
+          });
+
+          // Calculate priority counts for summary
+          const urgentCount = recommendations.filter(r => r.recommendation.startsWith('[URGENT]')).length;
+          const highCount = recommendations.filter(r => r.recommendation.startsWith('[HIGH PRIORITY]')).length;
+          const mediumCount = recommendations.filter(r => r.recommendation.startsWith('[MEDIUM]')).length;
+          const monitorCount = recommendations.filter(r => r.recommendation.startsWith('[MONITOR]')).length;
+
+          // Calculate total and average usage for summary
+          const totalUsage = recommendations.reduce((sum, r) => sum + r.monthlyUsage, 0);
+          const avgDailyUsage = (totalUsage / 30).toFixed(2);
+
+          // Summary section dengan visual yang lebih baik - LARGER & CLEARER
+          doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('RINGKASAN ANALISIS PENGGUNAAN 30 HARI', { underline: true }).fillColor('#000000');
+          doc.moveDown(0.5);
+
+          doc.fontSize(12).font('Helvetica-Bold').fillColor('#2c3e50');
+          doc.text(`Total Pengeluaran Obat: ${totalUsage} unit / 30 hari`, { width: 200 });
+          doc.fontSize(11).font('Helvetica').fillColor('#555555');
+          doc.text(`Rata-rata: ${avgDailyUsage} unit/hari (~${(avgDailyUsage * 30).toFixed(0)} unit/bulan)`);
+          doc.moveDown(0.5);
+
+          // Status boxes - WIDER & CLEARER
+          doc.fontSize(11).font('Helvetica-Bold').fillColor('#c0392b');
+          doc.text(`[URGENT] Obat yang harus dipesan HARI INI: ${urgentCount} item`);
+          doc.fontSize(10).font('Helvetica').fillColor('#666666');
+          doc.text(`Stok akan habis lebih cepat dari waktu pengiriman supplier. Tindakan: Hubungi supplier segera.`);
           doc.moveDown(0.4);
-          
-          // Add page break jika perlu
-          if (doc.y > 650) {
-            doc.addPage();
-            doc.fontSize(11).font('Helvetica-Bold').fillColor('#34495e');
-            doc.text('Kategori', 50);
-            doc.fontSize(10).text('Lead Time', 200);
-            doc.text('Min Stok', 280);
-            doc.text('Optimal', 360);
-            doc.text('Reorder Qty', 440);
-            doc.fillColor('#000000').moveDown(0.3);
-            doc.lineWidth(0.5).moveTo(50, doc.y).lineTo(530, doc.y).stroke().moveDown(0.3);
-          }
-        });
-        
-        // Penjelasan parameter
-        doc.moveDown(0.5);
-        doc.fontSize(11).font('Helvetica-Bold').text('Penjelasan Parameter:', { underline: true });
-        doc.fontSize(9).font('Helvetica');
-        doc.text('• Lead Time: Berapa hari yang dibutuhkan supplier untuk mengirimkan pesanan (dari order hingga barang sampai)', { color: '#2c3e50' });
-        doc.text('• Min Stok: Batas minimum stok yang harus selalu tersedia untuk kategori ini', { color: '#2c3e50' });
-        doc.text('• Optimal: Target level stok ideal untuk operasional apotek yang lancar', { color: '#2c3e50' });
-        doc.text('• Reorder Qty: Jumlah standar yang harus dipesan setiap kali melakukan pemesanan', { color: '#2c3e50' });
-        
-        doc.moveDown(0.5);
-        doc.fontSize(8).font('Helvetica-Oblique').fillColor('#7f8c8d');
-        doc.text('Catatan: Parameter di atas dapat disesuaikan sesuai kebutuhan apotek Anda. Hubungi APJ untuk melakukan perubahan konfigurasi kategori obat.');
-        
-        // Footer
-        doc.moveDown(0.5);
-        doc.fontSize(9).font('Helvetica').fillColor('#000000');
-        doc.text('Laporan ini dibuat secara otomatis oleh sistem obatqu untuk membantu pengambilan keputusan pemesanan obat yang lebih efisien.', { align: 'center' });
-        
-        doc.end();
-        console.log('[REPORT] ✅ restock-analysis-pdf stream completed');
+
+          doc.fontSize(11).font('Helvetica-Bold').fillColor('#e8a900');
+          doc.text(`[HIGH PRIORITY] Obat untuk dipesan dalam 1-2 HARI: ${highCount} item`);
+          doc.fontSize(10).font('Helvetica').fillColor('#666666');
+          doc.text(`Stok akan mencapai titik kritis dalam 1-2 hari. Tindakan: Persiapkan pemesanan dengan segera.`);
+          doc.moveDown(0.4);
+
+          doc.fontSize(11).font('Helvetica-Bold').fillColor('#f39c12');
+          doc.text(`[MEDIUM] Obat untuk direncanakan minggu depan: ${mediumCount} item`);
+          doc.fontSize(10).font('Helvetica').fillColor('#666666');
+          doc.text(`Stok normal tetapi masih di bawah optimal. Rencanakan pemesanan dalam 3-7 hari.`);
+          doc.moveDown(0.4);
+
+          doc.fontSize(11).font('Helvetica-Bold').fillColor('#9b59b6');
+          doc.text(`[MONITOR] Obat dengan putaran tinggi: ${monitorCount} item`);
+          doc.fontSize(10).font('Helvetica').fillColor('#666666');
+          doc.text(`Penjualan tinggi membutuhkan monitoring harian dan pemesanan lebih sering.`);
+          doc.moveDown(0.6);
+
+          // Kesimpulan
+          doc.fontSize(10).font('Helvetica-Oblique').fillColor('#7f8c8d').text('CATATAN: Analisis di atas berbasis pola penggunaan 30 hari terakhir. Data akurat membantu keputusan pemesanan supplier yang lebih efektif.').fillColor('#000000');
+          doc.moveDown();
+
+          // Recommendations by Priority - IMPROVED LAYOUT & WIDER
+          doc.addPage(); // New page untuk recommendations
+          doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('REKOMENDASI RESTOCK BERDASARKAN PRIORITAS', { underline: true }).fillColor('#000000');
+          doc.moveDown(0.5);
+
+          const priorityGroups = {
+            '[URGENT] PESAN HARI INI': [
+              recommendations.filter(r => r.recommendation.startsWith('[URGENT]')),
+              'Stok akan habis LEBIH CEPAT daripada waktu pengiriman. HUBUNGI SUPPLIER HARI INI untuk menghindari kehabisan stok di apotek.',
+              '#c0392b'
+            ],
+            '[HIGH PRIORITY] PESAN 1-2 HARI': [
+              recommendations.filter(r => r.recommendation.startsWith('[HIGH PRIORITY]')),
+              'Stok tersedia namun akan kritiks dalam 1-2 hari. Mulai persiapkan pemesanan kepada supplier dengan segera.',
+              '#e8a900'
+            ],
+            '[MEDIUM] RENCANA MINGGU DEPAN': [
+              recommendations.filter(r => r.recommendation.startsWith('[MEDIUM]')),
+              'Stok saat ini normal tetapi masih di bawah level optimal. Rencanakan pemesanan dalam periode 3-7 hari.',
+              '#f39c12'
+            ],
+            '[MONITOR] PUTARAN TINGGI': [
+              recommendations.filter(r => r.recommendation.startsWith('[MONITOR]')),
+              'Penjualan obat ini sangat tinggi (>5 unit/hari). Pantau stok harian dan pertimbangkan pemesanan lebih sering.',
+              '#9b59b6'
+            ],
+            '[OK] STOK AMAN': [
+              recommendations.filter(r => r.recommendation.startsWith('[OK]')),
+              'Stok obat dalam kondisi baik dan mencukupi. Tidak ada pemesanan mendesak. Lanjutkan monitoring rutin.',
+              '#27ae60'
+            ]
+          };
+
+          Object.entries(priorityGroups).forEach(([priority, [items, description, color]]) => {
+            if (items.length === 0) return;
+
+            // Priority header
+            doc.fontSize(12).font('Helvetica-Bold').fillColor(color).text(`${priority} (${items.length} item)`, { underline: true }).fillColor('#000000');
+            doc.fontSize(10).font('Helvetica').fillColor('#333333').text(description);
+            doc.moveDown(0.4);
+
+            // Items - WIDER & CLEARER
+            items.forEach((item, idx) => {
+              // Medicine name - BIGGER & BOLD
+              doc.fontSize(11).font('Helvetica-Bold').fillColor('#1a1a1a').text(`${idx + 1}. ${item.nama}`).fillColor('#000000');
+
+              // Key info - ON ONE LINE each for clarity
+              doc.fontSize(9).font('Helvetica');
+              doc.text(`    Kategori: ${item.kategori} | VED: ${item.ved || '-'} | Batch: ${item.batch}`);
+
+              // Two columns: Stock Info | Reorder Info
+              doc.fontSize(9).font('Helvetica-Bold').fillColor('#2980b9').text('    STOK SAAT INI:', 50).fillColor('#000000');
+              doc.fontSize(9).text(`REORDER TARGET:`, 300);
+              doc.moveDown(0.15);
+
+              doc.fontSize(9).text(`      Stok: ${item.currentStock} unit`, 50);
+              doc.text(`Minimum: ${item.minStock} unit`, 300);
+              doc.moveDown(0.1);
+
+              doc.fontSize(9).text(`      Pakai: ${item.dailyUsage} unit/hari`, 50);
+              doc.text(`Optimal: ${item.optimalStock} unit`, 300);
+              doc.moveDown(0.1);
+
+              doc.fontSize(9).text(`      Sisa: ${item.daysOfStock} hari`, 50);
+              doc.text(`Lead time: ${item.leadTime} hari`, 300);
+              doc.moveDown(0.1);
+
+              doc.fontSize(9).text(`      Bulan: ${item.monthlyUsage} unit`, 50);
+              doc.text(`Order: ${item.reorderQty} unit`, 300);
+              doc.moveDown(0.3);
+
+              // Recommendation note - CLEAR
+              doc.fontSize(10).font('Helvetica-Bold').fillColor(color);
+              doc.text(`    → ${item.recommendation}`);
+              doc.fillColor('#000000');
+
+              doc.moveDown(0.5);
+            });
+
+            doc.moveDown(0.3);
+          });
+
+          // Kategori Config Info - IMPROVED
+          doc.addPage();
+          doc.fontSize(14).font('Helvetica-Bold').fillColor('#2c3e50').text('█ KONFIGURASI & STANDAR PER KATEGORI OBAT', { underline: true }).fillColor('#000000');
+          doc.fontSize(10).font('Helvetica').text('Tabel berikut menunjukkan parameter yang digunakan untuk setiap jenis/kategori obat dalam mengevaluasi kebutuhan pemesanan:');
+          doc.moveDown(0.5);
+
+          // Table header
+          doc.fontSize(11).font('Helvetica-Bold').fillColor('#34495e');
+          doc.text('Kategori', 50);
+          doc.fontSize(10).text('Lead Time', 200);
+          doc.text('Min Stok', 280);
+          doc.text('Optimal', 360);
+          doc.text('Reorder Qty', 440);
+          doc.fillColor('#000000').moveDown(0.3);
+
+          // Line separator
+          doc.lineWidth(0.5).moveTo(50, doc.y).lineTo(530, doc.y).stroke().moveDown(0.3);
+
+          // Table content
+          kategoriConfig.forEach((k, idx) => {
+            doc.fontSize(10).font('Helvetica-Bold').text(k.nama, 50);
+            doc.fontSize(10).font('Helvetica');
+            doc.text(`${k.lead_time_hari} hari`, 200);
+            doc.text(`${k.min_stok} unit`, 280);
+            doc.text(`${k.optimal_stok} unit`, 360);
+            doc.text(`${k.reorder_qty} unit`, 440);
+
+            // Deskripsi jika ada
+            if (k.keterangan && k.keterangan.trim().length > 0) {
+              doc.fontSize(8).font('Helvetica-Oblique').fillColor('#7f8c8d');
+              doc.text(`Catatan: ${k.keterangan}`, 50, doc.y, { width: 450 });
+              doc.fillColor('#000000');
+            }
+
+            doc.moveDown(0.4);
+
+            // Add page break jika perlu
+            if (doc.y > 650) {
+              doc.addPage();
+              doc.fontSize(11).font('Helvetica-Bold').fillColor('#34495e');
+              doc.text('Kategori', 50);
+              doc.fontSize(10).text('Lead Time', 200);
+              doc.text('Min Stok', 280);
+              doc.text('Optimal', 360);
+              doc.text('Reorder Qty', 440);
+              doc.fillColor('#000000').moveDown(0.3);
+              doc.lineWidth(0.5).moveTo(50, doc.y).lineTo(530, doc.y).stroke().moveDown(0.3);
+            }
+          });
+
+          // Penjelasan parameter
+          doc.moveDown(0.5);
+          doc.fontSize(11).font('Helvetica-Bold').text('Penjelasan Parameter:', { underline: true });
+          doc.fontSize(9).font('Helvetica');
+          doc.text('• Lead Time: Berapa hari yang dibutuhkan supplier untuk mengirimkan pesanan (dari order hingga barang sampai)', { color: '#2c3e50' });
+          doc.text('• Min Stok: Batas minimum stok yang harus selalu tersedia untuk kategori ini', { color: '#2c3e50' });
+          doc.text('• Optimal: Target level stok ideal untuk operasional apotek yang lancar', { color: '#2c3e50' });
+          doc.text('• Reorder Qty: Jumlah standar yang harus dipesan setiap kali melakukan pemesanan', { color: '#2c3e50' });
+
+          doc.moveDown(0.5);
+          doc.fontSize(8).font('Helvetica-Oblique').fillColor('#7f8c8d');
+          doc.text('Catatan: Parameter di atas dapat disesuaikan sesuai kebutuhan apotek Anda. Hubungi APJ untuk melakukan perubahan konfigurasi kategori obat.');
+
+          // Footer
+          doc.moveDown(0.5);
+          doc.fontSize(9).font('Helvetica').fillColor('#000000');
+          doc.text('Laporan ini dibuat secara otomatis oleh sistem obatqu untuk membantu pengambilan keputusan pemesanan obat yang lebih efisien.', { align: 'center' });
+
+          doc.end();
+          console.log('[REPORT] ✅ restock-analysis-pdf stream completed');
         } catch (ex) {
           console.error('[REPORT] ❌ Exception:', ex.message, ex.stack);
           if (!res.headersSent) {
@@ -3109,11 +3106,11 @@ app.get('/api/kategori-config', authMiddleware, (req, res) => {
 
 app.put('/api/kategori-config/:id', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
   const { lead_time_hari, min_stok, optimal_stok, reorder_qty, keterangan } = req.body;
-  
+
   if (!lead_time_hari || !min_stok || !optimal_stok || !reorder_qty) {
     return res.status(400).json({ message: 'Field lead_time_hari, min_stok, optimal_stok, reorder_qty diperlukan' });
   }
-  
+
   db.run(
     "UPDATE kategori_config SET lead_time_hari=?, min_stok=?, optimal_stok=?, reorder_qty=?, keterangan=? WHERE id=?",
     [lead_time_hari, min_stok, optimal_stok, reorder_qty, keterangan, req.params.id],
@@ -3138,7 +3135,7 @@ app.get('/api/scheduler-config', authMiddleware, (req, res) => {
 
 app.get('/api/scheduler-config/:config_type', authMiddleware, (req, res) => {
   console.log('[API] 🔍 GET scheduler-config:', req.params.config_type);
-  db.get("SELECT * FROM scheduler_config WHERE config_type = $1", [req.params.config_type], (err, row) => {
+  db.get("SELECT * FROM scheduler_config WHERE config_type = ?", [req.params.config_type], (err, row) => {
     if (err) {
       console.error('[API] ❌ DB error:', err);
       return res.status(500).json({ message: 'DB error', error: err.message });
@@ -3155,15 +3152,15 @@ app.get('/api/scheduler-config/:config_type', authMiddleware, (req, res) => {
 app.put('/api/scheduler-config/:id', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
   const { interval_hari, enabled, email_jam } = req.body;
   console.log('[API] 💾 PUT scheduler-config:', { id: req.params.id, interval_hari, enabled, email_jam });
-  
+
   if (interval_hari === undefined || enabled === undefined || !email_jam) {
     console.warn('[API] ⚠️ Missing required fields');
     return res.status(400).json({ message: 'Field interval_hari, enabled, email_jam diperlukan' });
   }
-  
+
   const now = new Date().toISOString();
   db.run(
-    "UPDATE scheduler_config SET interval_hari=$1, enabled=$2, email_jam=$3, updated_at=$4 WHERE id=$5",
+    "UPDATE scheduler_config SET interval_hari=?, enabled=?, email_jam=?, updated_at=? WHERE id=?",
     [interval_hari, enabled, email_jam, now, req.params.id],
     function(err) {
       if (err) {
@@ -3185,7 +3182,7 @@ app.put('/api/scheduler-config/:id', authMiddleware, roleMiddleware(['APJ']), (r
    EMAIL CONFIG
 ================================ */
 app.get('/api/email-config', authMiddleware, (req, res) => {
-  db.get("SELECT id, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, notify_from, notify_to, created_at, updated_at FROM email_config WHERE config_type = $1", ['ved_fefo_email'], (err, row) => {
+  db.get("SELECT id, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, notify_from, notify_to, created_at, updated_at FROM email_config WHERE config_type = ?", ['ved_fefo_email'], (err, row) => {
     if (err) {
       console.error('[API] ❌ DB error:', err);
       return res.status(500).json({ message: 'DB error', error: err.message });
@@ -3202,16 +3199,16 @@ app.get('/api/email-config', authMiddleware, (req, res) => {
 app.put('/api/email-config/:id', authMiddleware, roleMiddleware(['APJ']), (req, res) => {
   const { smtp_user } = req.body;
   console.log('[API] 💾 PUT email-config (simplified):', { id: req.params.id, smtp_user });
-  
+
   if (!smtp_user) {
     console.warn('[API] ⚠️ Email pengirim diperlukan');
     return res.status(400).json({ message: 'Email pengirim (smtp_user) diperlukan' });
   }
-  
+
   const now = new Date().toISOString();
   // Always use Gmail defaults + FROM_ENV for password
   db.run(
-    "UPDATE email_config SET smtp_host=$1, smtp_port=$2, smtp_user=$3, smtp_pass=$4, smtp_secure=$5, notify_from=$6, updated_at=$7 WHERE id=$8",
+    "UPDATE email_config SET smtp_host=?, smtp_port=?, smtp_user=?, smtp_pass=?, smtp_secure=?, notify_from=?, updated_at=? WHERE id=?",
     ['smtp.gmail.com', 465, smtp_user, 'FROM_ENV', 1, smtp_user, now, req.params.id],
     function(err) {
       if (err) {
@@ -3269,7 +3266,7 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
   try {
     console.log('[EMAIL-REPORT] 📧 POST /api/reports/send-ved-fefo-email START');
     console.log('[EMAIL-REPORT] SMTP Configured:', isEmailConfigured() ? '✅ YES' : '❌ NO (SMTP_USER & SMTP_PASS must be set)');
-    
+
     // Early check for SMTP configuration
     if (!isEmailConfigured()) {
       console.error('[EMAIL-REPORT] ❌ SMTP not configured. Email cannot be sent.');
@@ -3280,11 +3277,11 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
         smtpConfigured: false
       });
     }
-    
+
     // Fetch all obat data
     const obatRows = await promiseDb((cb) => db.all("SELECT * FROM obat ORDER BY kadaluarsa ASC", cb));
     console.log('[EMAIL-REPORT] ✅ Fetched', obatRows.length, 'obat items');
-    
+
     if (!obatRows || obatRows.length === 0) {
       console.warn('[EMAIL-REPORT] ⚠️  No obat data found');
       return res.json({
@@ -3294,25 +3291,25 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
         timestamp: new Date().toISOString()
       });
     }
-    
+
     // Prepare VED analysis
     const analysis = obatRows.map(obat => ({
       ...obat,
       ...analyzeObatVED(obat)
     }));
-    
+
     // Group by VED
     const byVed = { V: [], E: [], D: [] };
     analysis.forEach(item => {
       byVed[item.ved].push(item);
     });
-    
+
     // Count by status
     const byStatus = {};
     analysis.forEach(item => {
       byStatus[item.status] = (byStatus[item.status] || 0) + 1;
     });
-    
+
     const vedAnalysis = {
       total: analysis.length,
       byVed,
@@ -3326,16 +3323,16 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
         safe: (byStatus.aman || 0)
       }
     };
-    
+
     // Prepare FEFO recommendations
     const urgent = [];
     const critical = [];
     const monitor = [];
-    
+
     obatRows.forEach(obat => {
       const analysis = analyzeObatVED(obat);
       const item = { ...obat, ...analysis };
-      
+
       if (analysis.action === 'remove') {
         urgent.push(item);
       } else if (analysis.action === 'urgent' || analysis.action === 'urgent_order') {
@@ -3344,59 +3341,59 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
         monitor.push(item);
       }
     });
-    
+
     const fefoRecommendations = {
       urgent: { count: urgent.length, items: urgent.slice(0, 10) },
       critical: { count: critical.length, items: critical.slice(0, 10) },
       monitor: { count: monitor.length, items: monitor.slice(0, 10) }
     };
-    
+
     console.log('[EMAIL-REPORT] ✅ VED analysis: V=' + vedAnalysis.summary.vital + ', E=' + vedAnalysis.summary.essential + ', D=' + vedAnalysis.summary.desirable);
-    
+
     // Generate email HTML
     const { generateVedFefoReport } = require('./utils/scheduler');
     const htmlContent = generateVedFefoReport(vedAnalysis, fefoRecommendations);
     console.log('[EMAIL-REPORT] ✅ HTML email generated');
-    
+
     // Fetch all users with role APJ or Asisten Apoteker
     console.log('[EMAIL-REPORT] 🔍 Querying users from database...');
     const users = await promiseDb((cb) => db.all("SELECT id, username, email, role FROM users WHERE email IS NOT NULL AND email != '' AND (role = 'APJ' OR role = 'Asisten Apoteker' OR role = 'ASISTEN_APOTEKER')", cb));
-    
+
     console.log('[EMAIL-REPORT] ✅ Query complete. Users found:', users);
     console.log('[EMAIL-REPORT] ✅ Users count:', users ? users.length : 0);
-    
+
     if (!users || users.length === 0) {
       console.warn('[EMAIL-REPORT] ⚠️  No users with email found');
       console.log('[EMAIL-REPORT] Debug: Fetching all users to check...');
       const allUsers = await promiseDb((cb) => db.all("SELECT id, username, email, role FROM users", cb));
       console.log('[EMAIL-REPORT] All users in database:', allUsers);
-      
-      return res.status(400).json({ 
+
+      return res.status(400).json({
         message: 'Tidak ada pengguna untuk mengirim laporan. Pastikan email user sudah terdaftar.',
         recipients: 0,
         allUsersCount: allUsers ? allUsers.length : 0,
         allUsers: allUsers || []
       });
     }
-    
+
     // Send email to each user
     let successCount = 0;
     let failedCount = 0;
     const failedEmails = [];
     const failedReasons = [];
-    
+
     for (const user of users) {
       try {
         const subject = `Laporan VED-FEFO ObatQu - ${new Date().toLocaleDateString('id-ID')}`;
         const text = `Halo ${user.username},\n\nLaporan VED-FEFO periodic untuk tindakan manajemen stok obat.\n\nSilakan buka email ini dengan format HTML untuk melihat laporan lengkap.\n\nDari: ObatQu System`;
-        
+
         const sendResult = await sendMail({
           to: user.email,
           subject,
           text,
           html: htmlContent
         }, db);
-        
+
         if (sendResult) {
           console.log('[EMAIL-REPORT] ✅ Email sent to', user.email, '- Message ID:', sendResult.messageId || 'N/A');
           successCount++;
@@ -3413,7 +3410,7 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
         failedReasons.push({ email: user.email, reason: mailErr && mailErr.message ? mailErr.message : 'Unknown error' });
       }
     }
-    
+
     // Update last_sent_at in scheduler_config
     const now = new Date().toISOString();
     db.run(
@@ -3423,12 +3420,12 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
         if (err) console.error('[EMAIL-REPORT] Failed to update last_sent_at:', err);
       }
     );
-    
+
     // Log activity
     addLog('email', `VED-FEFO email report sent: ${successCount} successful, ${failedCount} failed`);
-    
+
     console.log('[EMAIL-REPORT] 📧 Complete: ' + successCount + ' sent, ' + failedCount + ' failed');
-    
+
     return res.json({
       message: `Laporan VED-FEFO berhasil dikirim ke ${successCount} pengguna${failedCount > 0 ? ', ' + failedCount + ' gagal' : ''}`,
       sent: successCount,
@@ -3437,11 +3434,11 @@ app.post('/api/reports/send-ved-fefo-email', authMiddleware, roleMiddleware(['AP
       failedReasons: failedCount > 0 ? failedReasons : undefined,
       timestamp: now
     });
-    
+
   } catch (err) {
     console.error('[EMAIL-REPORT] ❌ Error:', err.message, err.stack);
-    return res.status(500).json({ 
-      message: 'Gagal mengirim laporan: ' + err.message 
+    return res.status(500).json({
+      message: 'Gagal mengirim laporan: ' + err.message
     });
   }
 });
@@ -3473,7 +3470,7 @@ app.post('/api/laporan-pemusnahan', authMiddleware, roleMiddleware(ALLOWED_ROLES
 
   if (missingFields.length > 0) {
     console.error('[LAPORAN PEMUSNAHAN] Validation failed - missing fields:', missingFields);
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: `Data tidak lengkap. Field yang hilang: ${missingFields.join(', ')}`,
       missingFields: missingFields
     });
@@ -3491,9 +3488,9 @@ app.post('/api/laporan-pemusnahan', authMiddleware, roleMiddleware(ALLOWED_ROLES
 
     console.log('[LAPORAN PEMUSNAHAN] Obat found:', obat);
     console.log('[LAPORAN PEMUSNAHAN] Preparing INSERT with values:', {
-      laporan_id, obat_id, nama_obat: obat.nama, 
-      unit_terjual: unit_terjual || 0, 
-      unit_sisa, pt_pemusnahan, biaya_pemusnahan, 
+      laporan_id, obat_id, nama_obat: obat.nama,
+      unit_terjual: unit_terjual || 0,
+      unit_sisa, pt_pemusnahan, biaya_pemusnahan,
       tanggal_pemusnahan, created_by: user.username, now
     });
 
@@ -3683,10 +3680,10 @@ app.get('/api/laporan-pemusnahan/:id/pdf', authMiddleware, roleMiddleware(ALLOWE
     const ved = String(laporan.ved || 'D').toUpperCase();
     const baseQty = { 'V': 100, 'E': 50, 'D': 20 };
     const minOrder = Math.ceil((baseQty[ved] || 20) * 1.0);
-    
+
     let analysis = '';
     let recommendation = '';
-    
+
     if (ved === 'V') {
       analysis = `Obat ini termasuk kategori VITAL (penting). Pemusnahan ${laporan.unit_sisa} unit menyebabkan gap pada stok kritis.`;
       recommendation = `Pesan ulang minimal ${minOrder} unit ke supplier untuk merestorasi stok kategori Vital.`;
@@ -3763,7 +3760,7 @@ app.get('/api/laporan-pemusnahan/:id/pdf', authMiddleware, roleMiddleware(ALLOWE
     // Analysis & Recommendation
     doc.fontSize(12).font('Helvetica-Bold').text('ANALISIS & REKOMENDASI PEMESANAN');
     doc.moveDown(0.2);
-    
+
     doc.fontSize(10).font('Helvetica-Bold').text('Analisis:');
     doc.font('Helvetica').text(analysis, { align: 'justify', lineGap: 5 });
     doc.moveDown(0.2);
@@ -3838,7 +3835,7 @@ async function autoSeedIfNeeded() {
 
   try {
     console.log('🌱 AUTO_SEED enabled. Checking if seeding is needed...');
-    
+
     // Check if database is empty
     const result = await new Promise((resolve, reject) => {
       db.get('SELECT COUNT(*) AS total FROM users', (err, row) => {
@@ -3855,7 +3852,7 @@ async function autoSeedIfNeeded() {
 
     console.log('🌱 Database kosong. Running seeding...');
     const seedScript = path.join(__dirname, 'scripts', 'seed.js');
-    
+
     await new Promise((resolve, reject) => {
       require('child_process').execFile('node', [seedScript], {
         stdio: ['ignore', 'pipe', 'pipe']
@@ -3876,7 +3873,7 @@ async function autoSeedIfNeeded() {
 // Start server with auto-seed
 async function startServer() {
   await autoSeedIfNeeded();
-  
+
   return new Promise((resolve) => {
     const server = app.listen(PORT, () => {
       console.log(`Server berjalan di http://localhost:${PORT}`);
