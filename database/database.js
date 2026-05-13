@@ -1,4 +1,11 @@
-const { Client } = require('pg');
+
+const { Pool } = require('pg');
+const { Signer } = require('@aws-sdk/rds-signer');
+const { awsCredentialsProvider } = require('@vercel/oidc-aws-credentials-provider');
+const { attachDatabasePool } = require('@vercel/functions');
+
+
+
 
 function normalizeArgs(paramsOrCallback, callback) {
   if (typeof paramsOrCallback === 'function') {
@@ -64,60 +71,47 @@ function replaceQuestionPlaceholders(sql) {
   return result;
 }
 
+
 class PostgresCompatDb {
   constructor() {
-    // Build config untuk PostgreSQL client
-    const databaseUrl = (process.env.DATABASE_URL || '').trim();
-    const config = databaseUrl
-      ? { connectionString: databaseUrl }
-      : {
-          host: process.env.PGHOST || 'localhost',
-          port: parseInt(process.env.PGPORT || '5432', 10),
-          database: process.env.PGDATABASE || 'postgres',
-          user: process.env.PGUSER || 'postgres'
-        };
-
-    // Add password hanya jika tidak pakai DATABASE_URL
-    if (!databaseUrl) {
-      const password = (process.env.PGPASSWORD || '').trim();
-      if (password) {
-        config.password = password;
-      }
-    }
-
-    const pgSsl = String(process.env.PG_SSL || '').toLowerCase() === 'true';
-    const sslRequiredByUrl = /sslmode=require/i.test(databaseUrl);
-    if (pgSsl || sslRequiredByUrl) {
-      const rejectUnauthorized = String(process.env.PG_SSL_REJECT_UNAUTHORIZED || '').toLowerCase() === 'true';
-      config.ssl = { rejectUnauthorized };
-    }
-
-    // Log config untuk debugging (tanpa password)
-    console.log('[DB] PostgreSQL config:', {
-      host: config.host || '(from DATABASE_URL)',
-      port: config.port || '(from DATABASE_URL)',
-      database: config.database || '(from DATABASE_URL)',
-      user: config.user || '(from DATABASE_URL)',
-      hasPassword: Boolean(config.password || databaseUrl),
-      hasSsl: Boolean(config.ssl)
+    // --- Vercel Aurora PostgreSQL with IAM authentication ---
+    // See: https://vercel.com/docs/storage/vercel-postgres/iam-auth
+    const signer = new Signer({
+      hostname: process.env.PGHOST,
+      port: Number(process.env.PGPORT),
+      username: process.env.PGUSER,
+      region: process.env.AWS_REGION,
+      credentials: awsCredentialsProvider({
+        roleArn: process.env.AWS_ROLE_ARN,
+        clientConfig: { region: process.env.AWS_REGION },
+      }),
     });
-    
-    this.client = new Client(config);
 
-    this.ready = this.client.connect()
-      .then(() => {
-        console.log('✅ PostgreSQL terhubung');
-      })
-      .catch((err) => {
-        console.error('⚠️  PostgreSQL tidak terhubung:', err.message);
-        // Graceful error handling - jangan throw, biar server tetap jalan
-      });
+    this.pool = new Pool({
+      host: process.env.PGHOST,
+      user: process.env.PGUSER,
+      database: process.env.PGDATABASE || 'postgres',
+      password: () => signer.getAuthToken(),
+      port: Number(process.env.PGPORT),
+      ssl: { rejectUnauthorized: false },
+    });
+    attachDatabasePool(this.pool);
+    // Log config for debugging (no secrets)
+    console.log('[DB] Using Vercel Aurora PostgreSQL IAM connection:', {
+      host: process.env.PGHOST,
+      port: process.env.PGPORT,
+      database: process.env.PGDATABASE,
+      user: process.env.PGUSER,
+      region: process.env.AWS_REGION,
+      roleArn: process.env.AWS_ROLE_ARN,
+    });
+    this.ready = Promise.resolve(); // Pool connects lazily
   }
 
   _query(sql, params, callback, mode) {
     const text = replaceQuestionPlaceholders(String(sql || ''));
     return this.ready
-      .then(() => this.client.query(text, params || []))
+      .then(() => this.pool.query(text, params || []))
       .then((result) => {
         if (mode === 'all') {
           callback && callback(null, result.rows);
@@ -182,7 +176,7 @@ class PostgresCompatDb {
   }
 
   close(callback) {
-    return this.client.end()
+    return this.pool.end()
       .then(() => {
         if (typeof callback === 'function') callback(null);
       })
