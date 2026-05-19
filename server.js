@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
@@ -10,7 +11,7 @@ const PDFDocument = require('pdfkit');
 const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pgSession = require('connect-pg-simple')(session);
-require('dotenv').config();
+const tursoSession = require("./database/session_store.js")
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -568,10 +569,7 @@ app.use((req, res, next) => {
 });
 
 app.use(session({
-  store: new pgSession({
-    conString: process.env.TURSO_DATABASE_URL,
-    tableName: "user_sessions"
-  }),
+  store: new tursoSession.TursoSessionStore(),
   name: SESSION_COOKIE_NAME,
   secret: SESSION_SECRET,
   resave: false,

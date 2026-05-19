@@ -76,7 +76,7 @@ function createSampleExcelFile() {
   };
 
   const wb = XLSX.utils.book_new();
-  
+
   for (const [sheetName, data] of Object.entries(sampleData)) {
     const ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -113,7 +113,7 @@ async function seedDatabase(data) {
   try {
     // Drop and recreate tables
     log(colors.cyan, '🔄 Dropping and recreating tables...');
-    
+
     await db.run(`DROP TABLE IF EXISTS laporan_pemusnahan_obat`);
     await db.run(`DROP TABLE IF EXISTS stock_movements`);
     await db.run(`DROP TABLE IF EXISTS password_reset_tokens`);
@@ -260,6 +260,14 @@ async function seedDatabase(data) {
       )
     `);
 
+    await db.run(`
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    sid TEXT PRIMARY KEY,
+    sess TEXT NOT NULL,
+    expired_at INTEGER NOT NULL
+  )
+`);
+
     log(colors.green, '✅ Tables created successfully');
 
     // Seed users
@@ -338,10 +346,10 @@ function classifyVED(jumlah) {
 async function main() {
   try {
     log(colors.bright, '\n🌱 Starting Database Seeding...\n');
-    
+
     const data = await readSeedData();
     await seedDatabase(data);
-    
+
     process.exit(0);
   } catch (err) {
     log(colors.red, '❌ Seeding failed:', err.message);
