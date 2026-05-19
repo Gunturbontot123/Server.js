@@ -9,6 +9,7 @@ const cors = require('cors');
 const PDFDocument = require('pdfkit');
 const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
+const pgSession = require('connect-pg-simple')(session);
 require('dotenv').config();
 
 const app = express();
@@ -567,6 +568,10 @@ app.use((req, res, next) => {
 });
 
 app.use(session({
+  store: new pgSession({
+    conString: process.env.TURSO_DATABASE_URL,
+    tableName: "user_sessions"
+  }),
   name: SESSION_COOKIE_NAME,
   secret: SESSION_SECRET,
   resave: false,
